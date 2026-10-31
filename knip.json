@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignore": [
+    "**/*.fixture.ts"
+  ],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "test/vue-tsc/NestedSlots.vue"
+      ],
+      "ignoreDependencies": [
+        "vue"
+      ]
+    },
+    "packages/*": {
+      "entry": [
+        "src/module.ts"
+      ]
+    },
+    "packages/layer": {}
+  }
+}

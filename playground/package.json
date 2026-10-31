@@ -1,0 +1,5 @@
+{
+  "name": "@nuxt-atelier/playground",
+  "private": true,
+  "type": "module"
+}
