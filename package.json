@@ -16,7 +16,8 @@
     "catalog": {
       "vue": "3.5.44",
       "@nuxt/kit": "^4.6.3",
-      "@nuxt/schema": "4.6.3"
+      "@nuxt/schema": "4.6.3",
+      "nuxt": "4.6.3"
     },
     "catalogs": {
       "build": {
@@ -35,6 +36,10 @@
         "lint-staged": "17.6.0",
         "simple-git-hooks": "2.14.0",
         "@changesets/cli": "3.0.3"
+      },
+      "docs": {
+        "docus": "5.15.0",
+        "@takumi-rs/core": "2.19.0"
       }
     }
   },
@@ -46,7 +51,10 @@
     "test": "bun test scripts test/lint",
     "build": "bun run --filter './packages/*' build",
     "check:pkg": "bun run --filter './packages/*' check:pkg",
-    "knip": "knip"
+    "knip": "knip",
+    "docs:build": "bun run --filter @nuxt-atelier/docs build",
+    "docs:dev": "bun run --filter @nuxt-atelier/docs dev",
+    "dev": "bun run --filter @nuxt-atelier/playground dev"
   },
   "devDependencies": {
     "@nuxt/eslint-config": "catalog:quality",
@@ -73,5 +81,12 @@
       "oxlint --fix",
       "eslint --fix"
     ]
+  },
+  "overrides": {
+    "nuxt-og-image": "7.0.7",
+    "@nuxtjs/sitemap": "9.1.0",
+    "@nuxtjs/robots": "7.0.2",
+    "nuxt-schema-org": "7.0.1",
+    "nuxt-site-config": "5.0.3"
   }
 }
