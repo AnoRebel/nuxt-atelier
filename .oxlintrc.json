@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "ignorePatterns": ["openspec/**", "**/dist/**", "**/.output/**", "**/.nuxt/**", "**/.data/**", "**/*.fixture.ts"]
+}

@@ -1,0 +1,77 @@
+{
+  "name": "nuxt-atelier-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "engines": {
+    "node": "^22.22.3 || ^24.15.0 || >=26"
+  },
+  "workspaces": {
+    "packages": [
+      "packages/*",
+      "playground",
+      "docs",
+      "test/fixtures/*"
+    ],
+    "catalog": {
+      "vue": "3.5.44",
+      "@nuxt/kit": "^4.6.3",
+      "@nuxt/schema": "4.6.3"
+    },
+    "catalogs": {
+      "build": {
+        "@nuxt/module-builder": "1.0.3",
+        "typescript": "6.0.3",
+        "@types/bun": "1.4.4",
+        "vue-tsc": "3.3.14"
+      },
+      "quality": {
+        "eslint": "10.14.0",
+        "@nuxt/eslint-config": "1.17.0",
+        "oxlint": "1.90.0",
+        "knip": "6.44.0",
+        "publint": "0.3.25",
+        "@arethetypeswrong/cli": "0.18.5",
+        "lint-staged": "17.6.0",
+        "simple-git-hooks": "2.14.0",
+        "@changesets/cli": "3.0.3"
+      }
+    }
+  },
+  "scripts": {
+    "prepare": "simple-git-hooks",
+    "lint": "oxlint && eslint .",
+    "lint:fix": "oxlint --fix && eslint . --fix",
+    "typecheck": "tsc --noEmit && vue-tsc --noEmit -p test/vue-tsc",
+    "test": "bun test scripts test/lint",
+    "build": "bun run --filter './packages/*' build",
+    "check:pkg": "bun run --filter './packages/*' check:pkg",
+    "knip": "knip"
+  },
+  "devDependencies": {
+    "@nuxt/eslint-config": "catalog:quality",
+    "eslint": "catalog:quality",
+    "oxlint": "catalog:quality",
+    "knip": "catalog:quality",
+    "lint-staged": "catalog:quality",
+    "simple-git-hooks": "catalog:quality",
+    "typescript": "catalog:build",
+    "@types/bun": "catalog:build",
+    "@nuxt/module-builder": "catalog:build",
+    "publint": "catalog:quality",
+    "@arethetypeswrong/cli": "catalog:quality",
+    "vue": "catalog:",
+    "vue-tsc": "catalog:build",
+    "@changesets/cli": "catalog:quality"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "bunx lint-staged",
+    "commit-msg": "bun scripts/check-commit-msg.ts \"$1\""
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts,mts,cts,vue}": [
+      "oxlint --fix",
+      "eslint --fix"
+    ]
+  }
+}

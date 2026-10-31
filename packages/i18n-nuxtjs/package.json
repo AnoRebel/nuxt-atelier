@@ -1,0 +1,44 @@
+{
+  "name": "@nuxt-atelier/i18n-nuxtjs",
+  "version": "0.0.0",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AnoRebel/nuxt-atelier.git",
+    "directory": "packages/i18n-nuxtjs"
+  },
+  "homepage": "https://nuxt-atelier.anorebel.net",
+  "description": "@nuxtjs/i18n adapter for Nuxt Atelier",
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    }
+  },
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "nuxt-module-build build",
+    "prepack": "nuxt-module-build build",
+    "check:pkg": "publint --pack bun && attw --pack . --profile esm-only"
+  },
+  "peerDependencies": {
+    "nuxt": ">=4.6.0"
+  },
+  "dependencies": {
+    "@nuxt/kit": "catalog:"
+  },
+  "devDependencies": {
+    "@nuxt/schema": "catalog:"
+  }
+}
