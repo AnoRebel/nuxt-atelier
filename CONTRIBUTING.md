@@ -49,6 +49,9 @@ bun run build
 
 - **vue-tsc 3.3.14** (with TypeScript 6.0.3). vue-tsc 3.3.12 and 3.3.13 lose the types of imported bindings used inside template closures ([vuejs/language-tools#6237](https://github.com/vuejs/language-tools/issues/6237)), which our nested scoped slots hit. `test/vue-tsc/NestedSlots.vue` reproduces it: it fails on 3.3.13 and passes on 3.3.11 and 3.3.14, and `bun run typecheck` runs it. Don't move vue-tsc to a version that fails it; pin 3.3.11 if a new release regresses.
 
+- **Docs and Nuxt SEO v6.** Docus 5.15.0 still depends on the previous Nuxt SEO modules. The root `package.json` `overrides` force the v6 ones (`nuxt-og-image` 7, `@nuxtjs/sitemap` 9, `@nuxtjs/robots` 7, `nuxt-schema-org` 7, `nuxt-site-config` 5). Remove them once Docus ships with v6.
+- **Docs and Nuxt 5.** The docs opt into `compatibilityVersion: 5` with `experimental.nitroAutoImports: true`, because Docus's `nuxt-llms` still imports `useNitroApp` from `#imports`.
+
 ## Dependency versions
 
 All dependency versions are defined once in the root `package.json` as [Bun catalogs](https://bun.com/docs/pm/catalogs). In a package, reference them instead of writing a version:

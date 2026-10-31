@@ -248,7 +248,7 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 
 ### D13. Routing, SEO, search, forms, multi-site
 - **Routing:** a single catch-all page added via `extendPages` at the lowest priority (`/:path(.*)*`) resolves through the `routes` table. Host pages win because the router ranks them higher. Redirects are evaluated in a server middleware before rendering, served from a cached map.
-- **SEO:** head output through Nuxt's `useHead`/`useSeoMeta` (public API). Sitemap and robots integrate with `@nuxtjs/sitemap` and `@nuxtjs/robots` when installed, through their documented source hooks and APIs. Otherwise minimal built-in endpoints are used.
+- **SEO:** head output through Nuxt's `useHead`/`useSeoMeta` (public API). Sitemap and robots integrate with `@nuxtjs/sitemap` and `@nuxtjs/robots` when installed, standalone or through Nuxt SEO v6 (`@nuxtjs/seo`), through their documented source hooks and APIs. Otherwise minimal built-in endpoints are used.
 - **Search:** a `search_documents` table maintained on publish. Each engine uses its native full-text search: SQLite FTS5, Postgres `tsvector` + GIN, MySQL `FULLTEXT`. User input is always bound as parameters and tokenised into plain terms. A `SearchAdapter` allows external engines.
 - **Forms:** form definitions are a built-in collection. The form block renders with TanStack Form and a Valibot schema generated from the definition, and the server re-validates. Submissions and files go to private storage. Spam protection uses a honeypot, minimum fill time and rate limits. Email goes through a minimal `MailAdapter`: an SMTP adapter via `nodemailer` (Node only, optional) and HTTP-provider adapters.
 - **Multi-site:**
@@ -294,7 +294,7 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 - **Fixtures** prove UI agnosticism: Nuxt UI site, shadcn-vue site (`shadcn-nuxt` 2.9), plain CSS, Tailwind-only, a layer-override app, multi-site and i18n.
 
 ### D18. Documentation
-- **Site:** `docs/` is a Docus 5.15 app (Content v3 + Nuxt UI v4 included) that installs the workspace packages. Live demos use MDC components in `components/content/` that mount the real editor against a demo adapter: an in-memory, per-session content adapter that resets, so no arbitrary content persists.
+- **Site:** `docs/` is a Docus 5.15 app (Content v3 + Nuxt UI v4 included) that installs the workspace packages. Live demos use MDC components in `components/content/` that mount the real editor against a demo adapter: an in-memory, per-session content adapter that resets, so no arbitrary content persists. Docus 5.15.0 still depends on the previous Nuxt SEO generation, so the root `package.json` `overrides` force the v6 modules (`nuxt-og-image` 7, `@nuxtjs/sitemap` 9, `@nuxtjs/robots` 7, `nuxt-schema-org` 7, `nuxt-site-config` 5); verified to build, prerender OG images and serve sitemap/robots. Drop the overrides once Docus depends on v6. The docs app also lists `@takumi-rs/core` (the OG image renderer) directly, because Bun's isolated linker does not expose Docus's copy to `nuxt-og-image`, which resolves it from the app directory.
 - **Deployment:** an SSR target, because the demos need server routes. It is hosted on the maintainer's Dokploy instance at **`https://nuxt-atelier.anorebel.net`**, following the existing TDC Docs setup:
   - a Dokploy project "Nuxt Atelier" with an application "Nuxt Atelier Docs"
   - GitHub source through the existing Dokploy GitHub App
@@ -341,7 +341,7 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 | | @simplewebauthn/server / @simplewebauthn/browser | 14.0.3 / 14.0.0 (optional passkeys) |
 | i18n | nuxt-i18n-micro | 3.30.3 (default adapter) |
 | | @nuxtjs/i18n | 10.6.0 (adapter) |
-| SEO | @nuxtjs/sitemap / @nuxtjs/robots | 9.1.0 / 7.0.2 (optional) |
+| SEO | @nuxtjs/sitemap / @nuxtjs/robots | 9.1.0 / 7.0.2 (optional; the versions Nuxt SEO v6, `@nuxtjs/seo` 6.0.1, bundles) |
 | AI | ai | 7.0.159 (adapter package) |
 | Mail | nodemailer | 10.3.1 (optional SMTP adapter) |
 | Docs | docus | 5.15.0 |

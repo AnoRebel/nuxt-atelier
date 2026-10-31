@@ -9,12 +9,12 @@
 - [x] 1.5 Pin the dependency baseline from design D19 in root Bun workspace catalogs (`catalog:` / `catalog:<name>` references in packages; exact pin for `drizzle-orm`/`drizzle-kit` 1.0 RC) and add Dependabot config with grouping; verify `bun pm ls` shows the pinned versions and `knip` reports no unused dependencies
 - [x] 1.6 Verify vue-tsc 3.3.14 against a nested-scoped-slot + `v-for` test component; pin 3.3.14 if it type-checks correctly, otherwise pin 3.3.11, and record the result in the contributing guide's toolchain notes
 - [ ] 1.7 Create the CI workflow skeleton (lint, typecheck, unit, build) on GitHub Actions with Bun 1.4.4 and Node 22/24; verify a pushed branch runs all jobs green
-- [ ] 1.8 Add `CONTRIBUTING.md` (setup, workspace layout, scripts, semantic commits/branches, changesets), `CODE_OF_CONDUCT.md`, `SECURITY.md` (private disclosure), issue/PR templates, and configure Changesets; verify a new contributor can follow `CONTRIBUTING.md` on a clean machine to run lint, build, and tests
+- [x] 1.8 Add `CONTRIBUTING.md` (setup, workspace layout, scripts, semantic commits/branches, changesets), `CODE_OF_CONDUCT.md`, `SECURITY.md` (private disclosure), issue/PR templates, and configure Changesets; verify a new contributor can follow `CONTRIBUTING.md` on a clean machine to run lint, build, and tests
 
 ## 2. Documentation site and playground scaffolding
 
-- [ ] 2.1 Create `docs/` as a Docus 5.15 app (`extends: ['docus']`) with branding for Nuxt Atelier, sections (Getting Started, Guides for editors, Developer reference, Deployment, Contributing), and workspace dependency on `nuxt-atelier`; verify `bun run docs:build` succeeds
-- [ ] 2.2 Create `playground/` Nuxt 4.6 app consuming workspace packages with env-switchable database URL; verify `bun run dev` starts the playground
+- [x] 2.1 Create `docs/` as a Docus 5.15 app (`extends: ['docus']`) with branding for Nuxt Atelier, sections (Getting Started, Guides for editors, Developer reference, Deployment, Contributing), and workspace dependency on `nuxt-atelier`; verify `bun run docs:build` succeeds
+- [x] 2.2 Create `playground/` Nuxt 4.6 app consuming workspace packages with env-switchable database URL; verify `bun run dev` starts the playground
 - [ ] 2.3 Add a docs CI job that builds the docs against workspace packages and fails on broken links or MDC component errors; verify it fails when a referenced component is removed
 - [ ] 2.4 Add `docs/Dockerfile` (multi-stage: Bun install/build, Node 24 runtime serving `.output/server/index.mjs` on port 3000, non-root user, healthcheck); verify `docker build -f docs/Dockerfile .` and `docker run` serve the docs locally on port 3000
 

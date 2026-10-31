@@ -17,6 +17,11 @@
         "src/module.ts"
       ]
     },
-    "packages/layer": {}
+    "packages/layer": {},
+    "docs": {
+      "ignoreDependencies": [
+        "@takumi-rs/core"
+      ]
+    }
   }
 }
