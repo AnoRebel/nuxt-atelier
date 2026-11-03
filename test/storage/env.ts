@@ -4,6 +4,7 @@ import type { AtelierDriver } from '../../packages/core/src/runtime/server/db/dr
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { SQL } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 
 const servers = {
@@ -39,4 +40,12 @@ export async function resetDatabase(driver: AtelierDriver): Promise<void> {
   const rows = await db.all(sql.raw(`select name from sqlite_master where type = 'table' and name not like 'sqlite_%'`))
   for (const { name } of rows as { name: string }[])
     await db.run(sql.raw(`drop table \`${name}\``))
+}
+
+/** Runs raw SQL on any dialect, returning the rows. */
+export async function query(driver: AtelierDriver, statement: SQL): Promise<any[]> {
+  const db = driver.db as any
+  if (driver.dialect === 'sqlite')
+    return db.all(statement)
+  return driver.dialect === 'mysql' ? (await db.execute(statement))[0] : (await db.execute(statement)).rows
 }

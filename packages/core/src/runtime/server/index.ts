@@ -4,9 +4,8 @@ import type { CollectionDefinition, SingletonDefinition } from './types'
 import { useRuntimeConfig } from 'nuxt/server'
 import { connect } from './db/driver'
 
-export * from '../shared/fields'
+export * from './define'
 export type { AtelierDriver, Dialect } from './db/driver'
-export type { CollectionDefinition, SingletonDefinition } from './types'
 
 /** Private Nuxt Atelier runtime config (`runtimeConfig.atelier`), server only. */
 export function useAtelierServerConfig() {
@@ -23,16 +22,6 @@ export function useAtelierDatabase(): Promise<AtelierDriver> {
     throw error
   })
   return database
-}
-
-/** Defines a collection. The file name under `server/atelier/collections/` is its name. */
-export function defineCollection<const T extends CollectionDefinition>(definition: T): T {
-  return definition
-}
-
-/** Defines a singleton. The file name under `server/atelier/singletons/` is its name. */
-export function defineSingleton<const T extends SingletonDefinition>(definition: T): T {
-  return definition
 }
 
 /**

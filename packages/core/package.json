@@ -35,19 +35,22 @@
   "peerDependencies": {
     "nuxt": ">=4.6.0",
     "pg": "catalog:db",
-    "mysql2": "catalog:db"
+    "mysql2": "catalog:db",
+    "drizzle-kit": "catalog:db"
   },
   "dependencies": {
     "@nuxt/kit": "catalog:",
     "valibot": "catalog:",
     "drizzle-orm": "catalog:db",
-    "@libsql/client": "catalog:db"
+    "@libsql/client": "catalog:db",
+    "jiti": "catalog:"
   },
   "devDependencies": {
     "@nuxt/schema": "catalog:",
     "pg": "catalog:db",
     "mysql2": "catalog:db",
-    "@types/pg": "catalog:db"
+    "@types/pg": "catalog:db",
+    "drizzle-kit": "catalog:db"
   },
   "peerDependenciesMeta": {
     "pg": {
@@ -55,6 +58,12 @@
     },
     "mysql2": {
       "optional": true
+    },
+    "drizzle-kit": {
+      "optional": true
     }
+  },
+  "bin": {
+    "atelier": "./dist/cli/index.mjs"
   }
 }

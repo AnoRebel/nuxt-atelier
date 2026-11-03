@@ -62,7 +62,7 @@ export function resolveOptions(options: unknown, configKey = 'atelier'): Resolve
     return result.output
   const lines = result.issues.map((issue) => {
     const path = [configKey, v.getDotPath(issue)].filter(Boolean).join('.')
-    if (issue.type === 'strict_object')
+    if (issue.type === 'strict_object' && issue.path) // an unknown key; without a path the value isn't an object
       return `  - ${path}: unknown option; accepted: ${siblingKeys(issue.path!).join(', ')}`
     return `  - ${path} = ${JSON.stringify(issue.input)}: ${issue.message}`
   })

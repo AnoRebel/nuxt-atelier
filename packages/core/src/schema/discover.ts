@@ -1,5 +1,6 @@
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import type { Nuxt } from '@nuxt/schema'
 import { getLayerDirectories } from '@nuxt/kit'
 
 type SchemaKind = 'collections' | 'singletons'
@@ -11,9 +12,9 @@ const FILE_RE = /^(.+)\.(?:ts|mts|js|mjs)$/
  * Definition files by name, from `server/atelier/{collections,singletons}/` in the app and every layer.
  * The file name is the content type's name; on a clash the highest-priority layer (the app first) wins.
  */
-function discoverSchema(kind: SchemaKind): Map<string, string> {
+export function discoverSchema(kind: SchemaKind, nuxt?: Nuxt): Map<string, string> {
   const found = new Map<string, string>()
-  for (const layer of getLayerDirectories()) {
+  for (const layer of getLayerDirectories(nuxt)) {
     const dir = join(layer.server, 'atelier', kind)
     let files: string[]
     try {
