@@ -31,19 +31,19 @@
 
 ## 4. Content schema (content-schema)
 
-- [ ] 4.1 Implement `defineCollection`/`defineSingleton` discovered from `server/atelier/{collections,singletons}` in app and all layers via `getLayerDirectories()`; verify a layer-defined collection is registered in a fixture
-- [ ] 4.2 Implement field helpers for all built-in types (text, textarea, richText, number, boolean, select, multiSelect, date/time, email, url, slug, color, json, media, relation one/many, object, repeater, blocks) producing serialisable descriptors + Valibot schemas; verify unit tests per field covering valid/invalid values
-- [ ] 4.3 Implement declarative validation (required, min/max, length, pattern, unique, custom Standard Schema validator) and structured field-path errors; verify nested repeater/object error paths in unit tests
-- [ ] 4.4 Implement default factories so object/array defaults are fresh per entry/block; verify the shared-reference regression test
-- [ ] 4.5 Implement relation semantics (populate depth, on-delete restrict/nullify/cascade) and stable field keys with explicit rename declarations; verify tests for restrict refusal and rename preserving data
-- [ ] 4.6 Implement custom field type registration (model, validators, admin input component reference); verify a `geo-point` fixture field validates and stores
-- [ ] 4.7 Generate types for collections/singletons/fields for app and server code with HMR refresh on schema change; verify a type test fails on an unknown field and passes after adding it during dev
-- [ ] 4.8 Write docs: schema concepts, every field type with options and examples, validation, relations, custom fields
+- [x] 4.1 Implement `defineCollection`/`defineSingleton` discovered from `server/atelier/{collections,singletons}` in app and all layers via `getLayerDirectories()`; verify a layer-defined collection is registered in a fixture
+- [x] 4.2 Implement field helpers for all built-in types (text, textarea, richText, number, boolean, select, multiSelect, date/time, email, url, slug, color, json, media, relation one/many, object, repeater, blocks) producing serialisable descriptors + Valibot schemas; verify unit tests per field covering valid/invalid values
+- [x] 4.3 Implement declarative validation (required, min/max, length, pattern, unique, custom Standard Schema validator) and structured field-path errors; verify nested repeater/object error paths in unit tests
+- [x] 4.4 Implement default factories so object/array defaults are fresh per entry/block; verify the shared-reference regression test
+- [ ] 4.5 Implement relation semantics (populate depth, on-delete restrict/nullify/cascade) and stable field keys with explicit rename declarations; verify tests for restrict refusal and rename preserving data (done after section 5: its verification needs the storage layer)
+- [ ] 4.6 Implement custom field type registration (model, validators, admin input component reference); verify a `geo-point` fixture field validates and stores (done after section 5: its verification needs the storage layer)
+- [x] 4.7 Generate types for collections/singletons/fields for app and server code with HMR refresh on schema change; verify a type test fails on an unknown field and passes after adding it during dev
+- [ ] 4.8 Write docs: schema concepts, every field type with options and examples, validation, relations, custom fields (schema concepts, field types, validation and types are written; the relations-on-delete and custom-field sections follow 4.5/4.6)
 
 ## 5. Storage engine and migrations (content-storage)
 
 - [ ] 5.1 Implement driver layer for `@libsql/client` (SQLite/libSQL/Turso), `pg`, and `mysql2` with Drizzle 1.0 RC, selected by URL scheme; verify connection tests per engine in CI service containers
-- [ ] 5.2 Generate Drizzle table definitions from schema descriptors (entries, revisions with JSON block trees, relations, routes, and system tables); verify identical schema behaviour tests pass on SQLite, Postgres, MySQL, MariaDB
+- [ ] 5.2 Generate Drizzle table definitions from schema descriptors (entries, revisions with JSON block trees, relations, routes, and system tables); verify identical schema behaviour tests pass on SQLite, Postgres, MySQL, MariaDB Also add unique indexes for `unique` fields and supply the DB-backed `isUnique` check that `validateEntry` calls (from 4.3).
 - [ ] 5.3 Implement `atelier migrate generate|apply|status` wrapping drizzle-kit, writing to `server/atelier/migrations/`, with a guard rejecting unannotated drops/renames; verify removing a field produces no drop until annotated
 - [ ] 5.4 Implement dev auto-apply of non-destructive changes and production pending-migration detection that refuses writes with a clear error; verify both behaviours in fixture tests
 - [ ] 5.5 Implement atomic saves (entry + blocks + relations + revision) in transactions and optimistic concurrency via `version`; verify failure-injection test leaves no partial data and stale save returns 409 with current version

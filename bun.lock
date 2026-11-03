@@ -195,6 +195,16 @@
         "nuxt": "catalog:",
       },
     },
+    "test/fixtures/schema": {
+      "name": "@nuxt-atelier/fixture-schema",
+      "dependencies": {
+        "nuxt": "catalog:",
+      },
+      "devDependencies": {
+        "typescript": "catalog:build",
+        "vue-tsc": "catalog:build",
+      },
+    },
     "test/fixtures/types": {
       "name": "@nuxt-atelier/fixture-types",
       "dependencies": {
@@ -643,6 +653,8 @@
     "@nuxt-atelier/fixture-layer": ["@nuxt-atelier/fixture-layer@workspace:test/fixtures/layer"],
 
     "@nuxt-atelier/fixture-layer-override": ["@nuxt-atelier/fixture-layer-override@workspace:test/fixtures/layer-override"],
+
+    "@nuxt-atelier/fixture-schema": ["@nuxt-atelier/fixture-schema@workspace:test/fixtures/schema"],
 
     "@nuxt-atelier/fixture-types": ["@nuxt-atelier/fixture-types@workspace:test/fixtures/types"],
 

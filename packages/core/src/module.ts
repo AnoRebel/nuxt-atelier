@@ -1,7 +1,8 @@
 import type { NuxtModule } from '@nuxt/schema'
 import type { ModuleOptions } from './options'
-import { addComponentsDir, addImports, createResolver, defineNuxtModule } from '@nuxt/kit'
+import { addComponentsDir, addImports, addServerTemplate, addTypeTemplate, createResolver, defineNuxtModule } from '@nuxt/kit'
 import { resolveOptions } from './options'
+import { registryTypes, schemaTemplate } from './schema/discover'
 
 export type { ModuleOptions, ResolvedOptions } from './options'
 
@@ -38,6 +39,30 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
 
     addImports({ name: 'useAtelierConfig', from: resolve('./runtime/app/composables/useAtelierConfig') })
     addComponentsDir({ path: resolve('./runtime/app/components'), prefix: 'Atelier' })
+
+    // Collections and singletons: rescanned on every Nitro (re)build, so new files are picked up in dev
+    addServerTemplate({ filename: '#atelier-schema', getContents: schemaTemplate })
+    const types = resolve('./runtime/server/types')
+    addTypeTemplate({
+      filename: 'types/atelier-schema.d.ts',
+      getContents: () => `declare module '#atelier-schema' {
+  export const collections: Record<string, import(${JSON.stringify(types)}).CollectionDefinition>
+  export const singletons: Record<string, import(${JSON.stringify(types)}).SingletonDefinition>
+}
+`,
+    }, { nitro: true, nuxt: true }) // nuxt too: typed $fetch pulls server routes into the app project
+
+    // Entry types: inferred by TypeScript from the definition files, so editing a field needs no regeneration
+    addTypeTemplate({
+      filename: 'types/atelier-registry.d.ts',
+      getContents: () => registryTypes(resolve('./runtime/shared/infer')),
+    }, { nitro: true, nuxt: true })
+    // A new or deleted definition file changes the registry, which Nitro only rebuilds for files it
+    // already imports: soft-restart so both the server registry and the types pick it up
+    nuxt.hook('builder:watch', async (event, path) => {
+      if ((event === 'add' || event === 'unlink') && /(?:^|\/)atelier\/(?:collections|singletons)\//.test(path))
+        await nuxt.callHook('restart')
+    })
   },
 })
 
