@@ -42,6 +42,11 @@ export default createConfigForNuxt({
 }).append(
   publicApiOnly,
   {
+    // Nuxt names pages and layouts after their file (index, about, default)
+    files: ['**/app/{pages,layouts}/**/*.vue'],
+    rules: { 'vue/multi-word-component-names': 'off' },
+  },
+  {
     ignores: ['openspec/**', '**/dist/**', '**/.output/**', '**/.nuxt/**', '**/.data/**', '**/*.fixture.ts'],
   },
 )

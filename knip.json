@@ -7,9 +7,6 @@
     ".": {
       "entry": [
         "test/vue-tsc/NestedSlots.vue"
-      ],
-      "ignoreDependencies": [
-        "vue"
       ]
     },
     "packages/*": {
@@ -22,6 +19,19 @@
       "ignoreDependencies": [
         "@takumi-rs/core"
       ]
+    },
+    "test/fixtures/types": {
+      "ignoreDependencies": [
+        "vue-tsc"
+      ]
+    },
+    "test/fixtures/layer-override": {
+      "entry": [
+        "app/components/*.vue"
+      ]
     }
-  }
+  },
+  "ignoreUnresolved": [
+    "#imports"
+  ]
 }

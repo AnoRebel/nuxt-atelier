@@ -12,6 +12,7 @@
     "*.config.mjs"
   ],
   "exclude": [
-    "**/*.fixture.ts"
+    "**/*.fixture.ts",
+    "test/fixtures/**"
   ]
 }
