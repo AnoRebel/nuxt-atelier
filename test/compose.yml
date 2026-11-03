@@ -1,0 +1,22 @@
+# Databases for the storage tests: `docker compose -f test/compose.yml up -d --wait`, then
+#   ATELIER_TEST_POSTGRES_URL=postgres://atelier:atelier@127.0.0.1:54932/atelier
+#   ATELIER_TEST_MYSQL_URL=mysql://atelier:atelier@127.0.0.1:53906/atelier
+#   ATELIER_TEST_MARIADB_URL=mariadb://atelier:atelier@127.0.0.1:53907/atelier
+# CI runs the same images as service containers (.github/workflows/ci.yml).
+name: atelier-test
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment: { POSTGRES_USER: atelier, POSTGRES_PASSWORD: atelier, POSTGRES_DB: atelier }
+    ports: ['127.0.0.1:54932:5432']
+    healthcheck: { test: [CMD, pg_isready, -U, atelier], interval: 2s, retries: 30 }
+  mysql:
+    image: mysql:9.7
+    environment: { MYSQL_USER: atelier, MYSQL_PASSWORD: atelier, MYSQL_DATABASE: atelier, MYSQL_ROOT_PASSWORD: root }
+    ports: ['127.0.0.1:53906:3306']
+    healthcheck: { test: [CMD, mysqladmin, ping, -h, 127.0.0.1], interval: 2s, retries: 60 }
+  mariadb:
+    image: mariadb:12.3
+    environment: { MARIADB_USER: atelier, MARIADB_PASSWORD: atelier, MARIADB_DATABASE: atelier, MARIADB_ROOT_PASSWORD: root }
+    ports: ['127.0.0.1:53907:3306']
+    healthcheck: { test: [CMD, healthcheck.sh, --connect, --innodb_initialized], interval: 2s, retries: 60 }

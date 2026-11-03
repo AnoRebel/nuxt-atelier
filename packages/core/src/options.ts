@@ -1,6 +1,6 @@
 import * as v from 'valibot'
 
-const DB_SCHEMES = ['file', 'postgres', 'postgresql', 'mysql', 'mariadb']
+const DB_SCHEMES = ['file', 'libsql', 'postgres', 'postgresql', 'mysql', 'mariadb']
 
 const int = (min: number, max: number, fallback: number, description: string) => v.optional(
   v.pipe(
@@ -22,7 +22,7 @@ export const optionsSchema = v.strictObject({
       v.string('expected a URL string'),
       v.check(url => DB_SCHEMES.includes(/^([a-z]+):/.exec(url)?.[1] ?? ''),
         `unsupported scheme; accepted: ${DB_SCHEMES.map(s => `${s}:`).join(', ')}`),
-      v.description('Database URL. `file:` is SQLite. Override at runtime with `NUXT_ATELIER_DATABASE_URL`.'),
+      v.description('Database URL: `file:` (SQLite), `libsql:` (libSQL/Turso), `postgres:`, `mysql:` or `mariadb:`. Override at runtime with `NUXT_ATELIER_DATABASE_URL`.'),
     ), 'file:.data/atelier.sqlite'),
   }), {}),
   storage: v.optional(v.strictObject({

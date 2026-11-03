@@ -29,7 +29,7 @@ describe('module options', () => {
 
   it('rejects an unsupported database URL scheme, naming option, value and accepted schemes', () => {
     expect(error({ database: { url: 'mongodb://localhost/cms' } })).toContain(
-      'atelier.database.url = "mongodb://localhost/cms": unsupported scheme; accepted: file:, postgres:, postgresql:, mysql:, mariadb:',
+      'atelier.database.url = "mongodb://localhost/cms": unsupported scheme; accepted: file:, libsql:, postgres:, postgresql:, mysql:, mariadb:',
     )
   })
 

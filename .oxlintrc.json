@@ -4,5 +4,25 @@
     "correctness": "error",
     "suspicious": "warn"
   },
-  "ignorePatterns": ["openspec/**", "**/dist/**", "**/.output/**", "**/.nuxt/**", "**/.data/**", "**/*.fixture.ts"]
+  "ignorePatterns": [
+    "openspec/**",
+    "**/dist/**",
+    "**/.output/**",
+    "**/.nuxt/**",
+    "**/.data/**",
+    "**/*.fixture.ts"
+  ],
+  "rules": {
+    "no-underscore-dangle": [
+      "warn",
+      {
+        "allow": [
+          "_id",
+          "_version",
+          "_createdAt",
+          "_updatedAt"
+        ]
+      }
+    ]
+  }
 }

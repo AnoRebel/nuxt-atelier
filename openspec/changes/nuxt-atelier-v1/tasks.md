@@ -42,8 +42,8 @@
 
 ## 5. Storage engine and migrations (content-storage)
 
-- [ ] 5.1 Implement driver layer for `@libsql/client` (SQLite/libSQL/Turso), `pg`, and `mysql2` with Drizzle 1.0 RC, selected by URL scheme; verify connection tests per engine in CI service containers
-- [ ] 5.2 Generate Drizzle table definitions from schema descriptors (entries, revisions with JSON block trees, relations, routes, and system tables); verify identical schema behaviour tests pass on SQLite, Postgres, MySQL, MariaDB Also add unique indexes for `unique` fields and supply the DB-backed `isUnique` check that `validateEntry` calls (from 4.3).
+- [x] 5.1 Implement driver layer for `@libsql/client` (SQLite/libSQL/Turso), `pg`, and `mysql2` with Drizzle 1.0 RC, selected by URL scheme; verify connection tests per engine in CI service containers (verified locally against the same images as the CI services, `test/compose.yml`; the CI run itself waits on 1.7)
+- [x] 5.2 Generate Drizzle table definitions from schema descriptors (entries, revisions with JSON block trees, relations, routes, and system tables); verify identical schema behaviour tests pass on SQLite, Postgres, MySQL, MariaDB Also add unique indexes for `unique` fields and supply the DB-backed `isUnique` check that `validateEntry` calls (from 4.3). (tables are pushed with drizzle-kit in the tests until 5.3 adds migrations)
 - [ ] 5.3 Implement `atelier migrate generate|apply|status` wrapping drizzle-kit, writing to `server/atelier/migrations/`, with a guard rejecting unannotated drops/renames; verify removing a field produces no drop until annotated
 - [ ] 5.4 Implement dev auto-apply of non-destructive changes and production pending-migration detection that refuses writes with a clear error; verify both behaviours in fixture tests
 - [ ] 5.5 Implement atomic saves (entry + blocks + relations + revision) in transactions and optimistic concurrency via `version`; verify failure-injection test leaves no partial data and stale save returns 409 with current version
