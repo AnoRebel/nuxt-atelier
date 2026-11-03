@@ -1,14 +1,18 @@
 // `atelier migrate generate|apply|status`
 import type { Dialect } from '../runtime/server/db/driver'
 import type { ContentSchema } from '../runtime/server/db/tables'
+import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { open, rm, stat } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { Nuxt } from '@nuxt/schema'
 import { loadNuxt } from '@nuxt/kit'
 import { createJiti } from 'jiti'
 import { resolveOptions } from '../options'
 import { connect, dialectOf } from '../runtime/server/db/driver'
-import { applyMigrations, destructiveChanges, migrationsFolder, migrationStatus } from '../runtime/server/db/migrations'
+import { applyMigrations, destructiveChanges, localMigrationNames, migrationsFolder, migrationStatus } from '../runtime/server/db/migrations'
 import { buildTables, collectionTable } from '../runtime/server/db/tables'
 import { discoverSchema } from '../schema/discover'
 
@@ -23,27 +27,42 @@ export interface Project {
   schema: ContentSchema
 }
 
+/** The app's database URL and content schema, from a loaded (not necessarily built) Nuxt instance. */
+export async function projectFromNuxt(nuxt: Nuxt): Promise<Project> {
+  const { rootDir, buildDir } = nuxt.options
+  const options = resolveOptions((nuxt.options as unknown as { atelier?: never }).atelier ?? {})
+  let databaseUrl = process.env.NUXT_ATELIER_DATABASE_URL || options.database.url
+  const file = /^file:(?!\/)(.*)$/.exec(databaseUrl)?.[1] // relative SQLite paths are relative to the app
+  if (file !== undefined && file !== ':memory:' && !isAbsolute(file))
+    databaseUrl = `file:${join(rootDir, file)}`
+
+  const jiti = createJiti(import.meta.url, { alias: { '#atelier/server': runtime('define') }, moduleCache: false })
+  const load = async (kind: 'collections' | 'singletons') => Object.fromEntries(await Promise.all(
+    [...discoverSchema(kind, nuxt)].map(async ([name, path]) => [name, await jiti.import(path, { default: true })]),
+  ))
+  return { rootDir, buildDir, databaseUrl, schema: { collections: await load('collections'), singletons: await load('singletons') } }
+}
+
 /** Reads the app's config, layers and content schema without building it. */
 export async function loadProject(cwd: string): Promise<Project> {
   const nuxt = await loadNuxt({ cwd, ready: false, overrides: { logLevel: 'silent' } })
   try {
-    const { rootDir, buildDir } = nuxt.options
-    const options = resolveOptions((nuxt.options as { atelier?: never }).atelier ?? {})
-    let databaseUrl = process.env.NUXT_ATELIER_DATABASE_URL || options.database.url
-    const file = /^file:(?!\/)(.*)$/.exec(databaseUrl)?.[1] // relative SQLite paths are relative to the app
-    if (file !== undefined && file !== ':memory:' && !isAbsolute(file))
-      databaseUrl = `file:${join(rootDir, file)}`
-
-    const jiti = createJiti(import.meta.url, { alias: { '#atelier/server': runtime('define') }, moduleCache: false })
-    const load = async (kind: 'collections' | 'singletons') => Object.fromEntries(await Promise.all(
-      [...discoverSchema(kind, nuxt)].map(async ([name, path]) => [name, await jiti.import(path, { default: true })]),
-    ))
-    return { rootDir, buildDir, databaseUrl, schema: { collections: await load('collections'), singletons: await load('singletons') } }
+    return await projectFromNuxt(nuxt)
   }
   finally {
     await nuxt.close()
   }
 }
+
+/** A schema change that would lose data unless the developer confirms it. */
+export class DataLossError extends Error {
+  constructor(readonly changes: string[]) {
+    super(`[nuxt-atelier] The schema change would lose data, so no migration was written:\n${changes.map(suggestion).join('\n')}`)
+  }
+}
+
+/** drizzle-kit, an optional peer dependency, isn't installed. */
+export class MissingKitError extends Error {}
 
 /** Collection-level names for a table change, as the --drop / --rename flags take them. */
 const collectionOf = (table: string) => table.startsWith('atelier_c_') ? table.slice('atelier_c_'.length).replaceAll('_', '-') : undefined
@@ -81,7 +100,7 @@ async function importKit() {
     return await import('drizzle-kit/cli')
   }
   catch (error) {
-    throw new Error(`[nuxt-atelier] Generating migrations needs drizzle-kit, an optional dependency. Install it as a dev dependency:\n  npm i -D drizzle-kit@${KIT_VERSION}`, { cause: error })
+    throw new MissingKitError(`[nuxt-atelier] Generating migrations needs drizzle-kit, an optional dependency. Install it as a dev dependency:\n  npm i -D drizzle-kit@${KIT_VERSION}`, { cause: error })
   }
 }
 
@@ -123,7 +142,7 @@ ${tables.map((name, i) => `export const t${i} = t[${JSON.stringify(name)}]`).joi
     const hints = result.unresolved.map((item) => {
       if (item.type !== 'rename_or_create')
         throw new Error(`[nuxt-atelier] drizzle-kit needs a decision we can't make: ${JSON.stringify(item)}`)
-      const [prefix, ...entity] = item.entity as string[]
+      const [prefix, ...entity] = item.entity as readonly string[]
       const rename = renames.find(r => r.hint.kind === item.kind && r.hint.to.join('.') === entity.join('.'))
       return rename
         ? { type: 'rename', kind: item.kind, from: [prefix, ...rename.hint.from], to: item.entity }
@@ -143,7 +162,7 @@ ${tables.map((name, i) => `export const t${i} = t[${JSON.stringify(name)}]`).joi
   const unconfirmed = changes.filter(c => !confirmed.has(c))
   if (unconfirmed.length) {
     rmSync(folder, { recursive: true })
-    throw new Error(`[nuxt-atelier] The schema change would lose data, so no migration was written:\n${unconfirmed.map(suggestion).join('\n')}`)
+    throw new DataLossError(unconfirmed)
   }
   if (changes.length)
     writeFileSync(file, `${changes.map(c => `-- atelier:confirm ${c}`).join('\n')}\n${sql}`)
@@ -163,9 +182,40 @@ export async function applyProjectMigrations(project: Project, dialect = dialect
 export async function projectMigrationStatus(project: Project) {
   const driver = await connect(project.databaseUrl)
   try {
-    return await migrationStatus(driver, migrationsFolder(project.rootDir, driver.dialect))
+    return await migrationStatus(driver, localMigrationNames(migrationsFolder(project.rootDir, driver.dialect)))
   }
   finally {
     await driver.close()
+  }
+}
+
+const STALE_LOCK = 120_000
+
+/**
+ * Runs `fn` while holding a lock on the database, across processes: `nuxt dev` and `atelier migrate`
+ * (or two Nuxt processes for the same app) never generate or apply migrations at the same time.
+ */
+export async function withMigrationLock<T>(databaseUrl: string, fn: () => Promise<T>): Promise<T> {
+  const file = join(tmpdir(), `nuxt-atelier-${createHash('sha256').update(databaseUrl).digest('hex').slice(0, 16)}.lock`)
+  for (;;) {
+    try {
+      await (await open(file, 'wx')).close()
+      break
+    }
+    catch (error) {
+      if ((error as { code?: string }).code !== 'EEXIST')
+        throw error
+      const age = Date.now() - ((await stat(file).catch(() => undefined))?.mtimeMs ?? 0)
+      if (age > STALE_LOCK) // left by a crashed process
+        await rm(file, { force: true })
+      else
+        await new Promise(resolve => setTimeout(resolve, 200))
+    }
+  }
+  try {
+    return await fn()
+  }
+  finally {
+    await rm(file, { force: true })
   }
 }

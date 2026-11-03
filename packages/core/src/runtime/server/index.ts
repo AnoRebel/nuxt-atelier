@@ -3,6 +3,7 @@ import type { AtelierDriver } from './db/driver'
 import type { CollectionDefinition, SingletonDefinition } from './types'
 import { useRuntimeConfig } from 'nuxt/server'
 import { connect } from './db/driver'
+import { assertMigrated as assertMigratedWith } from './db/state'
 
 export * from './define'
 export type { AtelierDriver, Dialect } from './db/driver'
@@ -36,3 +37,8 @@ export async function useAtelierSchema(): Promise<{
   return { collections, singletons }
 }
 export type { AtelierCollections, AtelierSingletons, BlockInstance, CollectionEntry, FieldValue, InferEntry, JsonValue, RichTextDocument, SingletonEntry } from '../shared/infer'
+
+/** Throws a 503 while the production database has pending migrations. Call it before any CMS write. */
+export function assertMigrated(): Promise<void> {
+  return assertMigratedWith(useAtelierDatabase)
+}

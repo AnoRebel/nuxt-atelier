@@ -1,9 +1,24 @@
 import { defineConfig } from 'vitest/config'
 
+const storage = 'test/storage/**/*.test.ts'
+
 export default defineConfig({
   test: {
-    include: ['scripts/**/*.test.ts', 'test/**/*.test.ts'],
     testTimeout: 120_000,
     hookTimeout: 300_000,
+    // each e2e file builds a Nuxt app, and @nuxt/test-utils allows a build 120s: too many at once overrun it
+    maxWorkers: 4,
+    projects: [
+      {
+        extends: true,
+        test: { name: 'unit', include: ['scripts/**/*.test.ts', 'test/**/*.test.ts'], exclude: [storage], sequence: { groupOrder: 0 } },
+      },
+      {
+        // the storage files share the test databases (test/compose.yml) and reset them: one file at a time,
+        // after the unit project, so their dev server and builds don't starve its Nuxt builds of CPU
+        extends: true,
+        test: { name: 'storage', include: [storage], fileParallelism: false, sequence: { groupOrder: 1 } },
+      },
+    ],
   },
 })

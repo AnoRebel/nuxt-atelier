@@ -49,7 +49,7 @@ describe('module options', () => {
   })
 
   it('rejects unknown options (typos)', () => {
-    expect(error({ databse: {} })).toContain('atelier.databse: unknown option; accepted: database, storage, auth, admin, limits')
+    expect(error({ databse: {} })).toContain('atelier.databse: unknown option; accepted: database, migrations, storage, auth, admin, limits')
     expect(error({ limits: { pageSize: 5 } })).toContain('atelier.limits.pageSize: unknown option; accepted: maxBodySize,')
   })
 })

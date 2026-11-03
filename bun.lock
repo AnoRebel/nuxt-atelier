@@ -195,6 +195,12 @@
         "nuxt": "catalog:",
       },
     },
+    "test/fixtures/dev-migrate": {
+      "name": "@nuxt-atelier/fixture-dev-migrate",
+      "dependencies": {
+        "nuxt": "catalog:",
+      },
+    },
     "test/fixtures/host-app": {
       "name": "@nuxt-atelier/fixture-host-app",
       "dependencies": {
@@ -217,6 +223,12 @@
     },
     "test/fixtures/migrate": {
       "name": "@nuxt-atelier/fixture-migrate",
+      "dependencies": {
+        "nuxt": "catalog:",
+      },
+    },
+    "test/fixtures/pending": {
+      "name": "@nuxt-atelier/fixture-pending",
       "dependencies": {
         "nuxt": "catalog:",
       },
@@ -711,6 +723,8 @@
 
     "@nuxt-atelier/fixture-basic": ["@nuxt-atelier/fixture-basic@workspace:test/fixtures/basic"],
 
+    "@nuxt-atelier/fixture-dev-migrate": ["@nuxt-atelier/fixture-dev-migrate@workspace:test/fixtures/dev-migrate"],
+
     "@nuxt-atelier/fixture-host-app": ["@nuxt-atelier/fixture-host-app@workspace:test/fixtures/host-app"],
 
     "@nuxt-atelier/fixture-layer": ["@nuxt-atelier/fixture-layer@workspace:test/fixtures/layer"],
@@ -718,6 +732,8 @@
     "@nuxt-atelier/fixture-layer-override": ["@nuxt-atelier/fixture-layer-override@workspace:test/fixtures/layer-override"],
 
     "@nuxt-atelier/fixture-migrate": ["@nuxt-atelier/fixture-migrate@workspace:test/fixtures/migrate"],
+
+    "@nuxt-atelier/fixture-pending": ["@nuxt-atelier/fixture-pending@workspace:test/fixtures/pending"],
 
     "@nuxt-atelier/fixture-schema": ["@nuxt-atelier/fixture-schema@workspace:test/fixtures/schema"],
 

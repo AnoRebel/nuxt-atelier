@@ -34,6 +34,21 @@ The docs SHALL include installation, configuration reference (every option with 
 - **WHEN** CI compares the module's option schema with the configuration reference
 - **THEN** it fails if any option is undocumented
 
+### Requirement: Deployment guides with working examples
+The docs SHALL include a hosting guide with a complete, copyable example for each supported platform: Node on a VPS (systemd), Docker and Docker Compose, Dokploy and Coolify, Fly.io, Railway, Render, Bun, Deno, Vercel, Netlify, and Cloudflare Workers.
+
+#### Scenario: Guide contents
+- **WHEN** a developer opens a platform's hosting guide
+- **THEN** it shows the build command and Nitro preset, the configuration files (e.g. `Dockerfile`, `compose.yaml`, `vercel.json`, `netlify.toml`, `wrangler.toml`, `fly.toml`), required environment variables, the database connection, how migrations are applied on deploy, media storage, scheduled jobs, and real-time support
+
+#### Scenario: Examples stay correct
+- **WHEN** CI runs the deploy smoke tests
+- **THEN** each guide's example configuration is the one the smoke test builds, so a broken example fails CI
+
+#### Scenario: Platform limitations
+- **WHEN** a feature isn't available on a platform (e.g. local file uploads on an ephemeral filesystem, multi-statement transactions on D1)
+- **THEN** that platform's guide says so and names the alternative (e.g. an S3-compatible storage adapter)
+
 ### Requirement: API reference
 The docs SHALL include a generated reference for public composables, components, server utilities, REST endpoints, and CLI commands.
 

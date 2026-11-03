@@ -7,7 +7,8 @@ const WRITE_MESSAGE = 'Modules must not write files directly. Use addTemplate/ad
 export const publicApiOnly = {
   name: 'atelier/public-api-only',
   files: ['packages/*/src/**/*.{ts,mts,js,mjs,vue}', 'test/lint/**/*.ts'],
-  ignores: ['packages/*/src/cli/**'],
+  // the CLI writes migrations into the app on purpose; runtime code writes at run time (uploads, migrations), not at build
+  ignores: ['packages/*/src/cli/**', 'packages/*/src/runtime/**'],
   rules: {
     'no-restricted-imports': ['error', {
       patterns: [
@@ -41,6 +42,14 @@ export default createConfigForNuxt({
   },
 }).append(
   publicApiOnly,
+  {
+    // runtime code: no internals, but it may write files at run time
+    name: 'atelier/public-api-only-runtime',
+    files: ['packages/*/src/runtime/**/*.{ts,mts,js,mjs,vue}'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: publicApiOnly.rules['no-restricted-imports'][1].patterns }],
+    },
+  },
   {
     // Nuxt names pages and layouts after their file (index, about, default)
     files: ['**/app/{pages,layouts}/**/*.vue'],

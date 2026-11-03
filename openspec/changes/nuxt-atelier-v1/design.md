@@ -306,6 +306,13 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 - **Repository files:** `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, issue and PR templates.
 - **Wording:** product-focused only.
 
+### D20. Optional DevTools integration
+- **Package:** `@nuxt-atelier/devtools`, installed as a dev dependency. Core has no DevTools code or dependency, the pattern Nuxt SEO uses (its DevTools host is a separate package).
+- **API:** `@nuxt/devtools-kit` 4.x. DevTools 4 (on Vite DevTools) registers docks with `onDevtoolsReady(ctx => ctx.docks.register(...))` and RPC with `ctx.rpc.register(defineRpcFunction(...))`. Nuxt 4.6 still ships DevTools 3 (`nuxt` depends on `@nuxt/devtools ^3.4`), where `devtools:ready` never fires, so the integration falls back to `addCustomTab` / `extendServerRpc` (deprecated shims in v4, removed in v5).
+- **Guard:** registers only when `nuxt.options.dev` is true and `nuxt.options.devtools` isn't disabled (`false` or `{ enabled: false }`).
+- **Panels:** iframe docks served by the dev server: Schema (collections, singletons, fields, table and column names), Migrations (status from `migrationStatus`, pending list, the `--drop` / `--rename` flags a blocked change needs, an apply action), Jobs (queue and retry, from section 11), and the admin (`/admin` in an iframe).
+- **Security:** RPC names, dock ids and commands use the `atelier:` prefix. Actions that change data run only over DevTools' authorized connection, never when `devtools.disableAuthorization` is set, because that lets any browser that reaches the dev server call them.
+
 ### D19. Pinned dependency baseline (verified on npm, 2026-10-31)
 
 | Area | Package | Version |
@@ -344,6 +351,7 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 | SEO | @nuxtjs/sitemap / @nuxtjs/robots | 9.1.0 / 7.0.2 (optional; the versions Nuxt SEO v6, `@nuxtjs/seo` 6.0.1, bundles) |
 | AI | ai | 7.0.159 (adapter package) |
 | Mail | nodemailer | 10.3.1 (optional SMTP adapter) |
+| DevTools | @nuxt/devtools-kit | 4.1.0 (integration package only) |
 | Docs | docus | 5.15.0 |
 | Test | vitest / @vitest/coverage-v8 | 5.0.5 |
 | | @nuxt/test-utils | 4.3.4 |

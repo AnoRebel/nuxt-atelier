@@ -45,6 +45,24 @@ The system SHALL allow secrets and environment-specific settings (database URL, 
 - **WHEN** a built app is started with a different database URL environment variable
 - **THEN** the CMS connects to that database without a rebuild
 
+### Requirement: Optional Nuxt DevTools integration
+The project SHALL provide an optional, separately installed DevTools integration that adds Nuxt Atelier panels (content schema, migrations, background jobs, and the admin in a tab) to Nuxt DevTools during `nuxt dev`. It SHALL support DevTools 4 and fall back to the DevTools 3 API that Nuxt 4.6 ships, and SHALL add no code or dependency to production builds or to apps that don't install it.
+
+#### Scenario: DevTools installed
+- **WHEN** an app with the integration installed runs `nuxt dev` with DevTools enabled
+- **THEN** the Nuxt Atelier panels appear in DevTools and show the app's schema and migration status
+
+#### Scenario: Not installed or production
+- **WHEN** the app doesn't install the integration, disables DevTools, or is built for production
+- **THEN** no DevTools code is registered or bundled, and the module behaves the same
+
+### Requirement: DevTools actions are authorized
+DevTools actions that change data (applying migrations, retrying jobs) SHALL be namespaced `atelier:` and run only over DevTools' authorized connection.
+
+#### Scenario: Authorization disabled
+- **WHEN** the app sets `devtools.disableAuthorization`
+- **THEN** the panels still show data, but actions that change data are refused
+
 ### Requirement: Supported Nuxt versions
 The system SHALL support Nuxt 4.6 and later 4.x releases and SHALL support Nuxt 5 including its Nitro v3 server runtime, declaring its supported range in module metadata so unsupported versions fail early.
 

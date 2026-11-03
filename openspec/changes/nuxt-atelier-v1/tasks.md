@@ -45,7 +45,7 @@
 - [x] 5.1 Implement driver layer for `@libsql/client` (SQLite/libSQL/Turso), `pg`, and `mysql2` with Drizzle 1.0 RC, selected by URL scheme; verify connection tests per engine in CI service containers (verified locally against the same images as the CI services, `test/compose.yml`; the CI run itself waits on 1.7)
 - [x] 5.2 Generate Drizzle table definitions from schema descriptors (entries, revisions with JSON block trees, relations, routes, and system tables); verify identical schema behaviour tests pass on SQLite, Postgres, MySQL, MariaDB Also add unique indexes for `unique` fields and supply the DB-backed `isUnique` check that `validateEntry` calls (from 4.3). (tables are pushed with drizzle-kit in the tests until 5.3 adds migrations)
 - [x] 5.3 Implement `atelier migrate generate|apply|status` wrapping drizzle-kit, writing to `server/atelier/migrations/`, with a guard rejecting unannotated drops/renames; verify removing a field produces no drop until annotated (drops and renames are confirmed with `--drop` / `--rename`, written as `-- atelier:confirm` lines that `apply` also checks; drizzle-kit is an optional peer, only `generate` needs it)
-- [ ] 5.4 Implement dev auto-apply of non-destructive changes and production pending-migration detection that refuses writes with a clear error; verify both behaviours in fixture tests (a libSQL connection keeps the old columns for `select *` after another process alters a table: reconnect after applying migrations)
+- [x] 5.4 Implement dev auto-apply of non-destructive changes and production pending-migration detection that refuses writes with a clear error; verify both behaviours in fixture tests (dev generates and applies a migration per schema change, under a cross-process lock; a drop or rename is logged with the `--drop`/`--rename` command instead of applied; production bundles the migrations, logs pending ones and answers CMS writes with 503 via `assertMigrated()`, or applies them with `migrations.autoApply`)
 - [ ] 5.5 Implement atomic saves (entry + blocks + relations + revision) in transactions and optimistic concurrency via `version`; verify failure-injection test leaves no partial data and stale save returns 409 with current version
 - [ ] 5.6 Implement D1 driver behind a capability flag using `batch()` where equivalent and explicit errors otherwise; verify a Workers smoke test and unsupported-operation error test
 - [ ] 5.7 Define and publish the versioned content adapter contract (`nuxt-atelier/adapter`) with required/optional operations and a capability map; implement the built-in database adapter against it; verify a contract test suite runs against the built-in adapter
@@ -240,8 +240,8 @@
 
 - [ ] 24.1 Extend CI matrix: Nuxt latest 4.x, Nuxt 4.x with `compatibilityVersion: 5`, `nuxt-nightly@5x`; databases SQLite/Postgres/MySQL/MariaDB; runtimes Node 22/24/26, Bun, Deno; verify the full matrix is green
 - [ ] 24.2 Add a non-blocking TypeScript 7 + Vue language tools v4 job; verify it runs and reports status without gating merges
-- [ ] 24.3 Add deploy smoke tests: Docker image of the playground, Vercel and Netlify preset builds, Cloudflare Workers build-and-run with documented limitations; verify each produces a running app answering the health endpoint
-- [ ] 24.4 Write docs: deployment guides per target (Node/Docker/VPS, Bun, Deno, Vercel, Netlify, Cloudflare Workers with limitations), upgrade guide, Nuxt 5 readiness notes
+- [ ] 24.3 Add deploy smoke tests: Docker image of the playground, Vercel and Netlify preset builds, Cloudflare Workers build-and-run with documented limitations; build each from the example files the deployment guides show (24.4); verify each produces a running app answering the health endpoint
+- [ ] 24.4 Write docs: a hosting guide per platform with a complete example (build command and preset, config files, env vars, database, migrations on deploy, media storage, scheduled jobs, real-time support, limitations): Node on a VPS (systemd), Docker and Docker Compose with Postgres, Dokploy and Coolify, Fly.io, Railway, Render, Bun, Deno, Vercel, Netlify, Cloudflare Workers (D1 limitations); plus the upgrade guide and Nuxt 5 readiness notes; verify every guide's example files are the ones 24.3 builds
 
 ## 25. Docs demos and hosting (documentation-site)
 
@@ -257,3 +257,11 @@
 - [ ] 26.2 Run the spec-coverage check mapping every spec scenario to at least one automated test; verify no scenario is unmapped
 - [ ] 26.3 Run a security review pass (auth, CSRF, SSRF, XSS, upload, tenant isolation, secrets in logs) and resolve findings; verify the review checklist is complete with no open high/critical items
 - [ ] 26.4 Publish `0.x` pre-releases to npm under the `next` tag with `bun publish` (resolving `catalog:`), using Changesets for versions and generated changelogs only, plus a CI pack check that fails if a tarball still contains `catalog:`; verify packages install into a fresh Nuxt 4.6 app and the quick start works as documented
+
+## 27. Nuxt DevTools integration (module-integration)
+
+- [ ] 27.1 Create `@nuxt-atelier/devtools` (dev dependency, `@nuxt/devtools-kit` 4.1.0) registering only in dev with DevTools enabled: DevTools 4 docks and RPC via `onDevtoolsReady`, falling back to `addCustomTab`/`extendServerRpc` on DevTools 3; verify a dev fixture shows the tabs on DevTools 3 and 4, and nothing registers with DevTools disabled or the package absent
+- [ ] 27.2 Add the Schema and Migrations panels (collections, singletons, fields and tables; applied and pending migrations, the flags a blocked drop/rename needs, an apply action over `atelier:` RPC refused when `devtools.disableAuthorization` is set); verify panel data matches `atelier migrate status` and the apply action is refused without authorization
+- [ ] 27.3 Add the admin tab (`/admin` in an iframe) and, once section 11 exists, the Jobs panel (queue, retry); verify both in the dev fixture
+- [ ] 27.4 Verify a production build of an app with the integration installed contains no DevTools code (bundle scan)
+- [ ] 27.5 Write docs: installing the DevTools integration, the panels, and its security notes

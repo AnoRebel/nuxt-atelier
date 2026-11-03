@@ -4,10 +4,11 @@
 // Destructive statements (dropping or renaming a table or column) only run when the migration confirms
 // each one with a comment line, which `atelier migrate generate --drop/--rename` writes:
 //   -- atelier:confirm drop column atelier_c_articles.summary
-import type { MigrationConfig, MigrationMeta } from 'drizzle-orm/migrator'
+import type { MigrationConfig } from 'drizzle-orm/migrator'
 import type { AtelierDriver, Dialect } from './driver'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import type { SQL } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import { readMigrationFiles } from 'drizzle-orm/migrator'
 
@@ -60,30 +61,38 @@ interface MigrationStatus {
   pending: string[]
 }
 
-function localMigrations(folder: string): MigrationMeta[] {
-  return existsSync(folder) ? readMigrationFiles(config(folder)) : []
+/** The names of a folder's migrations, oldest first. */
+export function localMigrationNames(folder: string): string[] {
+  return existsSync(folder) ? readMigrationFiles(config(folder)).map(m => m.name) : []
 }
 
+async function rows(driver: AtelierDriver, query: SQL): Promise<Record<string, unknown>[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the dialects' raw query methods differ
+  const db = driver.db as any
+  if (driver.dialect === 'sqlite')
+    return db.all(query)
+  return driver.dialect === 'mysql' ? (await db.execute(query))[0] : (await db.execute(query)).rows
+}
+
+/**
+ * Names of the applied migrations. Only a missing migrations table means "none": any other error
+ * propagates, so a failed read can never make applied migrations look pending and run them again.
+ */
 async function appliedNames(driver: AtelierDriver): Promise<string[]> {
+  const exists = driver.dialect === 'sqlite'
+    ? sql`select 1 from sqlite_master where type = 'table' and name = ${MIGRATIONS_TABLE}`
+    : driver.dialect === 'postgres'
+      ? sql`select 1 from information_schema.tables where table_schema = 'public' and table_name = ${MIGRATIONS_TABLE}`
+      : sql`select 1 from information_schema.tables where table_schema = database() and table_name = ${MIGRATIONS_TABLE}`
+  if (!(await rows(driver, exists)).length)
+    return []
   const table = driver.dialect === 'postgres' ? sql`"public".${sql.identifier(MIGRATIONS_TABLE)}` : sql.identifier(MIGRATIONS_TABLE)
-  const query = sql`select name from ${table}`
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the dialects' raw query methods differ
-    const db = driver.db as any
-    const rows: { name: string | null }[] = driver.dialect === 'sqlite'
-      ? await db.all(query)
-      : driver.dialect === 'mysql' ? (await db.execute(query))[0] : (await db.execute(query)).rows
-    return rows.map(r => r.name).filter((n): n is string => !!n)
-  }
-  catch {
-    return [] // no migrations table yet
-  }
+  return (await rows(driver, sql`select name from ${table}`)).map(r => r.name).filter((n): n is string => typeof n === 'string' && !!n)
 }
 
-/** Which of the folder's migrations the database has applied. */
-export async function migrationStatus(driver: AtelierDriver, folder: string): Promise<MigrationStatus> {
+/** Which of the named migrations the database has applied. */
+export async function migrationStatus(driver: AtelierDriver, local: string[]): Promise<MigrationStatus> {
   const applied = new Set(await appliedNames(driver))
-  const local = localMigrations(folder).map(m => m.name)
   return { applied: local.filter(n => applied.has(n)), pending: local.filter(n => !applied.has(n)) }
 }
 
@@ -92,7 +101,7 @@ export async function migrationStatus(driver: AtelierDriver, folder: string): Pr
  * Returns the names it applied.
  */
 export async function applyMigrations(driver: AtelierDriver, folder: string): Promise<string[]> {
-  const { pending } = await migrationStatus(driver, folder)
+  const { pending } = await migrationStatus(driver, localMigrationNames(folder))
   for (const name of pending) {
     const unconfirmed = unconfirmedChanges(readFileSync(join(folder, name, 'migration.sql'), 'utf8'))
     if (unconfirmed.length) {

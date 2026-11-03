@@ -38,7 +38,7 @@ New greenfield project **Nuxt Atelier** (`nuxt-atelier`). It is a Bun monorepo, 
 ## Capabilities
 
 ### New Capabilities
-- `module-integration`: Nuxt module/layer packaging, configuration, the Nuxt version-compatibility contract, and the public-API-only rule.
+- `module-integration`: Nuxt module/layer packaging, configuration, the Nuxt version-compatibility contract, the public-API-only rule, and an optional Nuxt DevTools integration.
 - `content-schema`: Collections, singletons, field types, validation, and generated types.
 - `block-system`: Block definition (macro and schema file), discovery, layer overrides, nesting rules, rendering, and data reconciliation.
 - `visual-editor`: The iframe preview bridge and the visual editing interactions.
@@ -59,7 +59,7 @@ New greenfield project **Nuxt Atelier** (`nuxt-atelier`). It is a Bun monorepo, 
 - `multi-site`: Multiple sites or tenants served from one instance.
 - `ai-assist`: Optional, provider-agnostic AI assistance in the admin.
 - `runtime-performance`: Performance budgets, resource limits, secure defaults, and operational health.
-- `documentation-site`: The Docus-based docs and live demo site, plus user, developer, and contributor documentation.
+- `documentation-site`: The Docus-based docs and live demo site, plus user, developer, and contributor documentation, including per-platform hosting guides with working examples.
 
 ### Modified Capabilities
 _None. This is a greenfield project with no existing specs._
