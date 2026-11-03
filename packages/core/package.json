@@ -36,7 +36,8 @@
     "nuxt": ">=4.6.0"
   },
   "dependencies": {
-    "@nuxt/kit": "catalog:"
+    "@nuxt/kit": "catalog:",
+    "valibot": "catalog:"
   },
   "devDependencies": {
     "@nuxt/schema": "catalog:"

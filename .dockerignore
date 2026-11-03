@@ -1,0 +1,16 @@
+# Allowlist: only what the docs image needs reaches the build context (keeps .mcp.json, .env and .git out)
+*
+!package.json
+!bun.lock
+!bunfig.toml
+!tsconfig.base.json
+!packages/
+!playground/package.json
+!docs/
+**/node_modules
+**/dist
+**/.output
+**/.nuxt
+**/.data
+**/.env
+**/.env.*

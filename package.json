@@ -17,7 +17,8 @@
       "vue": "3.5.44",
       "@nuxt/kit": "^4.6.3",
       "@nuxt/schema": "4.6.3",
-      "nuxt": "4.6.3"
+      "nuxt": "4.6.3",
+      "valibot": "^1.5.0"
     },
     "catalogs": {
       "build": {
@@ -40,6 +41,10 @@
       "docs": {
         "docus": "5.15.0",
         "@takumi-rs/core": "2.19.0"
+      },
+      "test": {
+        "vitest": "5.0.5",
+        "@nuxt/test-utils": "4.3.4"
       }
     }
   },
@@ -47,14 +52,15 @@
     "prepare": "simple-git-hooks",
     "lint": "oxlint && eslint .",
     "lint:fix": "oxlint --fix && eslint . --fix",
-    "typecheck": "tsc --noEmit && vue-tsc --noEmit -p test/vue-tsc",
-    "test": "bun test scripts test/lint",
+    "typecheck": "tsc --noEmit && vue-tsc --noEmit -p test/vue-tsc && bun run --filter @nuxt-atelier/fixture-types typecheck",
+    "test": "vitest run",
     "build": "bun run --filter './packages/*' build",
     "check:pkg": "bun run --filter './packages/*' check:pkg",
     "knip": "knip",
     "docs:build": "bun run --filter @nuxt-atelier/docs build",
     "docs:dev": "bun run --filter @nuxt-atelier/docs dev",
-    "dev": "bun run --filter @nuxt-atelier/playground dev"
+    "dev": "bun run --filter @nuxt-atelier/playground dev",
+    "docs:config": "bun scripts/config-reference.ts"
   },
   "devDependencies": {
     "@nuxt/eslint-config": "catalog:quality",
@@ -70,7 +76,11 @@
     "@arethetypeswrong/cli": "catalog:quality",
     "vue": "catalog:",
     "vue-tsc": "catalog:build",
-    "@changesets/cli": "catalog:quality"
+    "@changesets/cli": "catalog:quality",
+    "vitest": "catalog:test",
+    "@nuxt/test-utils": "catalog:test",
+    "@nuxt/kit": "catalog:",
+    "valibot": "catalog:"
   },
   "simple-git-hooks": {
     "pre-commit": "bunx lint-staged",

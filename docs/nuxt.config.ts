@@ -15,6 +15,10 @@ export default defineNuxtConfig({
     nitroAutoImports: true,
   },
   compatibilityDate: '2026-10-01',
+  nitro: {
+    // Docus sets this to false; a crawled internal link that 404s must fail the build
+    prerender: { failOnError: true },
+  },
   llms: {
     domain: 'https://nuxt-atelier.anorebel.net',
     title: 'Nuxt Atelier',

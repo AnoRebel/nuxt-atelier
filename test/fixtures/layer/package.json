@@ -1,0 +1,12 @@
+{
+  "name": "@nuxt-atelier/fixture-layer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev"
+  },
+  "dependencies": {
+    "@nuxt-atelier/layer": "workspace:*",
+    "nuxt": "catalog:"
+  }
+}

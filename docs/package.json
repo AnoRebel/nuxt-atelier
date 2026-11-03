@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "nuxt dev",
-    "build": "nuxt build",
+    "build": "nuxt build && bun scripts/check-output.ts",
     "preview": "nuxt preview"
   },
   "dependencies": {

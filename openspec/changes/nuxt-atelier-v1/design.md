@@ -289,7 +289,7 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
   - Nuxt 4.x with `future.compatibilityVersion: 5`
   - `nuxt-nightly@5x`, required to pass before the Nuxt 5 GA support claim
   - Databases: SQLite, Postgres, MySQL, MariaDB (service containers)
-  - Runtimes: Node 22/24, Bun, Deno
+  - Runtimes: Node 22/24/26, Bun, Deno
 - **Deploy smoke tests:** Docker, plus Vercel and Netlify preview builds. Cloudflare Workers gets a build-and-run smoke test with documented limitations.
 - **Fixtures** prove UI agnosticism: Nuxt UI site, shadcn-vue site (`shadcn-nuxt` 2.9), plain CSS, Tailwind-only, a layer-override app, multi-site and i18n.
 

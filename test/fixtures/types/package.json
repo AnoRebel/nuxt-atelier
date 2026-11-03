@@ -1,0 +1,15 @@
+{
+  "name": "@nuxt-atelier/fixture-types",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "nuxt": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:build",
+    "vue-tsc": "catalog:build"
+  }
+}

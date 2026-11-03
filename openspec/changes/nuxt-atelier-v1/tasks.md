@@ -8,26 +8,26 @@
 - [x] 1.4 Scaffold packages `packages/core` (`nuxt-atelier`), `admin`, `editor`, `layer`, and adapter package folders with `@nuxt/module-builder` 1.0.3 builds emitting `.mjs` + `.d.mts`; verify `bun run build` produces dist for each and `publint` + `@arethetypeswrong/cli` pass
 - [x] 1.5 Pin the dependency baseline from design D19 in root Bun workspace catalogs (`catalog:` / `catalog:<name>` references in packages; exact pin for `drizzle-orm`/`drizzle-kit` 1.0 RC) and add Dependabot config with grouping; verify `bun pm ls` shows the pinned versions and `knip` reports no unused dependencies
 - [x] 1.6 Verify vue-tsc 3.3.14 against a nested-scoped-slot + `v-for` test component; pin 3.3.14 if it type-checks correctly, otherwise pin 3.3.11, and record the result in the contributing guide's toolchain notes
-- [ ] 1.7 Create the CI workflow skeleton (lint, typecheck, unit, build) on GitHub Actions with Bun 1.4.4 and Node 22/24; verify a pushed branch runs all jobs green
+- [ ] 1.7 Create the CI workflow skeleton (lint, typecheck, unit, build) on GitHub Actions with Bun 1.4.4 and Node 22/24/26; verify a pushed branch runs all jobs green
 - [x] 1.8 Add `CONTRIBUTING.md` (setup, workspace layout, scripts, semantic commits/branches, changesets), `CODE_OF_CONDUCT.md`, `SECURITY.md` (private disclosure), issue/PR templates, and configure Changesets; verify a new contributor can follow `CONTRIBUTING.md` on a clean machine to run lint, build, and tests
 
 ## 2. Documentation site and playground scaffolding
 
 - [x] 2.1 Create `docs/` as a Docus 5.15 app (`extends: ['docus']`) with branding for Nuxt Atelier, sections (Getting Started, Guides for editors, Developer reference, Deployment, Contributing), and workspace dependency on `nuxt-atelier`; verify `bun run docs:build` succeeds
 - [x] 2.2 Create `playground/` Nuxt 4.6 app consuming workspace packages with env-switchable database URL; verify `bun run dev` starts the playground
-- [ ] 2.3 Add a docs CI job that builds the docs against workspace packages and fails on broken links or MDC component errors; verify it fails when a referenced component is removed
-- [ ] 2.4 Add `docs/Dockerfile` (multi-stage: Bun install/build, Node 24 runtime serving `.output/server/index.mjs` on port 3000, non-root user, healthcheck); verify `docker build -f docs/Dockerfile .` and `docker run` serve the docs locally on port 3000
+- [x] 2.3 Add a docs CI job that builds the docs against workspace packages and fails on broken links or MDC component errors; verify it fails when a referenced component is removed
+- [x] 2.4 Add `docs/Dockerfile` (multi-stage: Bun install/build, Node 26 runtime serving `.output/server/index.mjs` on port 3000, non-root user, healthcheck); verify `docker build -f docs/Dockerfile .` and `docker run` serve the docs locally on port 3000
 
 ## 3. Module core and configuration (module-integration)
 
-- [ ] 3.1 Implement `defineNuxtModule` for `nuxt-atelier` with `configKey: 'atelier'`, `meta.compatibility` (`nuxt: '>=4.6.0'`, `server: 'nuxt'`), and defaults (SQLite `.data/atelier.sqlite`, local storage, built-in auth, admin base `/admin`); verify a fixture with only `modules: ['nuxt-atelier']` boots, and a Nuxt 4.5 fixture fails with a compatibility error
-- [ ] 3.2 Implement Valibot schema for module options with actionable error messages at build start; verify unit tests for invalid DB URL scheme, invalid admin base, and invalid limits produce messages naming option, value, and accepted values
-- [ ] 3.3 Map secrets/env settings to `runtimeConfig` (`NUXT_ATELIER_DATABASE_URL`, storage creds, `NUXT_APP_SECRET`, public site URL); verify a built fixture connects to a different DB when started with a changed env var without rebuild
-- [ ] 3.4 Register aliases `#atelier` and `#atelier/server`, `Atelier`-prefixed components dir, `useAtelier*` imports, and type templates; verify `nuxi typecheck` in a fixture resolves them
-- [ ] 3.5 Implement `@nuxt-atelier/layer` with overridable admin page and theme files and emitted `.mjs` `nuxt.config`; verify a fixture overriding a layer file uses the host version and a fixture without the layer works
-- [ ] 3.6 Verify non-invasive integration with an e2e fixture that has its own `app.vue`, layouts, and pages: host pages render unchanged and the module adds no `app.vue` or root id requirement
-- [ ] 3.7 Write docs: installation, zero-config quick start, configuration overview, layer usage, compatibility policy; add the generated configuration reference (task 3.8) to the docs
-- [ ] 3.8 Generate the configuration reference from the options schema and add a CI check that fails when an option is undocumented; verify removing a doc entry fails CI
+- [x] 3.1 Implement `defineNuxtModule` for `nuxt-atelier` with `configKey: 'atelier'`, `meta.compatibility` (`nuxt: '>=4.6.0'`, `server: 'nuxt'`), and defaults (SQLite `.data/atelier.sqlite`, local storage, built-in auth, admin base `/admin`); verify a fixture with only `modules: ['nuxt-atelier']` boots, and a Nuxt 4.5 fixture fails with a compatibility error
+- [x] 3.2 Implement Valibot schema for module options with actionable error messages at build start; verify unit tests for invalid DB URL scheme, invalid admin base, and invalid limits produce messages naming option, value, and accepted values
+- [x] 3.3 Map secrets/env settings to `runtimeConfig` (`NUXT_ATELIER_DATABASE_URL`, storage creds, `NUXT_APP_SECRET`, public site URL); verify a built fixture connects to a different DB when started with a changed env var without rebuild
+- [x] 3.4 Register aliases `#atelier` and `#atelier/server`, `Atelier`-prefixed components dir, `useAtelier*` imports, and type templates; verify `nuxi typecheck` in a fixture resolves them
+- [x] 3.5 Implement `@nuxt-atelier/layer` with overridable admin page and theme files and emitted `.mjs` `nuxt.config`; verify a fixture overriding a layer file uses the host version and a fixture without the layer works (the theme ships now as an overridable `AtelierTheme` component scoping the `--at-*` tokens; the layer's admin page file is added in 15.2, once the admin exists)
+- [x] 3.6 Verify non-invasive integration with an e2e fixture that has its own `app.vue`, layouts, and pages: host pages render unchanged and the module adds no `app.vue` or root id requirement
+- [x] 3.7 Write docs: installation, zero-config quick start, configuration overview, layer usage, compatibility policy; add the generated configuration reference (task 3.8) to the docs
+- [x] 3.8 Generate the configuration reference from the options schema and add a CI check that fails when an option is undocumented; verify removing a doc entry fails CI
 
 ## 4. Content schema (content-schema)
 
@@ -156,10 +156,10 @@
 ## 15. Admin dashboard (admin-dashboard)
 
 - [ ] 15.1 Implement headless admin composables (collections, entry form with TanStack Form + Valibot, permissions, navigation, list state) backed by TanStack Query 5; verify composable unit tests with a mocked API
-- [ ] 15.2 Implement admin mounting: `extendPages` for `${base}/**`, client-only route rules, noindex, teleported `<atelier-admin>` custom element with Shadow DOM, adopted stylesheets, document-level Tailwind `@property` registrations, `UApp` portal into the shadow root; verify e2e that host global CSS does not affect admin and admin CSS is absent on public pages
+- [ ] 15.2 Implement admin mounting: `extendPages` for `${base}/**`, client-only route rules, noindex, teleported `<atelier-admin>` custom element with Shadow DOM, adopted stylesheets, document-level Tailwind `@property` registrations, `UApp` portal into the shadow root; verify e2e that host global CSS does not affect admin and admin CSS is absent on public pages Also add the overridable admin page file to `@nuxt-atelier/layer` (deferred from 3.5).
 - [ ] 15.3 Implement headless mode (core without `@nuxt-atelier/admin`) adding no admin route or assets; verify fixture test
 - [ ] 15.4 Implement the Nuxt UI 4 kit: shell/navigation, collection list views (`UTable` with Nuxt UI-pinned table version, filters, column selection, bulk actions, pagination), schema-generated edit views, field inputs for every field type; verify e2e CRUD for a collection
-- [ ] 15.5 Implement theming via app config (tokens, light/dark, branding) mapped to `--at-*`/`--ui-*`, and name-based component overrides from host/layers; verify brand color and date-input override tests
+- [ ] 15.5 Implement theming via app config (tokens, light/dark, branding) mapped to `--at-*`/`--ui-*`, and name-based component overrides from host/layers; verify brand color and date-input override tests Apply the layer's `AtelierTheme` tokens inside the admin's shadow root (its `<style>` is injected into the document head, which the shadow root doesn't see).
 - [ ] 15.6 Implement custom admin pages with navigation, icons, ordering, permissions, and the shadow-root portal composable for third-party overlays with a dev warning; verify permission-gated page test
 - [ ] 15.7 Implement dashboard home widgets (activity, drafts, scheduled, failed jobs, pending migrations) using `@tanstack/vue-charts` where charts are needed; verify failed-job widget e2e
 - [ ] 15.8 Implement unsaved-changes guard and local recovery copies (VueUse storage); verify crash-recovery e2e
@@ -238,7 +238,7 @@
 
 ## 24. Compatibility and deployment matrix
 
-- [ ] 24.1 Extend CI matrix: Nuxt latest 4.x, Nuxt 4.x with `compatibilityVersion: 5`, `nuxt-nightly@5x`; databases SQLite/Postgres/MySQL/MariaDB; runtimes Node 22/24, Bun, Deno; verify the full matrix is green
+- [ ] 24.1 Extend CI matrix: Nuxt latest 4.x, Nuxt 4.x with `compatibilityVersion: 5`, `nuxt-nightly@5x`; databases SQLite/Postgres/MySQL/MariaDB; runtimes Node 22/24/26, Bun, Deno; verify the full matrix is green
 - [ ] 24.2 Add a non-blocking TypeScript 7 + Vue language tools v4 job; verify it runs and reports status without gating merges
 - [ ] 24.3 Add deploy smoke tests: Docker image of the playground, Vercel and Netlify preset builds, Cloudflare Workers build-and-run with documented limitations; verify each produces a running app answering the health endpoint
 - [ ] 24.4 Write docs: deployment guides per target (Node/Docker/VPS, Bun, Deno, Vercel, Netlify, Cloudflare Workers with limitations), upgrade guide, Nuxt 5 readiness notes
