@@ -11,6 +11,7 @@ describe('runtime config', async () => {
       storageDir: '.data/uploads',
       siteUrl: '',
     })
+    expect(await $fetch('/api/db')).toEqual({ dialect: 'sqlite' })
   })
 
   it('takes env overrides in the same build, without a rebuild', async () => {
@@ -24,5 +25,10 @@ describe('runtime config', async () => {
       storageDir: '/var/uploads',
       siteUrl: 'https://example.com',
     })
+  })
+
+  it.runIf(process.env.ATELIER_TEST_POSTGRES_URL)('connects to another engine from the env alone', async () => {
+    await startServer({ env: { NUXT_ATELIER_DATABASE_URL: process.env.ATELIER_TEST_POSTGRES_URL } })
+    expect(await $fetch('/api/db')).toEqual({ dialect: 'postgres' })
   })
 })

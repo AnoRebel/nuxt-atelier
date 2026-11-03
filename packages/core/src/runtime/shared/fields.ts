@@ -173,6 +173,10 @@ const builders: { [T in Field['type']]: (field: Extract<Field, { type: T }>) => 
   }, 'expected a block'), 'expected a list of blocks'), ...items(f)),
 }
 
+/** Unique text is indexed, and MySQL only indexes bounded strings: every engine caps it the same way. */
+export const UNIQUE_MAX_LENGTH = 255
+const CAPPED_WHEN_UNIQUE = new Set<Field['type']>(['text', 'textarea', 'email', 'url', 'slug'])
+
 const isEmpty = (x: unknown) => x === undefined || x === null || x === '' || (Array.isArray(x) && x.length === 0)
 
 /** The Valibot schema for one field's value. */
@@ -181,6 +185,8 @@ export function fieldSchema(field: Field): Schema {
   if (!build)
     throw new Error(`Unknown field type "${field.type}"`)
   let schema = build(field)
+  if (field.unique && CAPPED_WHEN_UNIQUE.has(field.type) && (field as Length).maxLength === undefined)
+    schema = pipe(schema, v.maxLength(UNIQUE_MAX_LENGTH, `expected at most ${UNIQUE_MAX_LENGTH} characters`))
   if (field.validate) {
     const custom = field.validate
     schema = v.pipeAsync(schema, v.rawCheckAsync(async ({ dataset, addIssue }) => {

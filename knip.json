@@ -47,6 +47,7 @@
   },
   "ignoreUnresolved": [
     "#imports",
-    "#atelier-schema"
+    "#atelier-schema",
+    "#atelier/server"
   ]
 }

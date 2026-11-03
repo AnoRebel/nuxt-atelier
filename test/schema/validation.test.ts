@@ -2,6 +2,8 @@ import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
 import * as f from '../../packages/core/src/runtime/shared/fields'
 
+const alwaysUnique = async () => true
+
 const errors = async (fields: Parameters<typeof f.validateEntry>[0], data: unknown, options?: f.ValidateOptions) => {
   const result = await f.validateEntry(fields, data, options)
   return result.success ? [] : result.errors
@@ -65,6 +67,13 @@ describe('declarative validation', () => {
     expect(await errors(fields, {}, { isUnique })).toEqual([])
     expect(asked).toEqual([['slug', 'hello'], ['slug', 'other']])
     await expect(f.validateEntry(fields, { slug: 'x' })).rejects.toThrow('no isUnique check')
+  })
+
+  it('unique: caps text at 255 characters unless maxLength is set, as on MySQL', async () => {
+    expect(await errors({ s: f.text({ unique: true }) }, { s: 'a'.repeat(256) }, { isUnique: alwaysUnique }))
+      .toEqual([{ path: 's', message: 'expected at most 255 characters' }])
+    expect(await errors({ s: f.text({ unique: true, maxLength: 300 }) }, { s: 'a'.repeat(256) }, { isUnique: alwaysUnique })).toEqual([])
+    expect(await errors({ s: f.text() }, { s: 'a'.repeat(256) })).toEqual([])
   })
 })
 

@@ -33,13 +33,28 @@
     "check:pkg": "publint --pack bun && attw --pack . --profile esm-only"
   },
   "peerDependencies": {
-    "nuxt": ">=4.6.0"
+    "nuxt": ">=4.6.0",
+    "pg": "catalog:db",
+    "mysql2": "catalog:db"
   },
   "dependencies": {
     "@nuxt/kit": "catalog:",
-    "valibot": "catalog:"
+    "valibot": "catalog:",
+    "drizzle-orm": "catalog:db",
+    "@libsql/client": "catalog:db"
   },
   "devDependencies": {
-    "@nuxt/schema": "catalog:"
+    "@nuxt/schema": "catalog:",
+    "pg": "catalog:db",
+    "mysql2": "catalog:db",
+    "@types/pg": "catalog:db"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    },
+    "mysql2": {
+      "optional": true
+    }
   }
 }

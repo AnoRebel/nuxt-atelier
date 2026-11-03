@@ -47,6 +47,11 @@ export default createConfigForNuxt({
     rules: { 'vue/multi-word-component-names': 'off' },
   },
   {
+    // tests drive the dialect-generic query builders directly
+    files: ['test/storage/**/*.ts'],
+    rules: { '@typescript-eslint/no-explicit-any': 'off' },
+  },
+  {
     ignores: ['openspec/**', '**/dist/**', '**/.output/**', '**/.nuxt/**', '**/.data/**', '**/*.fixture.ts'],
   },
 )

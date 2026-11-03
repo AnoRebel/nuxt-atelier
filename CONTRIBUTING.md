@@ -40,10 +40,24 @@ bun run build
 | `bun run lint` | oxlint, then ESLint (includes the public-API-only rule) |
 | `bun run lint:fix` | the same, with autofix |
 | `bun run typecheck` | TypeScript checks |
-| `bun run test` | unit tests |
+| `bun run test` | unit, integration and e2e tests |
 | `bun run build` | builds every package |
 | `bun run check:pkg` | `publint` and `@arethetypeswrong/cli` on every package |
 | `bun run knip` | unused files, exports, dependencies and catalog entries |
+
+### Database tests
+
+The storage tests always run against SQLite. To run them against PostgreSQL, MySQL and MariaDB as well, start the test databases (Docker) and set their URLs:
+
+```bash
+docker compose -f test/compose.yml up -d --wait
+export ATELIER_TEST_POSTGRES_URL=postgres://atelier:atelier@127.0.0.1:54932/atelier
+export ATELIER_TEST_MYSQL_URL=mysql://atelier:atelier@127.0.0.1:53906/atelier
+export ATELIER_TEST_MARIADB_URL=mariadb://atelier:atelier@127.0.0.1:53907/atelier
+bun run test
+```
+
+CI runs every engine and fails if one of these URLs is missing.
 
 ## Toolchain notes
 

@@ -45,6 +45,14 @@
       "test": {
         "vitest": "5.0.5",
         "@nuxt/test-utils": "4.3.4"
+      },
+      "db": {
+        "drizzle-orm": "1.0.0-rc.5",
+        "@libsql/client": "^0.18.0",
+        "pg": "^8.23.1",
+        "mysql2": "^3.24.6",
+        "@types/pg": "8.23.1",
+        "drizzle-kit": "1.0.0-rc.5"
       }
     }
   },
@@ -80,7 +88,9 @@
     "vitest": "catalog:test",
     "@nuxt/test-utils": "catalog:test",
     "@nuxt/kit": "catalog:",
-    "valibot": "catalog:"
+    "valibot": "catalog:",
+    "drizzle-kit": "catalog:db",
+    "drizzle-orm": "catalog:db"
   },
   "simple-git-hooks": {
     "pre-commit": "bunx lint-staged",

@@ -20,6 +20,27 @@ jobs:
       fail-fast: false
       matrix:
         node: [22, 24, 26]
+    # the storage tests run against every engine; same images as test/compose.yml
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env: { POSTGRES_USER: atelier, POSTGRES_PASSWORD: atelier, POSTGRES_DB: atelier }
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U atelier" --health-interval 2s --health-retries 30
+      mysql:
+        image: mysql:9.7
+        env: { MYSQL_USER: atelier, MYSQL_PASSWORD: atelier, MYSQL_DATABASE: atelier, MYSQL_ROOT_PASSWORD: root }
+        ports: ['3306:3306']
+        options: --health-cmd "mysqladmin ping -h 127.0.0.1" --health-interval 2s --health-retries 60
+      mariadb:
+        image: mariadb:12.3
+        env: { MARIADB_USER: atelier, MARIADB_PASSWORD: atelier, MARIADB_DATABASE: atelier, MARIADB_ROOT_PASSWORD: root }
+        ports: ['3307:3306']
+        options: --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 2s --health-retries 60
+    env:
+      ATELIER_TEST_POSTGRES_URL: postgres://atelier:atelier@127.0.0.1:5432/atelier
+      ATELIER_TEST_MYSQL_URL: mysql://atelier:atelier@127.0.0.1:3306/atelier
+      ATELIER_TEST_MARIADB_URL: mariadb://atelier:atelier@127.0.0.1:3307/atelier
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

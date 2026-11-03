@@ -26,6 +26,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     const config = nuxt.options.runtimeConfig
     config.atelier = {
       databaseUrl: resolved.database.url, // NUXT_ATELIER_DATABASE_URL
+      dbPoolSize: resolved.limits.dbPoolSize,
       storage: { dir: resolved.storage.dir }, // NUXT_ATELIER_STORAGE_DIR
       ...config.atelier as object | undefined,
     }
