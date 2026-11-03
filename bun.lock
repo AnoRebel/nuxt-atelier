@@ -78,24 +78,31 @@
     "packages/core": {
       "name": "nuxt-atelier",
       "version": "0.0.0",
+      "bin": {
+        "atelier": "./dist/cli/index.mjs",
+      },
       "dependencies": {
         "@libsql/client": "catalog:db",
         "@nuxt/kit": "catalog:",
         "drizzle-orm": "catalog:db",
+        "jiti": "catalog:",
         "valibot": "catalog:",
       },
       "devDependencies": {
         "@nuxt/schema": "catalog:",
         "@types/pg": "catalog:db",
+        "drizzle-kit": "catalog:db",
         "mysql2": "catalog:db",
         "pg": "catalog:db",
       },
       "peerDependencies": {
+        "drizzle-kit": "catalog:db",
         "mysql2": "catalog:db",
         "nuxt": ">=4.6.0",
         "pg": "catalog:db",
       },
       "optionalPeers": [
+        "drizzle-kit",
         "mysql2",
         "pg",
       ],
@@ -208,6 +215,12 @@
         "nuxt": "catalog:",
       },
     },
+    "test/fixtures/migrate": {
+      "name": "@nuxt-atelier/fixture-migrate",
+      "dependencies": {
+        "nuxt": "catalog:",
+      },
+    },
     "test/fixtures/schema": {
       "name": "@nuxt-atelier/fixture-schema",
       "dependencies": {
@@ -239,6 +252,7 @@
   "catalog": {
     "@nuxt/kit": "^4.6.3",
     "@nuxt/schema": "4.6.3",
+    "jiti": "^2.7.0",
     "nuxt": "4.6.3",
     "valibot": "^1.5.0",
     "vue": "3.5.44",
@@ -702,6 +716,8 @@
     "@nuxt-atelier/fixture-layer": ["@nuxt-atelier/fixture-layer@workspace:test/fixtures/layer"],
 
     "@nuxt-atelier/fixture-layer-override": ["@nuxt-atelier/fixture-layer-override@workspace:test/fixtures/layer-override"],
+
+    "@nuxt-atelier/fixture-migrate": ["@nuxt-atelier/fixture-migrate@workspace:test/fixtures/migrate"],
 
     "@nuxt-atelier/fixture-schema": ["@nuxt-atelier/fixture-schema@workspace:test/fixtures/schema"],
 

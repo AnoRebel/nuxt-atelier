@@ -22,6 +22,10 @@ describe('module options', () => {
     })
   })
 
+  it('rejects options that aren\'t an object with a readable message', () => {
+    expect(() => resolveOptions(undefined as never)).toThrow('[nuxt-atelier] Invalid module options:\n  - atelier = undefined:')
+  })
+
   it('keeps valid overrides', () => {
     const o = resolveOptions({ database: { url: 'postgres://u@db/cms' }, admin: { base: '/cms/admin' }, limits: { maxPageSize: 50 } })
     expect([o.database.url, o.admin.base, o.limits.maxPageSize, o.limits.dbPoolSize]).toEqual(['postgres://u@db/cms', '/cms/admin', 50, 10])
