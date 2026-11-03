@@ -1,0 +1,11 @@
+{
+  "name": "@nuxt-atelier/fixture-dev-migrate",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev"
+  },
+  "dependencies": {
+    "nuxt": "catalog:"
+  }
+}

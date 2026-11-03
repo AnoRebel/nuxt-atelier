@@ -4,7 +4,7 @@ import type { Dialect } from '../runtime/server/db/driver'
 import { relative, resolve } from 'node:path'
 import process from 'node:process'
 import { parseArgs } from 'node:util'
-import { applyProjectMigrations, generateMigration, loadProject, projectMigrationStatus } from './migrate'
+import { applyProjectMigrations, generateMigration, loadProject, projectMigrationStatus, withMigrationLock } from './migrate'
 
 const USAGE = `Usage: atelier migrate <command> [options]
 
@@ -45,11 +45,11 @@ async function main() {
 
   const project = await loadProject(resolve(values.root))
   if (command === 'generate') {
-    const folder = await generateMigration(project, { dialect: values.dialect as Dialect | undefined, name: values.name, drop: values.drop, rename: values.rename })
+    const folder = await withMigrationLock(project.databaseUrl, () => generateMigration(project, { dialect: values.dialect as Dialect | undefined, name: values.name, drop: values.drop, rename: values.rename }))
     console.log(folder ? `Wrote ${relative(process.cwd(), folder)}/migration.sql: review it and commit it.` : 'No schema changes.')
   }
   else if (command === 'apply') {
-    const applied = await applyProjectMigrations(project, values.dialect as Dialect | undefined)
+    const applied = await withMigrationLock(project.databaseUrl, () => applyProjectMigrations(project, values.dialect as Dialect | undefined))
     console.log(applied.length ? `Applied:\n${applied.map(n => `  ${n}`).join('\n')}` : 'Database is up to date.')
   }
   else if (command === 'status') {

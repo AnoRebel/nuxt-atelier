@@ -3,3 +3,8 @@ declare module '#atelier-schema' {
   export const collections: Record<string, import('./types').CollectionDefinition>
   export const singletons: Record<string, import('./types').SingletonDefinition>
 }
+
+// The app's migrations, bundled at build time by dialect
+declare module '#atelier-migrations' {
+  export const migrations: Partial<Record<import('./db/driver').Dialect, { name: string, sql: string }[]>>
+}

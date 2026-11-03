@@ -3,7 +3,7 @@ import { $fetch, setup } from '@nuxt/test-utils/e2e'
 import { describe, expect, it } from 'vitest'
 
 describe('starter layer', async () => {
-  await setup({ rootDir: fileURLToPath(new URL('../fixtures/layer', import.meta.url)) })
+  await setup({ setupTimeout: 300_000, rootDir: fileURLToPath(new URL('../fixtures/layer', import.meta.url)) })
 
   it('provides the module and the theme', async () => {
     const html = (await $fetch<string>('/')).replace(/<!--.*?-->/g, '')

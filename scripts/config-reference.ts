@@ -62,6 +62,7 @@ These take effect in a built app without rebuilding:
 | Environment variable | Overrides |
 |---|---|
 | \`NUXT_ATELIER_DATABASE_URL\` | \`database.url\` |
+| \`NUXT_ATELIER_MIGRATIONS_AUTO_APPLY\` | \`migrations.autoApply\` |
 | \`NUXT_ATELIER_STORAGE_DIR\` | \`storage.dir\` |
 | \`NUXT_PUBLIC_ATELIER_SITE_URL\` | the public site URL |
 | \`NUXT_APP_SECRET\` | the session secret (Nuxt's \`runtimeConfig.appSecret\`) |

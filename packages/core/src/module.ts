@@ -1,8 +1,10 @@
 import type { NuxtModule } from '@nuxt/schema'
 import type { ModuleOptions } from './options'
-import { addComponentsDir, addImports, addServerTemplate, addTypeTemplate, createResolver, defineNuxtModule } from '@nuxt/kit'
+import { addComponentsDir, addImports, addServerPlugin, addServerTemplate, addTypeTemplate, createResolver, defineNuxtModule } from '@nuxt/kit'
+import { setupDevMigrations } from './cli/dev'
 import { resolveOptions } from './options'
 import { registryTypes, schemaTemplate } from './schema/discover'
+import { migrationsTemplate } from './schema/migrations'
 
 export type { ModuleOptions, ResolvedOptions } from './options'
 
@@ -27,6 +29,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     config.atelier = {
       databaseUrl: resolved.database.url, // NUXT_ATELIER_DATABASE_URL
       dbPoolSize: resolved.limits.dbPoolSize,
+      migrations: { autoApply: resolved.migrations.autoApply }, // NUXT_ATELIER_MIGRATIONS_AUTO_APPLY
       storage: { dir: resolved.storage.dir }, // NUXT_ATELIER_STORAGE_DIR
       ...config.atelier as object | undefined,
     }
@@ -43,12 +46,20 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
 
     // Collections and singletons: rescanned on every Nitro (re)build, so new files are picked up in dev
     addServerTemplate({ filename: '#atelier-schema', getContents: schemaTemplate })
+    addServerTemplate({ filename: '#atelier-migrations', getContents: () => migrationsTemplate(nuxt.options.rootDir) })
+    addServerPlugin(resolve('./runtime/server/plugins/migrations'))
+    if (nuxt.options.dev)
+      setupDevMigrations(nuxt)
+
     const types = resolve('./runtime/server/types')
     addTypeTemplate({
       filename: 'types/atelier-schema.d.ts',
       getContents: () => `declare module '#atelier-schema' {
   export const collections: Record<string, import(${JSON.stringify(types)}).CollectionDefinition>
   export const singletons: Record<string, import(${JSON.stringify(types)}).SingletonDefinition>
+}
+declare module '#atelier-migrations' {
+  export const migrations: Partial<Record<'sqlite' | 'postgres' | 'mysql', { name: string, sql: string }[]>>
 }
 `,
     }, { nitro: true, nuxt: true }) // nuxt too: typed $fetch pulls server routes into the app project

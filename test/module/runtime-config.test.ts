@@ -3,7 +3,7 @@ import { $fetch, setup, startServer } from '@nuxt/test-utils/e2e'
 import { describe, expect, it } from 'vitest'
 
 describe('runtime config', async () => {
-  await setup({ rootDir: fileURLToPath(new URL('../fixtures/basic', import.meta.url)) })
+  await setup({ setupTimeout: 300_000, rootDir: fileURLToPath(new URL('../fixtures/basic', import.meta.url)) })
 
   it('uses the build-time defaults', async () => {
     expect(await $fetch('/api/runtime-config')).toEqual({

@@ -25,6 +25,9 @@ export const optionsSchema = v.strictObject({
       v.description('Database URL: `file:` (SQLite), `libsql:` (libSQL/Turso), `postgres:`, `mysql:` or `mariadb:`. Override at runtime with `NUXT_ATELIER_DATABASE_URL`.'),
     ), 'file:.data/atelier.sqlite'),
   }), {}),
+  migrations: v.optional(v.strictObject({
+    autoApply: v.optional(v.pipe(v.boolean('expected true or false'), v.description('Apply pending migrations when the production server starts. When off, run `atelier migrate apply`; until then CMS writes are refused. Override at runtime with `NUXT_ATELIER_MIGRATIONS_AUTO_APPLY`.')), false),
+  }), {}),
   storage: v.optional(v.strictObject({
     driver: v.optional(v.pipe(v.picklist(['local'], 'accepted: "local"'), v.description('Media storage driver.')), 'local'),
     dir: v.optional(v.pipe(v.string('expected a directory path'), v.nonEmpty('expected a directory path'), v.description('Upload directory, relative to the app root. Override at runtime with `NUXT_ATELIER_STORAGE_DIR`.')), '.data/uploads'),

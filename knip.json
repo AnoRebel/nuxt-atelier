@@ -18,7 +18,8 @@
       "entry": [
         "src/runtime/*/index.ts",
         "src/cli/index.ts",
-        "build.config.ts"
+        "build.config.ts",
+        "src/runtime/server/plugins/*.ts"
       ]
     },
     "packages/layer": {},
@@ -45,11 +46,23 @@
         "{,layers/*/}server/atelier/{collections,singletons}/*.ts",
         "{app,server}/type-checks.ts"
       ]
+    },
+    "test/fixtures/pending": {
+      "entry": [
+        "server/atelier/collections/*.ts",
+        "server/api/*.ts"
+      ]
+    },
+    "test/fixtures/dev-migrate": {
+      "entry": [
+        "server/atelier/collections/*.ts"
+      ]
     }
   },
   "ignoreUnresolved": [
     "#imports",
     "#atelier-schema",
-    "#atelier/server"
+    "#atelier/server",
+    "#atelier-migrations"
   ]
 }
