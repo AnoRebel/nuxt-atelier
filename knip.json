@@ -14,6 +14,11 @@
         "src/module.ts"
       ]
     },
+    "packages/core": {
+      "entry": [
+        "src/runtime/*/index.ts"
+      ]
+    },
     "packages/layer": {},
     "docs": {
       "ignoreDependencies": [
@@ -29,9 +34,19 @@
       "entry": [
         "app/components/*.vue"
       ]
+    },
+    "test/fixtures/schema": {
+      "ignoreDependencies": [
+        "vue-tsc"
+      ],
+      "entry": [
+        "{,layers/*/}server/atelier/{collections,singletons}/*.ts",
+        "{app,server}/type-checks.ts"
+      ]
     }
   },
   "ignoreUnresolved": [
-    "#imports"
+    "#imports",
+    "#atelier-schema"
   ]
 }

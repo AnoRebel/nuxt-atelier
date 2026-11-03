@@ -1,0 +1,69 @@
+import { readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { getLayerDirectories } from '@nuxt/kit'
+
+type SchemaKind = 'collections' | 'singletons'
+
+const NAME_RE = /^[a-z][a-z0-9-]*$/
+const FILE_RE = /^(.+)\.(?:ts|mts|js|mjs)$/
+
+/**
+ * Definition files by name, from `server/atelier/{collections,singletons}/` in the app and every layer.
+ * The file name is the content type's name; on a clash the highest-priority layer (the app first) wins.
+ */
+function discoverSchema(kind: SchemaKind): Map<string, string> {
+  const found = new Map<string, string>()
+  for (const layer of getLayerDirectories()) {
+    const dir = join(layer.server, 'atelier', kind)
+    let files: string[]
+    try {
+      files = readdirSync(dir)
+    }
+    catch {
+      continue
+    }
+    for (const file of files.toSorted()) {
+      const name = FILE_RE.exec(file)?.[1]
+      if (!name || name.endsWith('.d'))
+        continue
+      if (!NAME_RE.test(name))
+        throw new Error(`[nuxt-atelier] ${join(dir, file)}: "${name}" is not a valid ${kind.slice(0, -1)} name; use lowercase letters, digits and "-", starting with a letter`)
+      if (!found.has(name))
+        found.set(name, join(dir, file))
+    }
+  }
+  return found
+}
+
+/** The `#atelier-schema` server module: every definition, imported by name. */
+export function schemaTemplate(): string {
+  const lines: string[] = []
+  const exports: string[] = []
+  for (const kind of ['collections', 'singletons'] as const) {
+    const entries = [...discoverSchema(kind)].map(([name, path], i) => {
+      lines.push(`import ${kind}${i} from ${JSON.stringify(path)}`)
+      return `  ${JSON.stringify(name)}: ${kind}${i},`
+    })
+    exports.push(`export const ${kind} = {\n${entries.join('\n')}\n}`)
+  }
+  return [...lines, '', ...exports, ''].join('\n')
+}
+
+const registryMembers = (kind: SchemaKind) => [...discoverSchema(kind)]
+  .map(([name, path]) => `    ${JSON.stringify(name)}: typeof import(${JSON.stringify(path.replace(/\.[mc]?[jt]s$/, ''))}).default`)
+  .join('\n')
+
+/** Declarations filling `AtelierCollections` / `AtelierSingletons` with each definition's type. */
+export function registryTypes(inferModule: string): string {
+  return `export {}
+
+declare module ${JSON.stringify(inferModule)} {
+  interface AtelierCollections {
+${registryMembers('collections')}
+  }
+  interface AtelierSingletons {
+${registryMembers('singletons')}
+  }
+}
+`
+}

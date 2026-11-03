@@ -52,7 +52,7 @@
     "prepare": "simple-git-hooks",
     "lint": "oxlint && eslint .",
     "lint:fix": "oxlint --fix && eslint . --fix",
-    "typecheck": "tsc --noEmit && vue-tsc --noEmit -p test/vue-tsc && bun run --filter @nuxt-atelier/fixture-types typecheck",
+    "typecheck": "tsc --noEmit && vue-tsc --noEmit -p test/vue-tsc && bun run --filter '@nuxt-atelier/fixture-{types,schema}' typecheck",
     "test": "vitest run",
     "build": "bun run --filter './packages/*' build",
     "check:pkg": "bun run --filter './packages/*' check:pkg",
