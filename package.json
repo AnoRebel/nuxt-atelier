@@ -45,7 +45,8 @@
       },
       "test": {
         "vitest": "5.0.5",
-        "@nuxt/test-utils": "4.3.4"
+        "@nuxt/test-utils": "4.3.4",
+        "miniflare": "4.20260730.0"
       },
       "db": {
         "drizzle-orm": "1.0.0-rc.5",
@@ -91,7 +92,8 @@
     "@nuxt/kit": "catalog:",
     "valibot": "catalog:",
     "drizzle-kit": "catalog:db",
-    "drizzle-orm": "catalog:db"
+    "drizzle-orm": "catalog:db",
+    "miniflare": "catalog:test"
   },
   "simple-git-hooks": {
     "pre-commit": "bunx lint-staged",

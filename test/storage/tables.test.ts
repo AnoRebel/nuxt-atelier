@@ -1,16 +1,12 @@
 import type { AtelierDriver } from '../../packages/core/src/runtime/server/db/driver'
-import { execFile } from 'node:child_process'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { promisify } from 'node:util'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { connect } from '../../packages/core/src/runtime/server/db/driver'
 import { fromRow, getRow, insertRow, isUnique, toRow } from '../../packages/core/src/runtime/server/db/entries'
 import { buildTables, collectionTable, indexName } from '../../packages/core/src/runtime/server/db/tables'
 import * as f from '../../packages/core/src/runtime/shared/fields'
-import { engines, resetDatabase } from './env'
+import { connectEngine, createTables, engines, resetDatabase } from './env'
 
 const fields = {
   title: f.text({ unique: true }),
@@ -48,7 +44,6 @@ const full = {
 const dir = mkdtempSync(join(tmpdir(), 'atelier-schema-'))
 const schemaFile = join(dir, 'schema.json')
 writeFileSync(schemaFile, JSON.stringify(schema))
-const pushScript = fileURLToPath(new URL('./push.ts', import.meta.url))
 
 describe.each(engines)('%s tables', (_, url) => {
   let driver: AtelierDriver
@@ -56,9 +51,9 @@ describe.each(engines)('%s tables', (_, url) => {
   let posts: any
 
   beforeAll(async () => {
-    driver = await connect(url)
+    driver = await connectEngine(url)
     await resetDatabase(driver)
-    await promisify(execFile)('bun', [pushScript, driver.dialect, url, schemaFile])
+    await createTables(driver, url, schemaFile)
     tables = buildTables(driver.dialect, schema)
     posts = tables[collectionTable('blog-posts')]
   }, 120_000)

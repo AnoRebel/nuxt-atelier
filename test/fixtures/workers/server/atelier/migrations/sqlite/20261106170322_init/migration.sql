@@ -1,0 +1,44 @@
+CREATE TABLE `atelier_singletons` (
+	`name` text PRIMARY KEY,
+	`data` text NOT NULL,
+	`_version` integer NOT NULL,
+	`_updated_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_relations` (
+	`source` text NOT NULL,
+	`source_id` text NOT NULL,
+	`field` text NOT NULL,
+	`position` integer NOT NULL,
+	`target` text NOT NULL,
+	`target_id` text NOT NULL,
+	CONSTRAINT `atelier_relations_pk` PRIMARY KEY(`source`, `source_id`, `field`, `position`)
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_revisions` (
+	`_id` text PRIMARY KEY,
+	`source` text NOT NULL,
+	`source_id` text NOT NULL,
+	`_version` integer NOT NULL,
+	`data` text NOT NULL,
+	`_created_at` text NOT NULL,
+	`author_id` text
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_routes` (
+	`path` text PRIMARY KEY,
+	`source` text NOT NULL,
+	`source_id` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_c_notes` (
+	`_id` text PRIMARY KEY,
+	`_version` integer NOT NULL,
+	`_created_at` text NOT NULL,
+	`_updated_at` text NOT NULL,
+	`title` text
+);
+--> statement-breakpoint
+CREATE INDEX `atelier_relations_target_idx` ON `atelier_relations` (`target`,`target_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `atelier_revisions_source_version_idx` ON `atelier_revisions` (`source`,`source_id`,`_version`);--> statement-breakpoint
+CREATE INDEX `atelier_routes_source_idx` ON `atelier_routes` (`source`,`source_id`);

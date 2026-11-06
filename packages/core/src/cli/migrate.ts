@@ -14,6 +14,7 @@ import { resolveOptions } from '../options'
 import { connect, dialectOf } from '../runtime/server/db/driver'
 import { applyMigrations, destructiveChanges, localMigrationNames, migrationsFolder, migrationStatus } from '../runtime/server/db/migrations'
 import { buildTables, collectionTable } from '../runtime/server/db/tables'
+import { allDrivers } from '../runtime/server/db/loaders'
 import { discoverSchema } from '../schema/discover'
 
 const runtime = (path: string) => fileURLToPath(new URL(`../runtime/server/${path}`, import.meta.url))
@@ -170,7 +171,7 @@ ${tables.map((name, i) => `export const t${i} = t[${JSON.stringify(name)}]`).joi
 }
 
 export async function applyProjectMigrations(project: Project, dialect = dialectOf(project.databaseUrl)) {
-  const driver = await connect(project.databaseUrl)
+  const driver = await connect(project.databaseUrl, { loaders: allDrivers })
   try {
     return await applyMigrations(driver, migrationsFolder(project.rootDir, dialect))
   }
@@ -180,7 +181,7 @@ export async function applyProjectMigrations(project: Project, dialect = dialect
 }
 
 export async function projectMigrationStatus(project: Project) {
-  const driver = await connect(project.databaseUrl)
+  const driver = await connect(project.databaseUrl, { loaders: allDrivers })
   try {
     return await migrationStatus(driver, localMigrationNames(migrationsFolder(project.rootDir, driver.dialect)))
   }

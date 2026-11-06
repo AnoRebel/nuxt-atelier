@@ -8,3 +8,8 @@ declare module '#atelier-schema' {
 declare module '#atelier-migrations' {
   export const migrations: Partial<Record<import('./db/driver').Dialect, { name: string, sql: string }[]>>
 }
+
+// The database drivers the app installed, chosen at build time
+declare module '#atelier-drivers' {
+  export const drivers: import('./db/driver').DriverLoaders
+}

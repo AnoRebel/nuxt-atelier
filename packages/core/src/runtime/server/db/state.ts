@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { migrations } from '#atelier-migrations'
 import { createError, useRuntimeConfig } from 'nuxt/server'
-import { applyMigrations, migrationStatus } from './migrations'
+import { applyMigrationList, applyMigrations, migrationStatus } from './migrations'
 
 let check: Promise<string[]> | undefined
 
@@ -35,7 +35,8 @@ export function pendingMigrations(driver: () => Promise<AtelierDriver>): Promise
     if (!pending.length)
       return []
     if (useRuntimeConfig().atelier.migrations.autoApply) {
-      const applied = await applyBundled(db, bundled)
+      // D1 (no transactions, no filesystem) applies them as one batch
+      const applied = db.capabilities.transactions ? await applyBundled(db, bundled) : await applyMigrationList(db, bundled)
       console.info(`[nuxt-atelier] Applied migrations: ${applied.join(', ')}`)
       return []
     }

@@ -4,6 +4,7 @@ import { addComponentsDir, addImports, addServerPlugin, addServerTemplate, addTy
 import { setupDevMigrations } from './cli/dev'
 import { resolveOptions } from './options'
 import { registryTypes, schemaTemplate } from './schema/discover'
+import { driversTemplate } from './schema/drivers'
 import { migrationsTemplate } from './schema/migrations'
 
 export type { ModuleOptions, ResolvedOptions } from './options'
@@ -46,6 +47,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
 
     // Collections and singletons: rescanned on every Nitro (re)build, so new files are picked up in dev
     addServerTemplate({ filename: '#atelier-schema', getContents: schemaTemplate })
+    addServerTemplate({ filename: '#atelier-drivers', getContents: () => driversTemplate(nuxt.options.rootDir, resolved.database.url) })
     addServerTemplate({ filename: '#atelier-migrations', getContents: () => migrationsTemplate(nuxt.options.rootDir) })
     addServerPlugin(resolve('./runtime/server/plugins/migrations'))
     if (nuxt.options.dev)
@@ -57,6 +59,9 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       getContents: () => `declare module '#atelier-schema' {
   export const collections: Record<string, import(${JSON.stringify(types)}).CollectionDefinition>
   export const singletons: Record<string, import(${JSON.stringify(types)}).SingletonDefinition>
+}
+declare module '#atelier-drivers' {
+  export const drivers: import(${JSON.stringify(resolve('./runtime/server/db/driver'))}).DriverLoaders
 }
 declare module '#atelier-migrations' {
   export const migrations: Partial<Record<'sqlite' | 'postgres' | 'mysql', { name: string, sql: string }[]>>
