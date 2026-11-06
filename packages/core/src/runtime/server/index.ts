@@ -1,12 +1,15 @@
 // `#atelier/server`: the server-side public API
 import type { AtelierDriver } from './db/driver'
 import type { CollectionDefinition, SingletonDefinition } from './types'
-import { useRuntimeConfig } from 'nuxt/server'
+import { createError, useRuntimeConfig } from 'nuxt/server'
 import { connect } from './db/driver'
 import { assertMigrated as assertMigratedWith } from './db/state'
+import { ConflictError, NotFoundError, ValidationError } from './db/store'
 
 export * from './define'
 export type { AtelierDriver, Dialect } from './db/driver'
+export { ConflictError, NotFoundError, ValidationError } from './db/store'
+export type { Entry, SaveInput } from './db/store'
 
 /** Private Nuxt Atelier runtime config (`runtimeConfig.atelier`), server only. */
 export function useAtelierServerConfig() {
@@ -41,4 +44,14 @@ export type { AtelierCollections, AtelierSingletons, BlockInstance, CollectionEn
 /** Throws a 503 while the production database has pending migrations. Call it before any CMS write. */
 export function assertMigrated(): Promise<void> {
   return assertMigratedWith(useAtelierDatabase)
+}
+
+/**
+ * The HTTP error for a failed save: 409 with `currentVersion`, 422 with field `errors`, or 404, each with
+ * its message (Nuxt hides the message of errors it didn't create). Anything else is returned unchanged.
+ */
+export function toHttpError(error: unknown): unknown {
+  if (error instanceof ConflictError || error instanceof ValidationError || error instanceof NotFoundError)
+    return createError({ status: error.statusCode, message: error.message, data: 'data' in error ? error.data : undefined })
+  return error
 }

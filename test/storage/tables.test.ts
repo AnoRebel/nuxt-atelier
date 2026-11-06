@@ -63,40 +63,40 @@ describe.each(engines)('%s tables', (_, url) => {
     posts = tables[collectionTable('blog-posts')]
   }, 120_000)
   afterAll(() => driver?.close())
-  const check = (id?: string) => ({ isUnique: (field: string, value: unknown) => isUnique(driver, posts, field, value, id) })
+  const check = (id?: string) => ({ isUnique: (field: string, value: unknown) => isUnique(driver.db, posts, field, value, id) })
 
   it('creates the system and collection tables', () => {
     expect(Object.keys(tables).toSorted()).toEqual(['atelier_c_authors', 'atelier_c_blog_posts', 'atelier_relations', 'atelier_revisions', 'atelier_routes', 'atelier_singletons'])
   })
 
   it('round-trips every column type unchanged', async () => {
-    await insertRow(driver, posts, { ...meta('p1'), ...toRow(fields, { ...full, author: 'a1' }) })
-    const row = await getRow(driver, posts, 'p1')
+    await insertRow(driver.db, posts, { ...meta('p1'), ...toRow(fields, { ...full, author: 'a1' }) })
+    const row = await getRow(driver.db, posts, 'p1')
     expect(row).toMatchObject(meta('p1'))
     expect(fromRow(fields, row!)).toEqual(full)
   })
 
   it('round-trips JSON scalars, which some drivers return unparsed', async () => {
     for (const [i, value] of ['just text', '{"looks":"like json"}', 42, false].entries()) {
-      await insertRow(driver, posts, { ...meta(`j${i}`), ...toRow(fields, { meta: value }) })
-      expect(fromRow(fields, (await getRow(driver, posts, `j${i}`))!).meta).toEqual(value)
+      await insertRow(driver.db, posts, { ...meta(`j${i}`), ...toRow(fields, { meta: value }) })
+      expect(fromRow(fields, (await getRow(driver.db, posts, `j${i}`))!).meta).toEqual(value)
     }
   })
 
   it('stores empty values as NULL, so they never collide in a unique index', async () => {
     const empty = { title: '', slug: null, tags: [], meta: undefined }
-    await insertRow(driver, posts, { ...meta('p2'), ...toRow(fields, empty) })
-    await insertRow(driver, posts, { ...meta('p3'), ...toRow(fields, empty) })
-    const data = fromRow(fields, (await getRow(driver, posts, 'p3'))!)
+    await insertRow(driver.db, posts, { ...meta('p2'), ...toRow(fields, empty) })
+    await insertRow(driver.db, posts, { ...meta('p3'), ...toRow(fields, empty) })
+    const data = fromRow(fields, (await getRow(driver.db, posts, 'p3'))!)
     expect(Object.values(data).every(v => v === null)).toBe(true)
   })
 
   it('enforces unique fields in the database and answers isUnique', async () => {
-    await expect(insertRow(driver, posts, { ...meta('p4'), ...toRow(fields, { title: 'Hello' }) })).rejects.toThrow()
-    expect(await isUnique(driver, posts, 'title', 'Hello')).toBe(false)
-    expect(await isUnique(driver, posts, 'title', 'Hello', 'p1')).toBe(true) // the entry itself
-    expect(await isUnique(driver, posts, 'title', 'Other')).toBe(true)
-    expect(await isUnique(driver, posts, 'slug', 'hello')).toBe(false)
+    await expect(insertRow(driver.db, posts, { ...meta('p4'), ...toRow(fields, { title: 'Hello' }) })).rejects.toThrow()
+    expect(await isUnique(driver.db, posts, 'title', 'Hello')).toBe(false)
+    expect(await isUnique(driver.db, posts, 'title', 'Hello', 'p1')).toBe(true) // the entry itself
+    expect(await isUnique(driver.db, posts, 'title', 'Other')).toBe(true)
+    expect(await isUnique(driver.db, posts, 'slug', 'hello')).toBe(false)
   })
 
   it('feeds validateEntry the database check', async () => {

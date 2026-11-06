@@ -1,11 +1,11 @@
 // Entry rows: mapping between entry data and collection table columns, and the reads/writes every
-// engine does the same way. Saves with revisions and relations build on this (task 5.5).
+// engine does the same way. Saves with relations and revisions are in store.ts.
 import type { Field } from '../../shared/fields'
-import type { AtelierDriver } from './driver'
 import { and, eq, ne } from 'drizzle-orm'
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- one code path for the three dialects' query builders */
-type Db = any
+/** A dialect's database or an open transaction on it. */
+export type Db = any
 type Table = any
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -31,19 +31,19 @@ export function fromRow(fields: Record<string, Field>, row: Record<string, unkno
   return data
 }
 
-export async function insertRow(driver: AtelierDriver, table: Table, row: Record<string, unknown>): Promise<void> {
-  await (driver.db as Db).insert(table).values(row)
+export async function insertRow(db: Db, table: Table, row: Record<string, unknown>): Promise<void> {
+  await db.insert(table).values(row)
 }
 
-export async function getRow(driver: AtelierDriver, table: Table, id: string): Promise<Record<string, unknown> | undefined> {
-  const [row] = await (driver.db as Db).select().from(table).where(eq(table._id, id)).limit(1)
+export async function getRow(db: Db, table: Table, id: string): Promise<Record<string, unknown> | undefined> {
+  const [row] = await db.select().from(table).where(eq(table._id, id)).limit(1)
   return row
 }
 
 /** Whether no entry other than `exceptId` has `value` in `column`: the check `validateEntry` asks for. */
-export async function isUnique(driver: AtelierDriver, table: Table, column: string, value: unknown, exceptId?: string): Promise<boolean> {
+export async function isUnique(db: Db, table: Table, column: string, value: unknown, exceptId?: string): Promise<boolean> {
   const match = eq(table[column], value)
-  const rows = await (driver.db as Db).select({ id: table._id }).from(table)
+  const rows = await db.select({ id: table._id }).from(table)
     .where(exceptId === undefined ? match : and(match, ne(table._id, exceptId))).limit(1)
   return rows.length === 0
 }
