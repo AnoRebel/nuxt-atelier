@@ -7,6 +7,7 @@ import { sql } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 import { connect } from '../../packages/core/src/runtime/server/db/driver'
 import { query } from './env'
+import { allDrivers } from '../../packages/core/src/runtime/server/db/loaders'
 
 const rootDir = fileURLToPath(new URL('../fixtures/dev-migrate', import.meta.url))
 const notes = join(rootDir, 'server/atelier/collections/notes.ts')
@@ -17,7 +18,7 @@ const defineNotes = (fields: string) => writeFileSync(notes, original.replace('t
 
 // a fresh connection each time: another process (the dev server) alters the table
 async function columns(): Promise<string[]> {
-  const driver = await connect(url)
+  const driver = await connect(url, { loaders: allDrivers })
   try {
     return (await query(driver, sql`select name from pragma_table_info('atelier_c_notes')`)).map(r => r.name)
   }

@@ -7,7 +7,8 @@ import { promisify } from 'node:util'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { connect } from '../../packages/core/src/runtime/server/db/driver'
-import { engines, query, resetDatabase } from './env'
+import { query, resetDatabase, urlEngines } from './env'
+import { allDrivers } from '../../packages/core/src/runtime/server/db/loaders'
 
 const root = fileURLToPath(new URL('../fixtures/migrate', import.meta.url))
 const cli = fileURLToPath(new URL('../../packages/core/dist/cli/index.mjs', import.meta.url))
@@ -18,7 +19,7 @@ function defineNotes(fields: string) {
   writeFileSync(join(collections, 'notes.ts'), `import { defineCollection, text } from '#atelier/server'\nexport default defineCollection({ fields: { ${fields} } })\n`)
 }
 
-describe.each(engines)('atelier migrate on %s', (_, url) => {
+describe.each(urlEngines)('atelier migrate on %s', (_, url) => {
   let driver: AtelierDriver
   let migrations: string
   const atelier = async (...args: string[]) => {
@@ -33,7 +34,7 @@ describe.each(engines)('atelier migrate on %s', (_, url) => {
   }
   // a fresh connection: libSQL keeps serving `select *` with the columns it saw before another process altered the table
   const rows = async () => {
-    const fresh = await connect(url)
+    const fresh = await connect(url, { loaders: allDrivers })
     try {
       return await query(fresh, sql`select * from atelier_c_notes`)
     }
@@ -44,7 +45,7 @@ describe.each(engines)('atelier migrate on %s', (_, url) => {
   const latest = () => readFileSync(join(migrations, readdirSync(migrations).toSorted().at(-1)!, 'migration.sql'), 'utf8')
 
   beforeAll(async () => {
-    driver = await connect(url)
+    driver = await connect(url, { loaders: allDrivers })
     await resetDatabase(driver)
     migrations = join(root, 'server/atelier/migrations', driver.dialect)
     rmSync(join(root, 'server/atelier'), { recursive: true, force: true })

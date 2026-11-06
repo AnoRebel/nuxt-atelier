@@ -1,11 +1,18 @@
-// Database URLs for the storage tests. SQLite always runs; the server engines run when their URL is set
-// (see test/compose.yml), and CI requires all of them so a missing service can't pass silently.
+// Database URLs for the storage tests. SQLite and D1 (Miniflare's local D1) always run; the server engines
+// run when their URL is set (see test/compose.yml), and CI requires all of them so a missing service can't
+// pass silently.
 import type { AtelierDriver } from '../../packages/core/src/runtime/server/db/driver'
+import { execFile } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
 import type { SQL } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
+import { Miniflare } from 'miniflare'
+import { connect } from '../../packages/core/src/runtime/server/db/driver'
+import { allDrivers } from '../../packages/core/src/runtime/server/db/loaders'
 
 const servers = {
   postgres: process.env.ATELIER_TEST_POSTGRES_URL,
@@ -19,10 +26,36 @@ if (process.env.CI) {
     throw new Error(`CI must set ATELIER_TEST_*_URL for: ${missing.join(', ')}`)
 }
 
-export const engines: [name: string, url: string][] = [
+/** Engines the CLI can reach by URL. */
+export const urlEngines: [name: string, url: string][] = [
   ['sqlite', `file:${join(mkdtempSync(join(tmpdir(), 'atelier-')), 'test.sqlite')}`],
   ...Object.entries(servers).filter((e): e is [string, string] => !!e[1]),
 ]
+
+/** Every engine, D1 included (it's a Worker binding, so only connectEngine can open it). */
+export const engines: [name: string, url: string][] = [...urlEngines, ['d1', 'd1:DB']]
+
+/** Opens any test engine; D1 gets a fresh local database from Miniflare, disposed on close. */
+export async function connectEngine(url: string, options: { poolSize?: number } = {}): Promise<AtelierDriver> {
+  if (!url.startsWith('d1:'))
+    return connect(url, { loaders: allDrivers, ...options })
+  const mf = new Miniflare({ modules: true, script: 'export default { fetch: () => new Response() }', d1Databases: ['DB'] })
+  const driver = await connect(url, { loaders: allDrivers, d1: await mf.getD1Database('DB') as never })
+  return { ...driver, close: () => mf.dispose() }
+}
+
+const pushScript = fileURLToPath(new URL('./push.ts', import.meta.url))
+
+/** Creates the Atelier tables for a schema (a JSON file) with drizzle-kit; for D1, runs its SQL through the binding. */
+export async function createTables(driver: AtelierDriver, url: string, schemaFile: string): Promise<void> {
+  if (!url.startsWith('d1:')) {
+    await promisify(execFile)('bun', [pushScript, driver.dialect, url, schemaFile])
+    return
+  }
+  const { stdout } = await promisify(execFile)('bun', [pushScript, 'sqlite', 'export', schemaFile])
+  for (const statement of JSON.parse(stdout) as string[])
+    await (driver.db as any).run(sql.raw(statement))
+}
 
 /** Drops every table, so each run starts from an empty database. */
 export async function resetDatabase(driver: AtelierDriver): Promise<void> {
@@ -37,7 +70,7 @@ export async function resetDatabase(driver: AtelierDriver): Promise<void> {
       await db.execute(sql.raw(`drop table \`${name}\``))
     return
   }
-  const rows = await db.all(sql.raw(`select name from sqlite_master where type = 'table' and name not like 'sqlite_%'`))
+  const rows = await db.all(sql.raw(`select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like '_cf_%'`))
   for (const { name } of rows as { name: string }[])
     await db.run(sql.raw(`drop table \`${name}\``))
 }

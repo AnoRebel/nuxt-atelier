@@ -1,0 +1,387 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "72c40044-fe6c-42d5-b46b-92fc5bb8d535",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "name": "atelier_singletons",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_relations",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_revisions",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_routes",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_c_notes",
+      "entityType": "tables"
+    },
+    {
+      "table": "atelier_singletons",
+      "name": "name",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_singletons",
+      "name": "data",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_singletons",
+      "name": "_version",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_singletons",
+      "name": "_updated_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "source",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "source_id",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "field",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "position",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "target",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "target_id",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_revisions",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_revisions",
+      "name": "source",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_revisions",
+      "name": "source_id",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_revisions",
+      "name": "_version",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_revisions",
+      "name": "data",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_revisions",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_revisions",
+      "name": "author_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_routes",
+      "name": "path",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_routes",
+      "name": "source",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_routes",
+      "name": "source_id",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "_version",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "_updated_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "title",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "atelier_relations_target_idx",
+      "columns": [
+        {
+          "value": "target",
+          "isExpression": false
+        },
+        {
+          "value": "target_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "atelier_revisions",
+      "name": "atelier_revisions_source_version_idx",
+      "columns": [
+        {
+          "value": "source",
+          "isExpression": false
+        },
+        {
+          "value": "source_id",
+          "isExpression": false
+        },
+        {
+          "value": "_version",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "atelier_routes",
+      "name": "atelier_routes_source_idx",
+      "columns": [
+        {
+          "value": "source",
+          "isExpression": false
+        },
+        {
+          "value": "source_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "atelier_relations_pk",
+      "columns": [
+        "source",
+        "source_id",
+        "field",
+        "position"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_singletons",
+      "name": "atelier_singletons_pk",
+      "columns": [
+        "name"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_revisions",
+      "name": "atelier_revisions_pk",
+      "columns": [
+        "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_routes",
+      "name": "atelier_routes_pk",
+      "columns": [
+        "path"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "atelier_c_notes_pk",
+      "columns": [
+        "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    }
+  ],
+  "renames": []
+}

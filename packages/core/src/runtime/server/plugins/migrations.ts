@@ -1,10 +1,12 @@
 // Production startup: log pending migrations, or apply them with `migrations.autoApply`
 // (a Nitro plugin is a plain function; `defineNitroPlugin` only types it)
-import { useAtelierDatabase } from '../index'
+import { useRuntimeConfig } from 'nuxt/server'
 import { pendingMigrations } from '../db/state'
+import { useAtelierDatabase } from '../index'
 
 export default () => {
-  if (import.meta.dev)
+  // D1 bindings only exist inside a request: there, the first CMS write checks (assertMigrated)
+  if (import.meta.dev || useRuntimeConfig().atelier.databaseUrl.startsWith('d1:'))
     return
   pendingMigrations(useAtelierDatabase).catch((error: Error) => {
     console.error(`[nuxt-atelier] Couldn't check migrations: ${error.message}`)

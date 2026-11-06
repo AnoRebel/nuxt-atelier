@@ -8,7 +8,8 @@ import type { Db } from './entries'
 import type { ContentSchema } from './tables'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { validateEntry } from '../../shared/fields'
-import { fromRow, getRow, insertRow, isUnique, toRow } from './entries'
+import { UnsupportedOperationError } from './driver'
+import { fromRow, getRow, isUnique, toRow } from './entries'
 import { buildTables, collectionTable } from './tables'
 
 /** The entry changed since the client read it. `currentVersion` is the version to reload. */
@@ -79,6 +80,16 @@ function affected(result: unknown): number {
   return r.rowsAffected ?? r.rowCount ?? r.affectedRows ?? 0
 }
 
+/**
+ * Runs `fn` in a transaction. Where the database has none (Cloudflare D1) it throws
+ * UnsupportedOperationError naming the operation, before changing anything.
+ */
+export async function withTransaction<T>(driver: AtelierDriver, operation: string, fn: (tx: Db) => Promise<T>): Promise<T> {
+  if (!driver.capabilities.transactions)
+    throw new UnsupportedOperationError(`[nuxt-atelier] ${operation} needs a multi-statement transaction, which Cloudflare D1 doesn't support. Nothing was changed.`)
+  return (driver.db as Db).transaction(fn)
+}
+
 export function createEntryStore(driver: AtelierDriver, schema: ContentSchema) {
   const tables = buildTables(driver.dialect, schema)
   const db = driver.db as Db
@@ -120,53 +131,69 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema) {
      */
     async save(name: string, input: SaveInput): Promise<Entry> {
       const { definition, table } = collection(name)
+      const creating = input.id === undefined
+      if (!creating && input.version === undefined)
+        throw new Error('Updating an entry needs the version it was read at')
       const id = input.id ?? crypto.randomUUID()
+      const version = creating ? 1 : input.version! + 1
       const now = new Date().toISOString()
 
-      return db.transaction(async (tx: Db) => {
+      const validate = async (q: Db) => {
         const result = await validateEntry(definition.fields, input.data, {
-          isUnique: (field, value) => isUnique(tx, table, field, value, id),
+          isUnique: (field, value) => isUnique(q, table, field, value, id),
         })
         if (!result.success)
           throw new ValidationError(result.errors)
-        const data = result.value
+        return result.value
+      }
+      const currentVersion = async (q: Db): Promise<number | undefined> =>
+        (await q.select({ version: table._version }).from(table).where(eq(table._id, id)))[0]?.version
+      // the statements of a save, built but not yet run
+      const statements = (q: Db, data: Record<string, unknown>) => {
         const row = toRow(definition.fields, data)
-
-        let version: number
-        if (input.id === undefined) {
-          version = 1
-          await insertRow(tx, table, { _id: id, _version: version, _createdAt: now, _updatedAt: now, ...row })
-        }
-        else {
-          if (input.version === undefined)
-            throw new Error('Updating an entry needs the version it was read at')
-          version = input.version + 1
-          // only the version the client read is updated: a concurrent save makes this match nothing
-          const updated = affected(await tx.update(table)
-            .set({ ...row, _version: version, _updatedAt: now })
-            .where(and(eq(table._id, id), eq(table._version, input.version))))
-          if (!updated) {
-            const [current] = await tx.select({ version: table._version }).from(table).where(eq(table._id, id))
-            if (!current)
-              throw new NotFoundError(`No entry "${id}" in "${name}"`)
-            throw new ConflictError(current.version)
-          }
-          await tx.delete(relations).where(and(eq(relations.source, name), eq(relations.sourceId, id)))
-        }
-
         const links = relationRows(definition.fields, data)
-        if (links.length)
-          await tx.insert(relations).values(links.map(l => ({ source: name, sourceId: id, ...l })))
+        return [
+          creating
+            ? q.insert(table).values({ _id: id, _version: version, _createdAt: now, _updatedAt: now, ...row })
+            // only the version the client read is updated: a concurrent save makes this match nothing
+            : q.update(table).set({ ...row, _version: version, _updatedAt: now }).where(and(eq(table._id, id), eq(table._version, input.version))),
+          ...creating ? [] : [q.delete(relations).where(and(eq(relations.source, name), eq(relations.sourceId, id)))],
+          ...links.length ? [q.insert(relations).values(links.map(l => ({ source: name, sourceId: id, ...l })))] : [],
+          // unique per (entry, version): a stale save always collides with the winning save's revision
+          q.insert(revisions).values({ id: crypto.randomUUID(), source: name, sourceId: id, version, data, createdAt: now, authorId: input.authorId ?? null }),
+        ]
+      }
+      const refuseStale = async (q: Db) => {
+        const current = await currentVersion(q)
+        if (current === undefined)
+          throw new NotFoundError(`No entry "${id}" in "${name}"`)
+        if (current !== input.version)
+          throw new ConflictError(current)
+      }
 
-        await tx.insert(revisions).values({
-          id: crypto.randomUUID(),
-          source: name,
-          sourceId: id,
-          version,
-          data,
-          createdAt: now,
-          authorId: input.authorId ?? null,
-        })
+      if (!driver.capabilities.transactions) {
+        // D1: one atomic batch. The revision insert is the version check, so a save that loses a race
+        // after the check below still rolls back as a whole.
+        const data = await validate(db)
+        if (!creating)
+          await refuseStale(db)
+        try {
+          await db.batch(statements(db, data))
+        }
+        catch (error) {
+          if (!creating)
+            await refuseStale(db)
+          throw error
+        }
+        return (await read(db, name, id))!
+      }
+
+      return db.transaction(async (tx: Db) => {
+        const [write, ...rest] = statements(tx, await validate(tx))
+        if (!affected(await write) && !creating)
+          await refuseStale(tx)
+        for (const statement of rest)
+          await statement
         return (await read(tx, name, id))!
       })
     },

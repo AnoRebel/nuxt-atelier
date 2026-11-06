@@ -1,17 +1,14 @@
 import type { AtelierDriver } from '../../packages/core/src/runtime/server/db/driver'
 import type { EntryStore } from '../../packages/core/src/runtime/server/db/store'
-import { execFile } from 'node:child_process'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { promisify } from 'node:util'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { connect } from '../../packages/core/src/runtime/server/db/driver'
-import { ConflictError, createEntryStore, ValidationError } from '../../packages/core/src/runtime/server/db/store'
+import { UnsupportedOperationError } from '../../packages/core/src/runtime/server/db/driver'
+import { ConflictError, createEntryStore, ValidationError, withTransaction } from '../../packages/core/src/runtime/server/db/store'
 import * as f from '../../packages/core/src/runtime/shared/fields'
-import { engines, query, resetDatabase } from './env'
+import { connectEngine, createTables, engines, query, resetDatabase } from './env'
 
 const schema = {
   collections: {
@@ -28,7 +25,6 @@ const schema = {
 }
 const schemaFile = join(mkdtempSync(join(tmpdir(), 'atelier-store-')), 'schema.json')
 writeFileSync(schemaFile, JSON.stringify(schema))
-const pushScript = fileURLToPath(new URL('./push.ts', import.meta.url))
 
 describe.each(engines)('%s entry store', (_, url) => {
   let driver: AtelierDriver
@@ -37,9 +33,9 @@ describe.each(engines)('%s entry store', (_, url) => {
     .map(r => `${r.field}[${r.position}] → ${r.target}/${r.target_id}`)
 
   beforeAll(async () => {
-    driver = await connect(url)
+    driver = await connectEngine(url)
     await resetDatabase(driver)
-    await promisify(execFile)('bun', [pushScript, driver.dialect, url, schemaFile])
+    await createTables(driver, url, schemaFile)
     store = createEntryStore(driver, schema)
   }, 120_000)
   afterAll(() => driver?.close())
@@ -95,5 +91,22 @@ describe.each(engines)('%s entry store', (_, url) => {
     const duplicate = store.save('articles', { data: { title: 'Hello' } })
     await expect(duplicate).rejects.toBeInstanceOf(ValidationError)
     await expect(duplicate).rejects.toMatchObject({ errors: [{ path: 'title', message: 'already used by another entry' }] })
+  })
+
+  it('runs a transaction, or refuses it on D1 with the limitation named and nothing changed', async () => {
+    const { id } = await store.save('articles', { data: { title: 'Untouched' } })
+    const rename = withTransaction(driver, 'Renaming entries', async (tx) => {
+      const statement = sql`update atelier_c_articles set title = 'Renamed' where _id = ${id}`
+      await (driver.dialect === 'sqlite' ? tx.run(statement) : tx.execute(statement))
+    })
+    if (driver.capabilities.transactions) {
+      await rename
+      expect((await store.get('articles', id))!.data.title).toBe('Renamed')
+    }
+    else {
+      await expect(rename).rejects.toBeInstanceOf(UnsupportedOperationError)
+      await expect(rename).rejects.toThrow('Renaming entries needs a multi-statement transaction, which Cloudflare D1 doesn\'t support. Nothing was changed.')
+      expect((await store.get('articles', id))!.data.title).toBe('Untouched')
+    }
   })
 })

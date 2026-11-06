@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { connect } from '../../packages/core/src/runtime/server/db/driver'
 import { query } from './env'
+import { allDrivers } from '../../packages/core/src/runtime/server/db/loaders'
 
 const rootDir = fileURLToPath(new URL('../fixtures/pending', import.meta.url))
 const cli = fileURLToPath(new URL('../../packages/core/dist/cli/index.mjs', import.meta.url))
@@ -16,7 +17,7 @@ const freshDatabase = () => `file:${join(mkdtempSync(join(tmpdir(), 'atelier-pen
 const write = () => fetch('/api/write', { method: 'POST' })
 
 async function tables(url: string) {
-  const driver = await connect(url)
+  const driver = await connect(url, { loaders: allDrivers })
   try {
     return (await query(driver, sql`select name from sqlite_master where type = 'table'`)).map(r => r.name)
   }

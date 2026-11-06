@@ -57,12 +57,19 @@
       "entry": [
         "server/atelier/collections/*.ts"
       ]
+    },
+    "test/fixtures/workers": {
+      "entry": [
+        "server/atelier/collections/*.ts",
+        "server/api/**/*.ts"
+      ]
     }
   },
   "ignoreUnresolved": [
     "#imports",
     "#atelier-schema",
     "#atelier/server",
-    "#atelier-migrations"
+    "#atelier-migrations",
+    "#atelier-drivers"
   ]
 }

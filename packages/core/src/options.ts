@@ -1,6 +1,6 @@
 import * as v from 'valibot'
 
-const DB_SCHEMES = ['file', 'libsql', 'postgres', 'postgresql', 'mysql', 'mariadb']
+const DB_SCHEMES = ['file', 'libsql', 'd1', 'postgres', 'postgresql', 'mysql', 'mariadb']
 
 const int = (min: number, max: number, fallback: number, description: string) => v.optional(
   v.pipe(
@@ -20,9 +20,9 @@ export const optionsSchema = v.strictObject({
   database: v.optional(v.strictObject({
     url: v.optional(v.pipe(
       v.string('expected a URL string'),
-      v.check(url => DB_SCHEMES.includes(/^([a-z]+):/.exec(url)?.[1] ?? ''),
+      v.check(url => DB_SCHEMES.includes(/^([a-z][a-z0-9]*):/.exec(url)?.[1] ?? ''),
         `unsupported scheme; accepted: ${DB_SCHEMES.map(s => `${s}:`).join(', ')}`),
-      v.description('Database URL: `file:` (SQLite), `libsql:` (libSQL/Turso), `postgres:`, `mysql:` or `mariadb:`. Override at runtime with `NUXT_ATELIER_DATABASE_URL`.'),
+      v.description('Database URL: `file:` (SQLite), `libsql:` (libSQL/Turso), `d1:<binding>` (Cloudflare D1), `postgres:`, `mysql:` or `mariadb:`. Override at runtime with `NUXT_ATELIER_DATABASE_URL`.'),
     ), 'file:.data/atelier.sqlite'),
   }), {}),
   migrations: v.optional(v.strictObject({

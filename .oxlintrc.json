@@ -20,7 +20,8 @@
           "_id",
           "_version",
           "_createdAt",
-          "_updatedAt"
+          "_updatedAt",
+          "__env__"
         ]
       }
     ]

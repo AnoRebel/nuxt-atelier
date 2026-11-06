@@ -96,19 +96,52 @@ export async function migrationStatus(driver: AtelierDriver, local: string[]): P
   return { applied: local.filter(n => applied.has(n)), pending: local.filter(n => !applied.has(n)) }
 }
 
+function assertConfirmed(name: string, migration: string) {
+  const unconfirmed = unconfirmedChanges(migration)
+  if (unconfirmed.length) {
+    throw new Error(`[nuxt-atelier] Migration ${name} would ${unconfirmed.join(', ')} without confirmation. `
+      + `If that's intended, add a line per change to its migration.sql:\n${unconfirmed.map(c => `  -- atelier:confirm ${c}`).join('\n')}`)
+  }
+}
+
+async function sha256(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Applies migrations passed as text, as one atomic batch: for Cloudflare D1, which has no transactions
+ * and no filesystem for drizzle's migrator to read. Writes the same migrations table as that migrator.
+ */
+export async function applyMigrationList(driver: AtelierDriver, migrations: { name: string, sql: string }[]): Promise<string[]> {
+  const { pending } = await migrationStatus(driver, migrations.map(m => m.name))
+  const toApply = migrations.filter(m => pending.includes(m.name))
+  for (const m of toApply)
+    assertConfirmed(m.name, m.sql)
+  if (!toApply.length)
+    return []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- D1's drizzle database
+  const db = driver.db as any
+  await db.run(sql`create table if not exists ${sql.identifier(MIGRATIONS_TABLE)} (id integer primary key, hash text not null, created_at numeric, name text, applied_at text)`)
+  const statements = []
+  for (const m of toApply) {
+    for (const statement of m.sql.split('--> statement-breakpoint').map(s => s.trim()).filter(Boolean))
+      statements.push(db.run(sql.raw(statement)))
+    const createdAt = Date.UTC(+m.name.slice(0, 4), +m.name.slice(4, 6) - 1, +m.name.slice(6, 8), +m.name.slice(8, 10), +m.name.slice(10, 12), +m.name.slice(12, 14))
+    statements.push(db.run(sql`insert into ${sql.identifier(MIGRATIONS_TABLE)} (hash, created_at, name, applied_at) values (${await sha256(m.sql)}, ${createdAt}, ${m.name}, ${new Date().toISOString()})`))
+  }
+  await db.batch(statements)
+  return toApply.map(m => m.name)
+}
+
 /**
  * Applies pending migrations. Refuses, before running anything, when one has an unconfirmed destructive change.
  * Returns the names it applied.
  */
 export async function applyMigrations(driver: AtelierDriver, folder: string): Promise<string[]> {
   const { pending } = await migrationStatus(driver, localMigrationNames(folder))
-  for (const name of pending) {
-    const unconfirmed = unconfirmedChanges(readFileSync(join(folder, name, 'migration.sql'), 'utf8'))
-    if (unconfirmed.length) {
-      throw new Error(`[nuxt-atelier] Migration ${name} would ${unconfirmed.join(', ')} without confirmation. `
-        + `If that's intended, add a line per change to its migration.sql:\n${unconfirmed.map(c => `  -- atelier:confirm ${c}`).join('\n')}`)
-    }
-  }
+  for (const name of pending)
+    assertConfirmed(name, readFileSync(join(folder, name, 'migration.sql'), 'utf8'))
   if (!pending.length)
     return []
   const options = config(folder)
