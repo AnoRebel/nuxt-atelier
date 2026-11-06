@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { $fetch, setup, startServer } from '@nuxt/test-utils/e2e'
+import { $fetch, fetch, setup, startServer } from '@nuxt/test-utils/e2e'
 import { describe, expect, it } from 'vitest'
 
 describe('runtime config', async () => {
@@ -30,5 +30,11 @@ describe('runtime config', async () => {
   it.runIf(process.env.ATELIER_TEST_POSTGRES_URL)('connects to another engine from the env alone', async () => {
     await startServer({ env: { NUXT_ATELIER_DATABASE_URL: process.env.ATELIER_TEST_POSTGRES_URL } })
     expect(await $fetch('/api/db')).toEqual({ dialect: 'postgres' })
+  })
+
+  it('answers a lost save race with 409 and the current version', async () => {
+    const response = await fetch('/api/conflict')
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({ message: expect.stringContaining('at version 3'), data: { currentVersion: 3 } })
   })
 })
