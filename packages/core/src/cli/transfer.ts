@@ -7,7 +7,7 @@
 //
 // Exported: entries of every collection, singletons, relations, revisions, routes and users (media
 // metadata and other system tables join as their sections add them). Not exported: the migrations
-// table, and sessions, which a restore signs out.
+// table, sessions (a restore signs everyone out) and rate-limit counters.
 import type { Readable, Writable } from 'node:stream'
 import type { AtelierDriver } from '../runtime/server/db/driver'
 import type { Db } from '../runtime/server/db/entries'
@@ -35,7 +35,7 @@ interface Header {
 /** The tables to transfer, in a fixed order: system tables, then one per collection. */
 function contentTables(driver: AtelierDriver, schema: ContentSchema): [string, Db][] {
   const tables = buildTables(driver.dialect, schema)
-  return Object.entries(tables).filter(([name]) => name !== 'atelier_sessions').toSorted(([a], [b]) => a.localeCompare(b))
+  return Object.entries(tables).filter(([name]) => name !== 'atelier_sessions' && name !== 'atelier_rate_limits').toSorted(([a], [b]) => a.localeCompare(b))
 }
 
 /** Writes every content row to `out` as NDJSON. Returns the row count per table. */

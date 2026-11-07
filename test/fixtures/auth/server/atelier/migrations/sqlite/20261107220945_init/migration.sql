@@ -43,6 +43,12 @@ CREATE TABLE `atelier_sessions` (
 	`expires_at` text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `atelier_rate_limits` (
+	`key` text PRIMARY KEY,
+	`count` integer NOT NULL,
+	`reset_at` text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `atelier_roles` (
 	`name` text PRIMARY KEY,
 	`definition` text NOT NULL,

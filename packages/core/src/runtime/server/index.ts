@@ -14,6 +14,7 @@ import type { BuiltinAuthAdapter } from './auth/builtin'
 import type { RoleStore } from './auth/roles'
 import { createPolicy } from '../shared/policy'
 import { createBuiltinAuth } from './auth/builtin'
+import { clientIp, createRateLimiter } from './auth/rate-limit'
 import { createRoleStore } from './auth/roles'
 
 export * from './define'
@@ -123,4 +124,24 @@ export async function requireUser(event: RequestEvent, capability?: Capability):
   if (capability && !(await useAtelierPolicy()).can(user, 'manage', capability))
     throw createError({ status: 403, message: `Your role can't manage ${capability}` })
   return user
+}
+
+let limiter: Promise<ReturnType<typeof createRateLimiter>> | undefined
+
+/** Database-backed rate limits, shared by every server instance. */
+export function useAtelierRateLimiter(): Promise<ReturnType<typeof createRateLimiter>> {
+  limiter ??= useAtelierDatabase().then(createRateLimiter).catch((error) => {
+    limiter = undefined
+    throw error
+  })
+  return limiter
+}
+
+/** The limits on sign-in attempts from this request's IP, for an email when given. */
+export function signInLimits(event: RequestEvent, email?: string) {
+  const { signInAttempts: attempts, signInWindow: window, trustProxy } = useAtelierServerConfig().auth as { signInAttempts: number, signInWindow: number, trustProxy: boolean }
+  const ip = clientIp(event, trustProxy)
+  return email === undefined
+    ? [{ key: `sign-in:${ip}`, max: attempts * 5, window }]
+    : [{ key: `sign-in:${ip}:${email}`, max: attempts, window }, { key: `sign-in:${email}`, max: attempts * 5, window }]
 }

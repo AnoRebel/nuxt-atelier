@@ -21,6 +21,7 @@
         "build.config.ts",
         "src/runtime/server/plugins/*.ts",
         "src/runtime/server/api/**/*.ts",
+        "src/runtime/server/middleware/*.ts",
         "src/adapter.ts"
       ]
     },

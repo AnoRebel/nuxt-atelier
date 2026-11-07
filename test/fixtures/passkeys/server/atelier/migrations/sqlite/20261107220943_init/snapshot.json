@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "1fb46541-aaf2-41e2-82c4-90b0570d0fa5",
+  "id": "afb0b975-3df9-4009-8059-3e794f5bf014",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -24,6 +24,10 @@
     },
     {
       "name": "atelier_sessions",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_rate_limits",
       "entityType": "tables"
     },
     {
@@ -329,6 +333,36 @@
       "entityType": "columns"
     },
     {
+      "table": "atelier_rate_limits",
+      "name": "key",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_rate_limits",
+      "name": "count",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_rate_limits",
+      "name": "reset_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "atelier_roles",
       "name": "name",
       "type": "text",
@@ -612,6 +646,15 @@
       "name": "atelier_sessions_pk",
       "columns": [
         "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_rate_limits",
+      "name": "atelier_rate_limits_pk",
+      "columns": [
+        "key"
       ],
       "nameExplicit": false,
       "entityType": "pks"

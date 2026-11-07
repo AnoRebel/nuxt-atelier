@@ -32,6 +32,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       dbPoolSize: resolved.limits.dbPoolSize,
       migrations: { autoApply: resolved.migrations.autoApply }, // NUXT_ATELIER_MIGRATIONS_AUTO_APPLY
       storage: { dir: resolved.storage.dir }, // NUXT_ATELIER_STORAGE_DIR
+      auth: { signInAttempts: resolved.auth.signInAttempts, signInWindow: resolved.auth.signInWindow, trustProxy: resolved.auth.trustProxy },
       ...config.atelier as object | undefined,
     }
     config.public.atelier = {
@@ -54,6 +55,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       addServerHandler({ route: `/api/_atelier/auth/${route}`, method, handler: resolve(`./runtime/server/api/auth/${route}.${method}`) })
     if (resolved.auth.passkeys) // off: no passkey routes, so they 404 and nothing of @simplewebauthn is bundled
       addServerHandler({ route: '/api/_atelier/auth/passkeys/**', handler: resolve('./runtime/server/api/auth/passkeys') })
+    addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/csrf') })
     addServerHandler({ route: '/api/_atelier/setup', handler: resolve('./runtime/server/api/setup') })
     for (const resource of ['users', 'roles']) {
       addServerHandler({ route: `/api/_atelier/${resource}`, handler: resolve(`./runtime/server/api/${resource}`) })

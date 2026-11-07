@@ -8,15 +8,16 @@ import { beforeAll, describe, expect, it } from 'vitest'
 const rootDir = fileURLToPath(new URL('../fixtures/auth', import.meta.url))
 const database = `file:${join(mkdtempSync(join(tmpdir(), 'atelier-setup-')), 'db.sqlite')}`
 
-/** A JSON request, as the user whose cookie is given. */
+/** A JSON request, as the user whose cookies (`atelier-session=…; atelier-csrf=…`) are given. */
 async function api(method: string, path: string, body?: unknown, cookie?: string) {
+  const csrf = cookie && /atelier-csrf=([^;]+)/.exec(cookie)?.[1]
   const response = await fetch(`/api/_atelier${path}`, {
     method,
-    headers: { 'content-type': 'application/json', ...cookie ? { cookie } : {} },
+    headers: { 'content-type': 'application/json', ...cookie ? { cookie } : {}, ...csrf ? { 'x-atelier-csrf': csrf } : {} },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
-  const cookies = response.headers.getSetCookie().map(c => c.split(';')[0]!).filter(c => c.startsWith('atelier-session='))
-  return { status: response.status, body: await response.json().catch(() => undefined), cookie: cookies[0] }
+  const cookies = response.headers.getSetCookie().map(c => c.split(';')[0]!).filter(c => /^atelier-(?:session|csrf)=/.test(c))
+  return { status: response.status, body: await response.json().catch(() => undefined), cookie: cookies.length ? cookies.join('; ') : undefined }
 }
 const signIn = async (email: string) => (await api('POST', '/auth/login', { email, password: 'password 123' })).cookie!
 

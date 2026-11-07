@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "df7feb11-6bd4-4c7f-9711-3efea560253e",
+  "id": "ac9e7267-4209-44c8-b061-e8b5219251fb",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -27,6 +27,10 @@
       "entityType": "tables"
     },
     {
+      "name": "atelier_rate_limits",
+      "entityType": "tables"
+    },
+    {
       "name": "atelier_roles",
       "entityType": "tables"
     },
@@ -36,10 +40,6 @@
     },
     {
       "name": "atelier_routes",
-      "entityType": "tables"
-    },
-    {
-      "name": "atelier_c_notes",
       "entityType": "tables"
     },
     {
@@ -333,6 +333,36 @@
       "entityType": "columns"
     },
     {
+      "table": "atelier_rate_limits",
+      "name": "key",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_rate_limits",
+      "name": "count",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_rate_limits",
+      "name": "reset_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "atelier_roles",
       "name": "name",
       "type": "text",
@@ -467,56 +497,6 @@
       "name": "source_id",
       "type": "text",
       "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_id",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_version",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_created_at",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_updated_at",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "title",
-      "type": "text",
-      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
@@ -671,6 +651,15 @@
       "entityType": "pks"
     },
     {
+      "table": "atelier_rate_limits",
+      "name": "atelier_rate_limits_pk",
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
       "table": "atelier_roles",
       "name": "atelier_roles_pk",
       "columns": [
@@ -693,15 +682,6 @@
       "name": "atelier_routes_pk",
       "columns": [
         "path"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "atelier_c_notes_pk",
-      "columns": [
-        "_id"
       ],
       "nameExplicit": false,
       "entityType": "pks"
