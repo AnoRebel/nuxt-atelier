@@ -20,6 +20,7 @@
         "src/cli/index.ts",
         "build.config.ts",
         "src/runtime/server/plugins/*.ts",
+        "src/runtime/server/api/**/*.ts",
         "src/adapter.ts"
       ]
     },
@@ -46,6 +47,11 @@
       "entry": [
         "{,layers/*/}server/atelier/{collections,singletons}/*.ts",
         "{app,server}/type-checks.ts"
+      ]
+    },
+    "test/fixtures/auth": {
+      "entry": [
+        "server/api/**/*.ts"
       ]
     },
     "test/fixtures/pending": {

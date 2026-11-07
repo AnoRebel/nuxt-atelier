@@ -1,6 +1,6 @@
 import type { NuxtModule } from '@nuxt/schema'
 import type { ModuleOptions } from './options'
-import { addComponentsDir, addImports, addServerPlugin, addServerTemplate, addTypeTemplate, createResolver, defineNuxtModule } from '@nuxt/kit'
+import { addComponentsDir, addImports, addServerHandler, addServerPlugin, addServerTemplate, addTypeTemplate, createResolver, defineNuxtModule } from '@nuxt/kit'
 import { setupDevMigrations } from './cli/dev'
 import { resolveOptions } from './options'
 import { registryTypes, schemaTemplate } from './schema/discover'
@@ -50,6 +50,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerTemplate({ filename: '#atelier-drivers', getContents: () => driversTemplate(nuxt.options.rootDir, resolved.database.url) })
     addServerTemplate({ filename: '#atelier-migrations', getContents: () => migrationsTemplate(nuxt.options.rootDir) })
     addServerPlugin(resolve('./runtime/server/plugins/migrations'))
+    for (const [route, method] of [['login', 'post'], ['logout', 'post'], ['me', 'get']] as const)
+      addServerHandler({ route: `/api/_atelier/auth/${route}`, method, handler: resolve(`./runtime/server/api/auth/${route}.${method}`) })
     if (nuxt.options.dev)
       setupDevMigrations(nuxt)
 
