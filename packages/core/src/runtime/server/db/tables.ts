@@ -9,6 +9,7 @@
 //   atelier_routes          URL paths of routable entries
 //   atelier_users           CMS users of the built-in auth adapter
 //   atelier_sessions        their sessions, so signing out or a password reset can revoke them
+//   atelier_roles           roles edited in the admin (code-defined ones are in server/atelier/roles.ts)
 //   atelier_passkeys        their passkeys (WebAuthn credentials), when passkey sign-in is enabled
 //
 // Every field column is nullable: `required` is enforced by validation, so adding a required field
@@ -227,6 +228,11 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
       expiresAt: kit.key('expires_at', TIMESTAMP).notNull(),
     }, t => [kit.index('atelier_sessions_user_idx').on(t.userId)]),
+    atelier_roles: kit.table('atelier_roles', {
+      name: kit.key('name', NAME).primaryKey(),
+      definition: kit.json('definition').notNull(), // a Role: label, capabilities, content permissions
+      updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
+    }),
     atelier_passkeys: kit.table('atelier_passkeys', {
       id: kit.key('_id', 255).primaryKey(), // the credential id, base64url
       userId: kit.key('user_id', ID).notNull(),

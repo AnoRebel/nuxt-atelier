@@ -36,10 +36,32 @@ export function discoverSchema(kind: SchemaKind, nuxt?: Nuxt): Map<string, strin
   return found
 }
 
-/** The `#atelier-schema` server module: every definition, imported by name. */
+/** `server/atelier/roles.{ts,…}` of the app and every layer, highest priority (the app) first. */
+function roleFiles(nuxt?: Nuxt): string[] {
+  return getLayerDirectories(nuxt).flatMap((layer) => {
+    const dir = join(layer.server, 'atelier')
+    let files: string[]
+    try {
+      files = readdirSync(dir)
+    }
+    catch {
+      return []
+    }
+    const file = files.find(f => /^roles\.(?:ts|mts|js|mjs)$/.test(f))
+    return file ? [join(dir, file)] : []
+  })
+}
+
+/** The `#atelier-schema` server module: every definition, imported by name, and the code-defined roles. */
 export function schemaTemplate(): string {
   const lines: string[] = []
   const exports: string[] = []
+  // a role in a higher-priority layer replaces one with the same name
+  const roles = roleFiles().map((path, i) => {
+    lines.push(`import roles${i} from ${JSON.stringify(path)}`)
+    return `roles${i}`
+  })
+  exports.push(`export const roles = Object.assign({}, ${roles.toReversed().join(', ')})`)
   for (const kind of ['collections', 'singletons'] as const) {
     const entries = [...discoverSchema(kind)].map(([name, path], i) => {
       lines.push(`import ${kind}${i} from ${JSON.stringify(path)}`)
