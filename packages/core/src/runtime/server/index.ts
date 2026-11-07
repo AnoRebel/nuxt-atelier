@@ -15,6 +15,10 @@ export type { DatabaseAdapterOptions } from './adapter'
 export { UnsupportedOperationError } from './db/driver'
 export { ConflictError, NotFoundError, ReferencedError, ValidationError, withTransaction } from './db/store'
 export type { Entry, EntryStore, GetOptions, Reference, SaveInput } from './db/store'
+export { defineAuthAdapter } from './auth/adapter'
+export type { AuthAdapter, AuthUser, NewUser } from './auth/adapter'
+export { ADMIN_ROLE, createPolicy } from '../shared/policy'
+export type { Capability, ContentAction, ContentPermission, FieldAccess, Policy, PolicyEntry, PolicyUser, Role, Roles } from '../shared/policy'
 
 /** Private Nuxt Atelier runtime config (`runtimeConfig.atelier`), server only. */
 export function useAtelierServerConfig() {
