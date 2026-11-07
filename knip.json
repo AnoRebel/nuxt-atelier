@@ -25,6 +25,13 @@
         "src/adapter.ts"
       ]
     },
+    "packages/auth-better-auth": {
+      "entry": [
+        "build.config.ts",
+        "src/config.ts",
+        "src/runtime/server/*.ts"
+      ]
+    },
     "packages/layer": {},
     "docs": {
       "ignoreDependencies": [
@@ -56,6 +63,11 @@
         "server/atelier/roles.ts"
       ]
     },
+    "test/fixtures/better-auth": {
+      "entry": [
+        "server/atelier/*.ts"
+      ]
+    },
     "test/fixtures/passkeys": {
       "entry": [
         "server/api/**/*.ts"
@@ -84,6 +96,7 @@
     "#atelier-schema",
     "#atelier/server",
     "#atelier-migrations",
-    "#atelier-drivers"
+    "#atelier-drivers",
+    "#atelier-better-auth"
   ]
 }

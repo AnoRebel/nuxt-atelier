@@ -45,6 +45,9 @@ async function challenge(event: RequestEvent, set?: { challenge: string, userId?
 export default defineEventHandler(async (event) => {
   await assertMigrated()
   const auth = await useAtelierAuth()
+  if (!auth.startSession) // passkeys belong to the built-in adapter; other adapters bring their own
+    throw createError({ status: 404, message: 'Not found' })
+  const startSession = auth.startSession
   const driver = await useAtelierDatabase()
   const db = driver.db as any // eslint-disable-line @typescript-eslint/no-explicit-any -- one code path for the three dialects
   const { atelier_passkeys: passkeys } = buildTables(driver.dialect, { collections: {}, singletons: {} })
@@ -130,7 +133,7 @@ export default defineEventHandler(async (event) => {
     if (!result?.verified)
       throw await refused()
     await db.update(passkeys).set({ counter: result.authenticationInfo.newCounter, lastUsedAt: new Date().toISOString() }).where(eq(passkeys.id, passkey.id))
-    await auth.startSession(event, passkey.userId, 'passkey')
+    await startSession(event, passkey.userId, 'passkey')
     await audit(event, { action: 'auth.sign-in', actorId: passkey.userId, target: { type: 'user', id: passkey.userId }, details: { method: 'passkey', passkey: passkey.id } })
     return auth.users.get(passkey.userId)
   }

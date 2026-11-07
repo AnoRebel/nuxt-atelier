@@ -7,7 +7,7 @@ import { relative } from 'node:path'
 import { useLogger } from '@nuxt/kit'
 import { applyProjectMigrations, DataLossError, generateMigration, MissingKitError, projectFromNuxt, withMigrationLock } from './migrate'
 
-const DEFINITION = /(?:^|\/)atelier\/(?:collections|singletons)\//
+const DEFINITION = /(?:^|\/)atelier\/(?:(?:collections|singletons)\/|tables\.[mc]?[jt]s$)/
 
 // One run at a time across the process: a quick second edit, or a Nuxt restart mid-run, waits for the
 // current migration instead of generating the same one twice. On globalThis because a restart re-imports

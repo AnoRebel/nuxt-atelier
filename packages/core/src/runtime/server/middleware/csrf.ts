@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
       throw refuse(`Origin ${origin} isn't this site`)
   }
 
-  const expected = await (await useAtelierAuth()).csrfToken(event)
+  const expected = await (await useAtelierAuth()).csrfToken?.(event)
   if (expected !== undefined && getRequestHeader(event, 'x-atelier-csrf') !== expected)
     throw refuse('the x-atelier-csrf header is missing or wrong')
 })

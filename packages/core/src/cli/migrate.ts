@@ -15,7 +15,7 @@ import { connect, dialectOf } from '../runtime/server/db/driver'
 import { applyMigrations, destructiveChanges, localMigrationNames, migrationsFolder, migrationStatus } from '../runtime/server/db/migrations'
 import { buildTables, collectionTable } from '../runtime/server/db/tables'
 import { allDrivers } from '../runtime/server/db/loaders'
-import { discoverSchema } from '../schema/discover'
+import { discoverSchema, layerFiles } from '../schema/discover'
 import { serialiseFields } from '../runtime/shared/fields'
 
 const runtime = (path: string) => fileURLToPath(new URL(`../runtime/server/${path}`, import.meta.url))
@@ -42,7 +42,8 @@ export async function projectFromNuxt(nuxt: Nuxt): Promise<Project> {
   const load = async (kind: 'collections' | 'singletons') => Object.fromEntries(await Promise.all(
     [...discoverSchema(kind, nuxt)].map(async ([name, path]) => [name, await jiti.import(path, { default: true })]),
   ))
-  return { rootDir, buildDir, databaseUrl, schema: { collections: await load('collections'), singletons: await load('singletons') } }
+  const tables = Object.assign({}, ...await Promise.all(layerFiles('tables', nuxt).toReversed().map(path => jiti.import(path, { default: true }))))
+  return { rootDir, buildDir, databaseUrl, schema: { collections: await load('collections'), singletons: await load('singletons'), tables } }
 }
 
 /** Reads the app's config, layers and content schema without building it. */

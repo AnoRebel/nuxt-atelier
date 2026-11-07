@@ -1,18 +1,21 @@
 // `#atelier/server`: the server-side public API
 import type { AtelierDriver } from './db/driver'
+import type { TableSpec } from './db/tables'
 import type { CollectionDefinition, SingletonDefinition } from './types'
 import { createError, useRuntimeConfig } from 'nuxt/server'
 import { connect } from './db/driver'
+import { buildTables } from './db/tables'
 import { assertMigrated as assertMigratedWith } from './db/state'
 import type { EntryStore } from './db/store'
 import { ConflictError, createEntryStore, NotFoundError, ReferencedError, ValidationError } from './db/store'
 import { drivers } from '#atelier-drivers'
 import type { RequestEvent } from 'nuxt/server'
 import type { Capability, Policy } from '../shared/policy'
-import type { AuthUser } from './auth/adapter'
+import type { AuthAdapter, AuthUser } from './auth/adapter'
 import type { BuiltinAuthAdapter } from './auth/builtin'
 import type { RoleStore } from './auth/roles'
 import { createPolicy } from '../shared/policy'
+import { defineAuthAdapter } from './auth/adapter'
 import { createBuiltinAuth } from './auth/builtin'
 import type { AuditInput, AuditLog } from './auth/audit'
 import { createAuditLog } from './auth/audit'
@@ -25,6 +28,7 @@ export { createDatabaseAdapter, ForbiddenError } from './adapter'
 export type { DatabaseAdapterOptions } from './adapter'
 export { UnsupportedOperationError } from './db/driver'
 export { ConflictError, NotFoundError, ReferencedError, ValidationError, withTransaction } from './db/store'
+export type { ColumnSpec, TableSpec } from './db/tables'
 export type { Entry, EntryStore, GetOptions, Reference, SaveInput } from './db/store'
 export { defineAuthAdapter } from './auth/adapter'
 export type { AuthAdapter, AuthUser, NewUser } from './auth/adapter'
@@ -58,9 +62,15 @@ export function useAtelierDatabase(): Promise<AtelierDriver> {
 export async function useAtelierSchema(): Promise<{
   collections: Record<string, CollectionDefinition>
   singletons: Record<string, SingletonDefinition>
+  tables: Record<string, TableSpec>
 }> {
-  const { collections, singletons } = await import('#atelier-schema')
-  return { collections, singletons }
+  const { collections, singletons, tables } = await import('#atelier-schema')
+  return { collections, singletons, tables }
+}
+
+/** Every table of the app as Drizzle tables, by table name: content, system and extra tables. */
+export async function useAtelierTables(): Promise<Record<string, any>> { // eslint-disable-line @typescript-eslint/no-explicit-any -- tables differ per dialect
+  return buildTables((await useAtelierDatabase()).dialect, await useAtelierSchema())
 }
 export type { AtelierCollections, AtelierSingletons, BlockInstance, CollectionEntry, FieldValue, InferEntry, JsonValue, RichTextDocument, SingletonEntry } from '../shared/infer'
 
@@ -91,11 +101,24 @@ export function toHttpError(error: unknown): unknown {
   return error
 }
 
-let auth: Promise<BuiltinAuthAdapter> | undefined
+/** The auth adapter in use. The built-in one adds sessions the CMS starts itself and a CSRF token. */
+export type AtelierAuth = AuthAdapter & Partial<Pick<BuiltinAuthAdapter, 'startSession' | 'revokeSessions' | 'csrfToken'>>
 
-/** The auth adapter (`atelier.auth.provider`): who's signed in, signing in and out, managing users. */
-export function useAtelierAuth(): Promise<BuiltinAuthAdapter> {
-  auth ??= useAtelierDatabase().then(driver => createBuiltinAuth(driver)).catch((error) => {
+let auth: Promise<AtelierAuth> | undefined
+let customAuth: (() => AuthAdapter | Promise<AuthAdapter>) | undefined
+
+/**
+ * Replaces the built-in auth adapter, e.g. from a Nitro plugin:
+ * `registerAuthAdapter(() => createMyAdapter())`. The factory runs on first use.
+ */
+export function registerAuthAdapter(factory: () => AuthAdapter | Promise<AuthAdapter>): void {
+  customAuth = factory
+  auth = undefined
+}
+
+/** The auth adapter: who's signed in, signing in and out, managing users. */
+export function useAtelierAuth(): Promise<AtelierAuth> {
+  auth ??= (async () => customAuth ? defineAuthAdapter(await customAuth()) : createBuiltinAuth(await useAtelierDatabase()))().catch((error) => {
     auth = undefined
     throw error
   })

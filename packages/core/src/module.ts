@@ -8,6 +8,7 @@ import { driversTemplate } from './schema/drivers'
 import { migrationsTemplate } from './schema/migrations'
 
 export type { ModuleOptions, ResolvedOptions } from './options'
+export type { ColumnSpec, TableSpec } from './runtime/server/db/tables'
 
 const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
   meta: {
@@ -73,6 +74,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
   export const collections: Record<string, import(${JSON.stringify(types)}).CollectionDefinition>
   export const singletons: Record<string, import(${JSON.stringify(types)}).SingletonDefinition>
   export const roles: import(${JSON.stringify(resolve('./runtime/shared/policy'))}).Roles
+  export const tables: Record<string, import(${JSON.stringify(resolve('./runtime/server/db/tables'))}).TableSpec>
 }
 declare module '#atelier-drivers' {
   export const drivers: import(${JSON.stringify(resolve('./runtime/server/db/driver'))}).DriverLoaders
@@ -91,7 +93,7 @@ declare module '#atelier-migrations' {
     // A new or deleted definition file changes the registry, which Nitro only rebuilds for files it
     // already imports: soft-restart so both the server registry and the types pick it up
     nuxt.hook('builder:watch', async (event, path) => {
-      if ((event === 'add' || event === 'unlink') && /(?:^|\/)atelier\/(?:(?:collections|singletons)\/|roles\.[mc]?[jt]s$)/.test(path))
+      if ((event === 'add' || event === 'unlink') && /(?:^|\/)atelier\/(?:(?:collections|singletons)\/|(?:roles|tables)\.[mc]?[jt]s$)/.test(path))
         await nuxt.callHook('restart')
     })
   },

@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   const roles = await useAtelierRoles()
   if (!await roles.exists('editor'))
     await roles.save('editor', EDITOR_ROLE)
-  await auth.startSession(event, user.id, 'password')
+  await auth.signIn(event, { email: body.email, password: body.password })
   await audit(event, { action: 'setup.completed', actorId: user.id, target: { type: 'user', id: user.id }, details: { email: user.email } })
   return user
 })

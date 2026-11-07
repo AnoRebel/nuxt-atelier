@@ -36,8 +36,9 @@ export function discoverSchema(kind: SchemaKind, nuxt?: Nuxt): Map<string, strin
   return found
 }
 
-/** `server/atelier/roles.{ts,…}` of the app and every layer, highest priority (the app) first. */
-function roleFiles(nuxt?: Nuxt): string[] {
+/** `server/atelier/<name>.{ts,…}` of the app and every layer, highest priority (the app) first. */
+export function layerFiles(name: 'roles' | 'tables', nuxt?: Nuxt): string[] {
+  const pattern = new RegExp(`^${name}\\.(?:ts|mts|js|mjs)$`)
   return getLayerDirectories(nuxt).flatMap((layer) => {
     const dir = join(layer.server, 'atelier')
     let files: string[]
@@ -47,7 +48,7 @@ function roleFiles(nuxt?: Nuxt): string[] {
     catch {
       return []
     }
-    const file = files.find(f => /^roles\.(?:ts|mts|js|mjs)$/.test(f))
+    const file = files.find(f => pattern.test(f))
     return file ? [join(dir, file)] : []
   })
 }
@@ -56,12 +57,14 @@ function roleFiles(nuxt?: Nuxt): string[] {
 export function schemaTemplate(): string {
   const lines: string[] = []
   const exports: string[] = []
-  // a role in a higher-priority layer replaces one with the same name
-  const roles = roleFiles().map((path, i) => {
-    lines.push(`import roles${i} from ${JSON.stringify(path)}`)
-    return `roles${i}`
-  })
-  exports.push(`export const roles = Object.assign({}, ${roles.toReversed().join(', ')})`)
+  // roles and tables: a higher-priority layer's replaces one with the same name
+  for (const kind of ['roles', 'tables'] as const) {
+    const imports = layerFiles(kind).map((path, i) => {
+      lines.push(`import ${kind}${i} from ${JSON.stringify(path)}`)
+      return `${kind}${i}`
+    })
+    exports.push(`export const ${kind} = Object.assign({}, ${imports.toReversed().join(', ')})`)
+  }
   for (const kind of ['collections', 'singletons'] as const) {
     const entries = [...discoverSchema(kind)].map(([name, path], i) => {
       lines.push(`import ${kind}${i} from ${JSON.stringify(path)}`)
