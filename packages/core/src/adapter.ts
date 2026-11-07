@@ -5,6 +5,8 @@ export {
   CONTENT_ADAPTER_CONTRACT,
   defineContentAdapter,
 } from './runtime/shared/adapter'
+export { createMemoryAdapter } from './runtime/shared/memory-adapter'
+export type { MemoryAdapterOptions } from './runtime/shared/memory-adapter'
 export type {
   AdapterCapabilities,
   AdapterContext,
