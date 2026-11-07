@@ -16,7 +16,7 @@ import { isoBase64URL } from '@simplewebauthn/server/helpers'
 import { and, eq } from 'drizzle-orm'
 import { clearSession, createError, defineEventHandler, getRequestURL, readBody, useRuntimeConfig, useSession } from 'nuxt/server'
 import { buildTables } from '../../db/tables'
-import { assertMigrated, useAtelierAuth, useAtelierDatabase } from '../../index'
+import { assertMigrated, signInLimits, useAtelierAuth, useAtelierDatabase, useAtelierRateLimiter } from '../../index'
 
 const PREFIX = '/api/_atelier/auth/passkeys'
 // the pending challenge lives in its own short-lived sealed cookie, so it works before sign-in too
@@ -105,12 +105,18 @@ export default defineEventHandler(async (event) => {
   }
 
   if (method === 'POST' && action === 'login') {
+    const limiter = await useAtelierRateLimiter()
+    const limits = signInLimits(event)
+    await limiter.check(event, limits)
     const { response } = await readBody<{ response: AuthenticationResponseJSON }>(event)
     const pending = await challenge(event)
     const [passkey] = await db.select().from(passkeys).where(eq(passkeys.id, String(response?.id))).limit(1)
-    const refused = () => createError({ status: 401, message: 'This passkey isn\'t recognised' })
+    const refused = async () => {
+      await limiter.hit(limits)
+      return createError({ status: 401, message: 'This passkey isn\'t recognised' })
+    }
     if (!passkey)
-      throw refused()
+      throw await refused()
     const result = await verifyAuthenticationResponse({
       response,
       expectedChallenge: pending.challenge,
@@ -120,7 +126,7 @@ export default defineEventHandler(async (event) => {
       credential: { id: passkey.id, publicKey: isoBase64URL.toBuffer(passkey.publicKey), counter: Number(passkey.counter), transports: passkey.transports ?? undefined },
     }).catch(() => undefined) // includes a counter that went backwards: a cloned authenticator
     if (!result?.verified)
-      throw refused()
+      throw await refused()
     await db.update(passkeys).set({ counter: result.authenticationInfo.newCounter, lastUsedAt: new Date().toISOString() }).where(eq(passkeys.id, passkey.id))
     await auth.startSession(event, passkey.userId, 'passkey')
     return auth.users.get(passkey.userId)

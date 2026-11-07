@@ -15,9 +15,18 @@ const url = `file:${join(mkdtempSync(join(tmpdir(), 'atelier-auth-')), 'db.sqlit
 
 const login = (email: string, password: string) =>
   fetch('/api/_atelier/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password }) })
-const cookieOf = (response: Response) => response.headers.getSetCookie().find(c => c.startsWith('atelier-session='))!
+const csrfTokens = new Map<string, string>()
+/** The session cookie a response sets; its CSRF token is remembered for requests made with it. */
+function cookieOf(response: Response) {
+  const cookies = response.headers.getSetCookie()
+  const session = cookies.find(c => c.startsWith('atelier-session='))!
+  const csrf = cookies.find(c => c.startsWith('atelier-csrf='))
+  if (csrf)
+    csrfTokens.set(session, csrf.split(';')[0]!.split('=')[1]!)
+  return session
+}
 const me = async (cookie?: string) => (await (await fetch('/api/_atelier/auth/me', { headers: cookie ? { cookie: cookie.split(';')[0]! } : {} })).json()).user
-const logout = (cookie: string) => fetch('/api/_atelier/auth/logout', { method: 'POST', headers: { cookie: cookie.split(';')[0]! } })
+const logout = (cookie: string) => fetch('/api/_atelier/auth/logout', { method: 'POST', headers: { 'cookie': cookie.split(';')[0]!, 'x-atelier-csrf': csrfTokens.get(cookie)! } })
 
 describe('built-in auth', async () => {
   await setup({ setupTimeout: 300_000, rootDir })

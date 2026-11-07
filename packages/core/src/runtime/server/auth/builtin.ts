@@ -6,12 +6,14 @@ import type { AtelierDriver } from '../db/driver'
 import type { Db } from '../db/entries'
 import type { AuthAdapter, AuthUser, NewUser } from './adapter'
 import { and, eq, gt, lt } from 'drizzle-orm'
-import { clearSession, createError, getCookie, getSession, updateSession } from 'nuxt/server'
+import { clearSession, createError, deleteCookie, getCookie, getSession, setCookie, updateSession } from 'nuxt/server'
 import { buildTables } from '../db/tables'
 import { defineAuthAdapter } from './adapter'
 import { hashPassword, verifyPassword } from './password'
 
 const SESSION_COOKIE = 'atelier-session'
+/** Readable by the admin's scripts, which echo it in the `x-atelier-csrf` header. */
+const CSRF_COOKIE = 'atelier-csrf'
 
 export interface BuiltinAuthOptions {
   /** How long a session lasts, in seconds. Default: 7 days. */
@@ -25,6 +27,8 @@ export interface BuiltinAuthAdapter extends AuthAdapter {
   startSession: (event: RequestEvent, userId: string, method: SignInMethod) => Promise<void>
   /** Signs the user out everywhere. */
   revokeSessions: (userId: string) => Promise<void>
+  /** The CSRF token of this request's session, kept in the sealed cookie; undefined when signed out. */
+  csrfToken: (event: RequestEvent) => Promise<string | undefined>
 }
 
 const encoder = new TextEncoder()
@@ -47,19 +51,21 @@ export function createBuiltinAuth(driver: AtelierDriver, options: BuiltinAuthOpt
   // compared against for unknown emails, so a response doesn't reveal whether the email exists
   let dummyHash: Promise<string> | undefined
 
-  async function sessionId(event: RequestEvent): Promise<string | undefined> {
+  async function sessionData(event: RequestEvent): Promise<{ sid?: string, csrf?: string }> {
     if (!getCookie(event, SESSION_COOKIE)) // getSession would start (and set) an empty session
-      return undefined
-    const { data } = await getSession<{ sid?: string }>(event, config)
-    return data.sid
+      return {}
+    return (await getSession<{ sid?: string, csrf?: string }>(event, config)).data
   }
+  const sessionId = async (event: RequestEvent) => (await sessionData(event)).sid
 
   async function startSession(event: RequestEvent, userId: string, method: SignInMethod) {
     const now = new Date()
     const sid = randomId()
     await db.delete(sessions).where(lt(sessions.expiresAt, now.toISOString())) // ponytail: expired rows are swept at sign-in; move to a scheduled task if sign-ins are rare
     await db.insert(sessions).values({ id: await sha256(sid), userId, method, createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + maxAge * 1000).toISOString() })
-    await updateSession(event, config, { sid })
+    const csrf = randomId()
+    await updateSession(event, config, { sid, csrf })
+    setCookie(event, CSRF_COOKIE, csrf, { path: '/', sameSite: 'strict', secure: true, maxAge })
   }
 
   const revokeSessions = async (userId: string) => {
@@ -102,7 +108,10 @@ export function createBuiltinAuth(driver: AtelierDriver, options: BuiltinAuthOpt
       if (sid)
         await db.delete(sessions).where(eq(sessions.id, await sha256(sid)))
       await clearSession(event, config)
+      deleteCookie(event, CSRF_COOKIE, { path: '/' })
     },
+
+    csrfToken: async event => (await sessionData(event)).csrf,
 
     startSession,
     revokeSessions,

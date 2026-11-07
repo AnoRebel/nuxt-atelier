@@ -3,7 +3,8 @@
 onMounted(async () => {
   const { startAuthentication, startRegistration } = await import('@simplewebauthn/browser')
   function post<T>(path: string, body?: object) {
-    return $fetch<T>(`/api/_atelier/auth${path}`, { method: 'POST', body })
+    const csrf = /(?:^|; )atelier-csrf=([^;]+)/.exec(document.cookie)?.[1]
+    return $fetch<T>(`/api/_atelier/auth${path}`, { method: 'POST', body, headers: csrf ? { 'x-atelier-csrf': csrf } : {} })
   }
   Object.assign(window, {
     atelier: {

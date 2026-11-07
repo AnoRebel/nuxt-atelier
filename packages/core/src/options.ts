@@ -34,6 +34,9 @@ export const optionsSchema = v.strictObject({
   }), {}),
   auth: v.optional(v.strictObject({
     provider: v.optional(v.pipe(v.picklist(['builtin'], 'accepted: "builtin"'), v.description('Authentication provider.')), 'builtin'),
+    signInAttempts: int(1, 1000, 10, 'Failed sign-ins allowed per IP address and email within `auth.signInWindow`; then 429 until it ends. An email alone allows five times as many, so rotating addresses doesn\'t help.'),
+    signInWindow: int(60, 86_400, 900, 'The sign-in rate limit window, in seconds.'),
+    trustProxy: v.optional(v.pipe(v.boolean('expected true or false'), v.description('Take the client IP from `X-Forwarded-For`. Turn on only behind a proxy that sets it, or clients could spoof their address.')), false),
     passkeys: v.optional(v.pipe(v.boolean('expected true or false'), v.description('Let users of the built-in provider register passkeys and sign in with them. Needs `@simplewebauthn/server`. The relying party is the public site URL (`NUXT_PUBLIC_ATELIER_SITE_URL`).')), false),
   }), {}),
   admin: v.optional(v.strictObject({
