@@ -4,7 +4,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { $fetch, createPage, fetch, setup, startServer, url } from '@nuxt/test-utils/e2e'
+import { sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
+import { connect } from '../../packages/core/src/runtime/server/db/driver'
+import { allDrivers } from '../../packages/core/src/runtime/server/db/loaders'
+import { query } from '../storage/env'
 
 const rootDir = fileURLToPath(new URL('../fixtures/passkeys', import.meta.url))
 const database = `file:${join(mkdtempSync(join(tmpdir(), 'atelier-passkeys-')), 'db.sqlite')}`
@@ -62,6 +66,17 @@ describe('passkeys', async () => {
     expect(await call(page, 'signInWithPasskey')).toMatchObject({ id: user.id })
     const { credentials } = await cdp.send('WebAuthn.getCredentials', { authenticatorId })
     expect(credentials[0]!.signCount).toBeGreaterThan(1)
+
+    // registration and passkey sign-ins are in the audit log
+    const driver = await connect(database, { loaders: allDrivers })
+    try {
+      const events = await query(driver, sql`select action, actor_id, target_id from atelier_audit order by at`)
+      expect(events).toContainEqual({ action: 'auth.passkey-added', actor_id: user.id, target_id: id })
+      expect(events.filter(e => e.action === 'auth.sign-in' && e.actor_id === user.id)).toHaveLength(3) // password, passkey, passkey
+    }
+    finally {
+      await driver.close()
+    }
     await page.close()
   })
 

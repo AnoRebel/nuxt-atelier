@@ -10,7 +10,7 @@ import type { AuthUser } from '../auth/adapter'
 import * as v from 'valibot'
 import { createError, defineEventHandler, getRequestURL, readValidatedBody } from 'nuxt/server'
 import { ADMIN_ROLE } from '../../shared/policy'
-import { assertMigrated, requireUser, useAtelierAuth, useAtelierRoles } from '../index'
+import { assertMigrated, audit, requireUser, useAtelierAuth, useAtelierRoles } from '../index'
 
 const PREFIX = '/api/_atelier/users'
 const email = v.pipe(v.string(), v.trim(), v.email('Enter an email address'), v.maxLength(255))
@@ -49,7 +49,9 @@ export default defineEventHandler(async (event) => {
     if (body.role === ADMIN_ROLE && actor.role !== ADMIN_ROLE)
       throw adminOnly()
     await knownRole(body.role)
-    return auth.users.create(body)
+    const created = await auth.users.create(body)
+    await audit(event, { action: 'user.created', actorId: actor.id, target: { type: 'user', id: created.id }, details: { email: created.email, role: created.role } })
+    return created
   }
   if (id && method === 'PATCH') {
     const changes = await readValidatedBody(event, Changes)
@@ -61,7 +63,15 @@ export default defineEventHandler(async (event) => {
       throw createError({ status: 403, message: 'You can\'t change your own role' })
     if (changes.role !== undefined && changes.role !== ADMIN_ROLE && isLastAdmin(users, id))
       throw createError({ status: 409, message: 'This is the last administrator: make another user an administrator first' })
-    return auth.users.update(id, changes)
+    const before = users.find(u => u.id === id)!
+    const updated = await auth.users.update(id, changes)
+    const changed: Record<string, unknown> = Object.fromEntries((['email', 'name', 'role'] as const)
+      .filter(key => changes[key] !== undefined && changes[key] !== before[key])
+      .map(key => [key, { from: before[key] ?? null, to: updated[key] ?? null }]))
+    if (changes.password !== undefined)
+      changed.password = 'changed' // never the password itself
+    await audit(event, { action: 'user.updated', actorId: actor.id, target: { type: 'user', id }, details: changed })
+    return updated
   }
   if (id && method === 'DELETE') {
     const users = await target()
@@ -69,7 +79,9 @@ export default defineEventHandler(async (event) => {
       throw adminOnly()
     if (isLastAdmin(users, id))
       throw createError({ status: 409, message: 'This is the last administrator: make another user an administrator first' })
+    const deleted = users.find(u => u.id === id)!
     await auth.users.delete(id)
+    await audit(event, { action: 'user.deleted', actorId: actor.id, target: { type: 'user', id }, details: { email: deleted.email, role: deleted.role } })
     return { ok: true }
   }
   throw createError({ status: 405, message: 'Method not allowed' })

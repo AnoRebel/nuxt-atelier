@@ -14,6 +14,8 @@ import type { BuiltinAuthAdapter } from './auth/builtin'
 import type { RoleStore } from './auth/roles'
 import { createPolicy } from '../shared/policy'
 import { createBuiltinAuth } from './auth/builtin'
+import type { AuditInput, AuditLog } from './auth/audit'
+import { createAuditLog } from './auth/audit'
 import { clientIp, createRateLimiter } from './auth/rate-limit'
 import { createRoleStore } from './auth/roles'
 
@@ -28,6 +30,7 @@ export { defineAuthAdapter } from './auth/adapter'
 export type { AuthAdapter, AuthUser, NewUser } from './auth/adapter'
 export type { BuiltinAuthAdapter } from './auth/builtin'
 export type { RoleEntry, RoleStore } from './auth/roles'
+export type { AuditAction, AuditEntry, AuditInput, AuditLog } from './auth/audit'
 export { ADMIN_ROLE, createPolicy } from '../shared/policy'
 export type { Capability, ContentAction, ContentPermission, FieldAccess, Policy, PolicyEntry, PolicyUser, Role, Roles } from '../shared/policy'
 
@@ -144,4 +147,21 @@ export function signInLimits(event: RequestEvent, email?: string) {
   return email === undefined
     ? [{ key: `sign-in:${ip}`, max: attempts * 5, window }]
     : [{ key: `sign-in:${ip}:${email}`, max: attempts, window }, { key: `sign-in:${email}`, max: attempts * 5, window }]
+}
+
+let auditLog: Promise<AuditLog> | undefined
+
+/** The audit log of security-relevant events. */
+export function useAtelierAudit(): Promise<AuditLog> {
+  auditLog ??= useAtelierDatabase().then(createAuditLog).catch((error) => {
+    auditLog = undefined
+    throw error
+  })
+  return auditLog
+}
+
+/** Records an audit event, with the IP of the request it came from. */
+export async function audit(event: RequestEvent, input: AuditInput): Promise<void> {
+  const { trustProxy } = useAtelierServerConfig().auth as { trustProxy: boolean }
+  await (await useAtelierAudit()).record(input, clientIp(event, trustProxy))
 }

@@ -85,4 +85,28 @@ describe('first-run setup, users and roles', async () => {
     expect((await api('GET', '/users')).status).toBe(401)
     expect((await api('DELETE', '/roles/editor', undefined, admin)).status).toBe(409) // in use
   })
+
+  it('records who did what, to what and when, readable by administrators only', async () => {
+    await api('POST', '/auth/login', { email: 'ada@example.com', password: 'wrong password' })
+    const { status, body: log } = await api('GET', '/audit?limit=200', undefined, admin)
+    expect(status).toBe(200)
+    const find = (action: string, match: object = {}) => log.find((e: object & { action: string }) => e.action === action && expect.objectContaining(match).asymmetricMatch(e))
+
+    expect(find('setup.completed', { actorId: adminId })).toBeDefined()
+    // the role change: who, when, old and new role
+    const demotion = find('user.updated', { actorId: adminId, target: { type: 'user', id: adminId } })
+    expect(demotion).toMatchObject({ details: { role: { from: 'admin', to: 'editor' } }, ip: expect.any(String) })
+    expect(Date.parse(demotion.at)).toBeGreaterThan(Date.now() - 600_000)
+    expect(find('user.created', { details: { email: 'mia@example.com', role: 'manager' } })).toBeDefined()
+    expect(find('role.saved', { target: { type: 'role', id: 'manager' }, details: { from: null, to: { label: 'Manager', capabilities: ['users'] } } })).toBeDefined()
+    expect(find('auth.sign-in', { details: { method: 'password' } })).toBeDefined()
+    expect(find('auth.sign-in-failed', { actorId: null, details: { method: 'password', email: 'ada@example.com' } })).toBeDefined()
+    expect(JSON.stringify(log)).not.toContain('password 123')
+
+    expect(log.map((e: { at: string }) => e.at)).toEqual(log.map((e: { at: string }) => e.at).toSorted().reverse()) // newest first
+    const older = await api('GET', `/audit?limit=2&before=${encodeURIComponent(log[1].at)}`, undefined, admin)
+    expect(older.body[0].at < log[1].at).toBe(true)
+
+    expect((await api('GET', '/audit', undefined, await signIn('mia@example.com'))).status).toBe(403)
+  })
 })
