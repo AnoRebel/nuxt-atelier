@@ -38,7 +38,7 @@ const toUser = (row: { id: string, email: string, name: string | null, role: str
 export function createBuiltinAuth(driver: AtelierDriver, options: BuiltinAuthOptions = {}): BuiltinAuthAdapter {
   const maxAge = options.maxAge ?? 7 * 24 * 3600
   const config = { name: SESSION_COOKIE, maxAge }
-  const { atelier_users: users, atelier_sessions: sessions } = buildTables(driver.dialect, { collections: {}, singletons: {} })
+  const { atelier_users: users, atelier_sessions: sessions, atelier_passkeys: passkeys } = buildTables(driver.dialect, { collections: {}, singletons: {} })
   const db = driver.db as Db
 
   const byEmail = async (email: string) => (await db.select().from(users).where(eq(users.email, email.trim().toLowerCase())).limit(1))[0]
@@ -146,6 +146,7 @@ export function createBuiltinAuth(driver: AtelierDriver, options: BuiltinAuthOpt
 
       async delete(id) {
         await revokeSessions(id)
+        await db.delete(passkeys).where(eq(passkeys.userId, id))
         await db.delete(users).where(eq(users.id, id))
       },
     },

@@ -34,6 +34,7 @@ export const optionsSchema = v.strictObject({
   }), {}),
   auth: v.optional(v.strictObject({
     provider: v.optional(v.pipe(v.picklist(['builtin'], 'accepted: "builtin"'), v.description('Authentication provider.')), 'builtin'),
+    passkeys: v.optional(v.pipe(v.boolean('expected true or false'), v.description('Let users of the built-in provider register passkeys and sign in with them. Needs `@simplewebauthn/server`. The relying party is the public site URL (`NUXT_PUBLIC_ATELIER_SITE_URL`).')), false),
   }), {}),
   admin: v.optional(v.strictObject({
     base: v.optional(v.pipe(

@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "9fde9f41-c43b-4fd5-8282-72ef547bc53d",
+  "id": "ed57de19-424e-4802-8945-25ef8e09564a",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -27,11 +27,11 @@
       "entityType": "tables"
     },
     {
-      "name": "atelier_routes",
+      "name": "atelier_passkeys",
       "entityType": "tables"
     },
     {
-      "name": "atelier_c_notes",
+      "name": "atelier_routes",
       "entityType": "tables"
     },
     {
@@ -325,6 +325,86 @@
       "entityType": "columns"
     },
     {
+      "table": "atelier_passkeys",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_passkeys",
+      "name": "user_id",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_passkeys",
+      "name": "public_key",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_passkeys",
+      "name": "counter",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_passkeys",
+      "name": "transports",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_passkeys",
+      "name": "name",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_passkeys",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_passkeys",
+      "name": "last_used_at",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "atelier_routes",
       "name": "path",
       "type": "text",
@@ -349,56 +429,6 @@
       "name": "source_id",
       "type": "text",
       "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_id",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_version",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_created_at",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_updated_at",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "title",
-      "type": "text",
-      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
@@ -461,6 +491,20 @@
     {
       "table": "atelier_sessions",
       "name": "atelier_sessions_user_idx",
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "atelier_passkeys",
+      "name": "atelier_passkeys_user_idx",
       "columns": [
         {
           "value": "user_id",
@@ -539,19 +583,19 @@
       "entityType": "pks"
     },
     {
-      "table": "atelier_routes",
-      "name": "atelier_routes_pk",
+      "table": "atelier_passkeys",
+      "name": "atelier_passkeys_pk",
       "columns": [
-        "path"
+        "_id"
       ],
       "nameExplicit": false,
       "entityType": "pks"
     },
     {
-      "table": "atelier_c_notes",
-      "name": "atelier_c_notes_pk",
+      "table": "atelier_routes",
+      "name": "atelier_routes_pk",
       "columns": [
-        "_id"
+        "path"
       ],
       "nameExplicit": false,
       "entityType": "pks"

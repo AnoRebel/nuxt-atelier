@@ -61,7 +61,7 @@ describe.each(engines)('%s tables', (_, url) => {
   const check = (id?: string) => ({ isUnique: (field: string, value: unknown) => isUnique(driver.db, posts, field, value, id) })
 
   it('creates the system and collection tables', () => {
-    expect(Object.keys(tables).toSorted()).toEqual(['atelier_c_authors', 'atelier_c_blog_posts', 'atelier_relations', 'atelier_revisions', 'atelier_routes', 'atelier_sessions', 'atelier_singletons', 'atelier_users'])
+    expect(Object.keys(tables).toSorted()).toEqual(['atelier_c_authors', 'atelier_c_blog_posts', 'atelier_passkeys', 'atelier_relations', 'atelier_revisions', 'atelier_routes', 'atelier_sessions', 'atelier_singletons', 'atelier_users'])
   })
 
   it('round-trips every column type unchanged', async () => {

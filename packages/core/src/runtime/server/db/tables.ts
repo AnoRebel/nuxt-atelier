@@ -9,6 +9,7 @@
 //   atelier_routes          URL paths of routable entries
 //   atelier_users           CMS users of the built-in auth adapter
 //   atelier_sessions        their sessions, so signing out or a password reset can revoke them
+//   atelier_passkeys        their passkeys (WebAuthn credentials), when passkey sign-in is enabled
 //
 // Every field column is nullable: `required` is enforced by validation, so adding a required field
 // later doesn't need a table rewrite. Timestamps are ISO 8601 UTC strings on every engine.
@@ -226,6 +227,16 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
       expiresAt: kit.key('expires_at', TIMESTAMP).notNull(),
     }, t => [kit.index('atelier_sessions_user_idx').on(t.userId)]),
+    atelier_passkeys: kit.table('atelier_passkeys', {
+      id: kit.key('_id', 255).primaryKey(), // the credential id, base64url
+      userId: kit.key('user_id', ID).notNull(),
+      publicKey: kit.text('public_key').notNull(), // base64url COSE key
+      counter: kit.bigint('counter').notNull(),
+      transports: kit.json('transports'),
+      name: kit.key('name', 255),
+      createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
+      lastUsedAt: kit.key('last_used_at', TIMESTAMP),
+    }, t => [kit.index('atelier_passkeys_user_idx').on(t.userId)]),
     atelier_routes: kit.table('atelier_routes', {
       path: kit.key('path', 255).primaryKey(),
       source: kit.key('source', NAME).notNull(),
