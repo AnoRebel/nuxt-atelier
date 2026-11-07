@@ -5,7 +5,7 @@ import * as v from 'valibot'
 import { createError, defineEventHandler, readValidatedBody } from 'nuxt/server'
 import { ADMIN_ROLE } from '../../shared/policy'
 import { EDITOR_ROLE } from '../auth/roles'
-import { assertMigrated, useAtelierAuth, useAtelierRoles } from '../index'
+import { assertMigrated, audit, useAtelierAuth, useAtelierRoles } from '../index'
 
 const Admin = v.object({
   email: v.pipe(v.string(), v.trim(), v.email('Enter an email address'), v.maxLength(255)),
@@ -31,5 +31,6 @@ export default defineEventHandler(async (event) => {
   if (!await roles.exists('editor'))
     await roles.save('editor', EDITOR_ROLE)
   await auth.startSession(event, user.id, 'password')
+  await audit(event, { action: 'setup.completed', actorId: user.id, target: { type: 'user', id: user.id }, details: { email: user.email } })
   return user
 })

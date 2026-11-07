@@ -9,6 +9,7 @@
 //   atelier_routes          URL paths of routable entries
 //   atelier_users           CMS users of the built-in auth adapter
 //   atelier_sessions        their sessions, so signing out or a password reset can revoke them
+//   atelier_audit           security-relevant events: who did what to what, when, from where
 //   atelier_rate_limits     counters for rate-limited actions, shared by every server instance
 //   atelier_roles           roles edited in the admin (code-defined ones are in server/atelier/roles.ts)
 //   atelier_passkeys        their passkeys (WebAuthn credentials), when passkey sign-in is enabled
@@ -229,6 +230,16 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
       expiresAt: kit.key('expires_at', TIMESTAMP).notNull(),
     }, t => [kit.index('atelier_sessions_user_idx').on(t.userId)]),
+    atelier_audit: kit.table('atelier_audit', {
+      id: kit.key('_id', ID).primaryKey(),
+      at: kit.key('at', TIMESTAMP).notNull(),
+      action: kit.key('action', NAME).notNull(), // e.g. auth.sign-in, user.updated
+      actorId: kit.key('actor_id', ID), // null: not signed in, or the system
+      targetType: kit.key('target_type', NAME),
+      targetId: kit.key('target_id', 255),
+      ip: kit.key('ip', 64),
+      details: kit.json('details'),
+    }, t => [kit.index('atelier_audit_at_idx').on(t.at), kit.index('atelier_audit_actor_idx').on(t.actorId)]),
     atelier_rate_limits: kit.table('atelier_rate_limits', {
       key: kit.key('key', 64).primaryKey(), // SHA-256 of what's limited, e.g. sign-ins from an IP for an email
       count: kit.int('count').notNull(),

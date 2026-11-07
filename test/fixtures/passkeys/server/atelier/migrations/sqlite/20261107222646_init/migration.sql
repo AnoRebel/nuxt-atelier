@@ -43,6 +43,17 @@ CREATE TABLE `atelier_sessions` (
 	`expires_at` text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `atelier_audit` (
+	`_id` text PRIMARY KEY,
+	`at` text NOT NULL,
+	`action` text NOT NULL,
+	`actor_id` text,
+	`target_type` text,
+	`target_id` text,
+	`ip` text,
+	`details` text
+);
+--> statement-breakpoint
 CREATE TABLE `atelier_rate_limits` (
 	`key` text PRIMARY KEY,
 	`count` integer NOT NULL,
@@ -76,5 +87,7 @@ CREATE INDEX `atelier_relations_target_idx` ON `atelier_relations` (`target`,`ta
 CREATE UNIQUE INDEX `atelier_revisions_source_version_idx` ON `atelier_revisions` (`source`,`source_id`,`_version`);--> statement-breakpoint
 CREATE UNIQUE INDEX `atelier_users_email_idx` ON `atelier_users` (`email`);--> statement-breakpoint
 CREATE INDEX `atelier_sessions_user_idx` ON `atelier_sessions` (`user_id`);--> statement-breakpoint
+CREATE INDEX `atelier_audit_at_idx` ON `atelier_audit` (`at`);--> statement-breakpoint
+CREATE INDEX `atelier_audit_actor_idx` ON `atelier_audit` (`actor_id`);--> statement-breakpoint
 CREATE INDEX `atelier_passkeys_user_idx` ON `atelier_passkeys` (`user_id`);--> statement-breakpoint
 CREATE INDEX `atelier_routes_source_idx` ON `atelier_routes` (`source`,`source_id`);

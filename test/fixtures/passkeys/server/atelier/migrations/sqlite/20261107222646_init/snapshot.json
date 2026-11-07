@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "83e98fbd-e816-4c5f-8c09-33933030b099",
+  "id": "9386826a-46e1-497f-bf17-de0d47df685f",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -27,6 +27,10 @@
       "entityType": "tables"
     },
     {
+      "name": "atelier_audit",
+      "entityType": "tables"
+    },
+    {
       "name": "atelier_rate_limits",
       "entityType": "tables"
     },
@@ -40,10 +44,6 @@
     },
     {
       "name": "atelier_routes",
-      "entityType": "tables"
-    },
-    {
-      "name": "atelier_c_notes",
       "entityType": "tables"
     },
     {
@@ -337,6 +337,86 @@
       "entityType": "columns"
     },
     {
+      "table": "atelier_audit",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_audit",
+      "name": "at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_audit",
+      "name": "action",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_audit",
+      "name": "actor_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_audit",
+      "name": "target_type",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_audit",
+      "name": "target_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_audit",
+      "name": "ip",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_audit",
+      "name": "details",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "atelier_rate_limits",
       "name": "key",
       "type": "text",
@@ -507,56 +587,6 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_c_notes",
-      "name": "_id",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_version",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_created_at",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_updated_at",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "title",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
       "table": "atelier_relations",
       "name": "atelier_relations_target_idx",
       "columns": [
@@ -616,6 +646,34 @@
       "columns": [
         {
           "value": "user_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "atelier_audit",
+      "name": "atelier_audit_at_idx",
+      "columns": [
+        {
+          "value": "at",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "atelier_audit",
+      "name": "atelier_audit_actor_idx",
+      "columns": [
+        {
+          "value": "actor_id",
           "isExpression": false
         }
       ],
@@ -705,6 +763,15 @@
       "entityType": "pks"
     },
     {
+      "table": "atelier_audit",
+      "name": "atelier_audit_pk",
+      "columns": [
+        "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
       "table": "atelier_rate_limits",
       "name": "atelier_rate_limits_pk",
       "columns": [
@@ -736,15 +803,6 @@
       "name": "atelier_routes_pk",
       "columns": [
         "path"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "atelier_c_notes_pk",
-      "columns": [
-        "_id"
       ],
       "nameExplicit": false,
       "entityType": "pks"

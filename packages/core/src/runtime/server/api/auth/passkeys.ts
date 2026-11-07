@@ -16,7 +16,7 @@ import { isoBase64URL } from '@simplewebauthn/server/helpers'
 import { and, eq } from 'drizzle-orm'
 import { clearSession, createError, defineEventHandler, getRequestURL, readBody, useRuntimeConfig, useSession } from 'nuxt/server'
 import { buildTables } from '../../db/tables'
-import { assertMigrated, signInLimits, useAtelierAuth, useAtelierDatabase, useAtelierRateLimiter } from '../../index'
+import { assertMigrated, audit, signInLimits, useAtelierAuth, useAtelierDatabase, useAtelierRateLimiter } from '../../index'
 
 const PREFIX = '/api/_atelier/auth/passkeys'
 // the pending challenge lives in its own short-lived sealed cookie, so it works before sign-in too
@@ -95,6 +95,7 @@ export default defineEventHandler(async (event) => {
       name: typeof name === 'string' ? name.slice(0, 255) : null,
       createdAt: new Date().toISOString(),
     })
+    await audit(event, { action: 'auth.passkey-added', actorId: user.id, target: { type: 'passkey', id: credential.id } })
     return { id: credential.id }
   }
 
@@ -113,6 +114,7 @@ export default defineEventHandler(async (event) => {
     const [passkey] = await db.select().from(passkeys).where(eq(passkeys.id, String(response?.id))).limit(1)
     const refused = async () => {
       await limiter.hit(limits)
+      await audit(event, { action: 'auth.sign-in-failed', actorId: null, details: { method: 'passkey' } })
       return createError({ status: 401, message: 'This passkey isn\'t recognised' })
     }
     if (!passkey)
@@ -129,6 +131,7 @@ export default defineEventHandler(async (event) => {
       throw await refused()
     await db.update(passkeys).set({ counter: result.authenticationInfo.newCounter, lastUsedAt: new Date().toISOString() }).where(eq(passkeys.id, passkey.id))
     await auth.startSession(event, passkey.userId, 'passkey')
+    await audit(event, { action: 'auth.sign-in', actorId: passkey.userId, target: { type: 'user', id: passkey.userId }, details: { method: 'passkey', passkey: passkey.id } })
     return auth.users.get(passkey.userId)
   }
 
@@ -140,7 +143,12 @@ export default defineEventHandler(async (event) => {
 
   if (method === 'DELETE' && action) {
     const user = await signedIn()
-    await db.delete(passkeys).where(and(eq(passkeys.id, decodeURIComponent(action)), eq(passkeys.userId, user.id)))
+    const id = decodeURIComponent(action)
+    const [owned] = await db.select({ id: passkeys.id }).from(passkeys).where(and(eq(passkeys.id, id), eq(passkeys.userId, user.id)))
+    if (!owned)
+      throw createError({ status: 404, message: 'No such passkey' })
+    await db.delete(passkeys).where(eq(passkeys.id, id))
+    await audit(event, { action: 'auth.passkey-removed', actorId: user.id, target: { type: 'passkey', id } })
     return { ok: true }
   }
 
