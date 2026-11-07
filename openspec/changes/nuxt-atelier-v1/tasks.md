@@ -55,7 +55,7 @@
 
 ## 6. Access control (access-control)
 
-- [ ] 6.1 Define the `AuthAdapter` interface and the `can(user, action, resource, entry?)` policy engine with roles, collection/singleton operation permissions, admin capabilities, field-level and entry-level rules; verify unit tests for each rule type
+- [x] 6.1 Define the `AuthAdapter` interface and the `can(user, action, resource, entry?)` policy engine with roles, collection/singleton operation permissions, admin capabilities, field-level and entry-level rules; verify unit tests for each rule type (`createPolicy(roles)` in `runtime/shared/policy.ts` gives `can`, `ownOnly`, `fields`, `readable`, `unwritable`; roles are data; `admin` is built in. Entries start recording their creator, which own-only rules check, with 7.4)
 - [ ] 6.2 Implement the built-in adapter: users table, scrypt hashing with encoded params and PBKDF2 fallback, `nuxt/server` `useSession` sealed cookies with server-side session ids, logout/reset revocation; verify tests for hash verify/upgrade, cookie flags, and revoked session rejection
 - [ ] 6.3 Implement optional passkey sign-in for the built-in adapter (`auth.passkeys`, off by default) with `@simplewebauthn/server` + lazy-loaded `@simplewebauthn/browser`, `user_passkeys` table, RP ID from the public site URL, required user verification, counter check, audit events; verify register + sign-in e2e with a Playwright virtual authenticator, and that passkey endpoints return 404 and no passkey chunk ships when disabled
 - [ ] 6.4 Implement first-run administrator setup and last-administrator protection; verify e2e: setup screen appears only with zero users, and demoting the last admin is refused
@@ -69,7 +69,7 @@
 - [ ] 7.1 Implement REST handlers under `/api/_atelier/**` with `nuxt/server` (`defineHandler`, `readValidatedBody`) for collections, singletons, routes, revisions, auth, using `{nitro2, nitro3}` variants where needed; verify integration tests on Nuxt 4 and `compatibilityVersion: 5`
 - [ ] 7.2 Implement query language (filters with and/or, comparisons, contains, in, null; sort; field selection; offset + cursor pagination; locale; populate depth) with bounded page size and depth; verify unit tests and capped page size response
 - [ ] 7.3 Implement published-only default reads and draft access requiring preview permission; verify anonymous draft request returns the published version or 404
-- [ ] 7.4 Enforce permissions per operation and strip unreadable fields; verify field-omission and 403 tests
+- [ ] 7.4 Enforce permissions per operation, strip unreadable fields, refuse writes to read-only fields, and record each entry's creator (`_created_by`) for own-only rules; verify field-omission, 403 and own-entries-only tests
 - [ ] 7.5 Implement the structured error shape (code, message, field details; 401/403/404/409/422/429); verify snapshot tests of error bodies
 - [ ] 7.6 Implement scoped API tokens (hashed, expiring, revocable); verify revoked token → 401 and scope enforcement tests
 - [ ] 7.7 Implement typed server (`#atelier/server`) and client (`useAtelierQuery`, `useAtelierEntry`) helpers using Nuxt `useAsyncData`/`useFetch` for SSR; verify type tests and an SSR fixture rendering queried content
