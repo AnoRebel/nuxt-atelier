@@ -7,6 +7,7 @@ import * as v from 'valibot'
 export interface StandardSchema {
   readonly '~standard': {
     validate: (value: unknown) => StandardResult | Promise<StandardResult>
+    readonly types?: { readonly output: unknown }
   }
 }
 type StandardResult = { issues?: undefined } | { issues: readonly { message: string }[] }
@@ -23,6 +24,11 @@ interface Base {
   validate?: StandardSchema
   /** Initial value for new entries and blocks (JSON). Each one gets its own copy. */
   default?: unknown
+  /**
+   * The field's previous key, when it was renamed: its stored data moves to the new key instead of
+   * being dropped. Top-level fields only.
+   */
+  renamedFrom?: string
 }
 interface Length { minLength?: number, maxLength?: number }
 interface Items { minItems?: number, maxItems?: number }
@@ -53,17 +59,42 @@ export interface ColorField extends Base { type: 'color', alpha?: boolean }
 export interface JsonField extends Base { type: 'json' }
 /** Stores a media item id. `accept`: MIME patterns like `image/*`. */
 export interface MediaField extends Base { type: 'media', accept?: readonly string[] }
-/** Stores the id (or ids, with `many`) of entries in the `to` collection. */
-export interface RelationField extends Base, Items { type: 'relation', to: string, many?: boolean }
+/**
+ * Stores the id (or ids, with `many`) of entries in the `to` collection. `onDelete` says what happens
+ * to this entry when a referenced one is deleted: `restrict` (the default) refuses the deletion,
+ * `nullify` removes the reference, `cascade` deletes this entry too (not allowed in singletons).
+ */
+export interface RelationField extends Base, Items {
+  type: 'relation'
+  to: string
+  many?: boolean
+  onDelete?: 'restrict' | 'nullify' | 'cascade'
+}
 export interface ObjectField extends Base { type: 'object', fields: Fields }
 export interface RepeaterField extends Base, Items { type: 'repeater', fields: Fields }
 /** `allow`: block names that may be added; all blocks when omitted. */
 export interface BlocksField extends Base, Items { type: 'blocks', allow?: readonly string[] }
 
+/** How a custom field's value is stored: a string, a number, a boolean, or JSON. */
+export type FieldStorage = 'text' | 'number' | 'boolean' | 'json'
+
+/** A field of a type made with `defineFieldType`. `T` is its value's type. */
+export interface CustomField<T = unknown> extends Base {
+  'type': 'custom'
+  /** The field type's name, e.g. `geo-point`. */
+  'fieldType': string
+  'storage': FieldStorage
+  /** The admin input: the name of a global Vue component. */
+  'input'?: string
+  /** Validates the value. Runs on the server only; not serialisable. */
+  'schema': StandardSchema
+  readonly '~value'?: T
+}
+
 export type Field
   = | TextField | TextareaField | RichTextField | NumberField | BooleanField | SelectField
     | MultiSelectField | DateField | EmailField | UrlField | SlugField | ColorField | JsonField
-    | MediaField | RelationField | ObjectField | RepeaterField | BlocksField
+    | MediaField | RelationField | ObjectField | RepeaterField | BlocksField | CustomField
 
 type Options<F extends Field> = Omit<F, 'type'>
 
@@ -89,6 +120,35 @@ export const relation = <const O extends Options<RelationField>>(options: O): Re
 export const object = <const O extends Options<ObjectField>>(options: O): ObjectField & O => ({ type: 'object', ...options })
 export const repeater = <const O extends Options<RepeaterField>>(options: O): RepeaterField & O => ({ type: 'repeater', ...options })
 export const blocks = helper<BlocksField>('blocks')
+
+export interface FieldTypeDefinition<S extends StandardSchema> {
+  /** Lowercase letters, digits and `-`, e.g. `geo-point`. */
+  name: string
+  storage: FieldStorage
+  /** Any Standard Schema; its output type is the field's value type. */
+  schema: S
+  /** The admin input: the name of a global Vue component. */
+  input?: string
+}
+
+type Output<S extends StandardSchema> = NonNullable<S['~standard']['types']> extends { output: infer T } ? T : unknown
+type CustomOptions = Omit<CustomField, 'type' | 'fieldType' | 'storage' | 'schema' | 'input' | '~value'>
+
+/**
+ * Defines a field type, returning its helper: `const geoPoint = defineFieldType({ ... })`, then
+ * `location: geoPoint({ required: true })` in any collection, singleton, object or repeater.
+ */
+export function defineFieldType<const S extends StandardSchema>(definition: FieldTypeDefinition<S>) {
+  const { name, storage, schema, input } = definition
+  if (!/^[a-z][a-z0-9-]*$/.test(name))
+    throw new Error(`[nuxt-atelier] Field type "${name}": use lowercase letters, digits and "-", starting with a letter`)
+  return <const O extends CustomOptions>(options?: O): CustomField<Output<S>> & O =>
+    ({ type: 'custom', fieldType: name, storage, schema, ...input === undefined ? {} : { input }, ...options }) as unknown as CustomField<Output<S>> & O
+}
+
+/** JSON for a schema or field descriptors: validators (Standard Schemas) are left out. */
+export const serialiseFields = (value: unknown): string =>
+  JSON.stringify(value, (_, x) => x && typeof x === 'object' && '~standard' in x ? undefined : x)
 
 // --- schemas -----------------------------------------------------------------
 
@@ -124,6 +184,22 @@ const items = (f: Items): Action[] => [
 ]
 const unique = v.check((list: unknown[]) => new Set(list).size === list.length, 'contains duplicates')
 const str = (message: string, ...actions: Action[]) => pipe(v.string(message), ...actions)
+
+const stored: Record<FieldStorage, Schema> = {
+  text: v.string('expected text'),
+  number: v.pipe(v.number('expected a number'), v.finite('expected a finite number')),
+  boolean: v.boolean('expected true or false'),
+  json: v.custom(isJson, 'expected a JSON value'),
+}
+
+/** A pipe step running a Standard Schema on an already typed value. */
+const standard = (schema: StandardSchema) => v.rawCheckAsync(async ({ dataset, addIssue }) => {
+  if (!dataset.typed)
+    return
+  const result = await schema['~standard'].validate(dataset.value)
+  for (const issue of result.issues ?? [])
+    addIssue({ message: issue.message })
+})
 
 const proseNode: v.GenericSchema = v.looseObject({
   type: v.string(),
@@ -166,6 +242,7 @@ const builders: { [T in Field['type']]: (field: Extract<Field, { type: T }>) => 
   relation: f => f.many ? pipe(v.array(id, 'expected a list of ids'), unique, ...items(f)) : id,
   object: f => entrySchema(f.fields),
   repeater: f => pipe(v.arrayAsync(entrySchema(f.fields), 'expected a list'), ...items(f)),
+  custom: f => pipe(stored[f.storage], standard(f.schema)),
   blocks: f => pipe(v.array(v.object({
     id,
     type: f.allow ? v.picklist(f.allow, `expected one of: ${f.allow.join(', ')}`) : v.pipe(v.string('expected a block type'), v.nonEmpty('expected a block type')),
@@ -185,18 +262,11 @@ export function fieldSchema(field: Field): Schema {
   if (!build)
     throw new Error(`Unknown field type "${field.type}"`)
   let schema = build(field)
-  if (field.unique && CAPPED_WHEN_UNIQUE.has(field.type) && (field as Length).maxLength === undefined)
+  const capped = CAPPED_WHEN_UNIQUE.has(field.type) || (field.type === 'custom' && field.storage === 'text')
+  if (field.unique && capped && (field as Length).maxLength === undefined)
     schema = pipe(schema, v.maxLength(UNIQUE_MAX_LENGTH, `expected at most ${UNIQUE_MAX_LENGTH} characters`))
-  if (field.validate) {
-    const custom = field.validate
-    schema = v.pipeAsync(schema, v.rawCheckAsync(async ({ dataset, addIssue }) => {
-      if (!dataset.typed)
-        return
-      const result = await custom['~standard'].validate(dataset.value)
-      for (const issue of result.issues ?? [])
-        addIssue({ message: issue.message })
-    }))
-  }
+  if (field.validate)
+    schema = pipe(schema, standard(field.validate))
   // Empty values skip the type checks: they pass unless the field is required
   const inner = schema
   return v.pipeAsync(v.unknown(), v.rawTransformAsync(async ({ dataset, addIssue, NEVER }) => {
