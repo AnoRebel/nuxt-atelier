@@ -51,7 +51,7 @@
 - [x] 5.7 Define and publish the versioned content adapter contract (`nuxt-atelier/adapter`) with required/optional operations and a capability map; implement the built-in database adapter against it; verify a contract test suite runs against the built-in adapter (contract 1: required loadEditState, getFieldConfig, listBlockTypes, add/move/update/deleteBlock, save, permissions; optional revisions; `defineContentAdapter` checks the version and required operations and derives `capabilities`; `blockOperations` helpers for adapter authors; the suite lives in `test/adapter/contract.ts`)
 - [x] 5.8 Implement a minimal in-memory reference adapter (used by docs demos and tests) implementing only required operations; verify the contract suite's required tests pass and optional features are reported disabled (`createMemoryAdapter` from `nuxt-atelier/adapter`; one instance per demo session keeps sessions apart; no validation)
 - [x] 5.9 Implement streaming `atelier export`/`import` (content, revisions, relations, media metadata, settings) portable across engines; verify SQLite → Postgres round-trip equality test (NDJSON archive, gzipped for `.gz`; import into an empty migrated database in one transaction; verified SQLite → Postgres, MySQL and MariaDB; media metadata joins when section 12 adds its table)
-- [ ] 5.10 Write docs: database setup per engine, migrations workflow, D1 limitations page, adapter contract guide with a worked external-backend example, backup/export
+- [x] 5.10 Write docs: database setup per engine, migrations workflow, D1 limitations page, adapter contract guide with a worked external-backend example, backup/export
 
 ## 6. Access control (access-control)
 

@@ -13,7 +13,7 @@ export type { AtelierDriver, Dialect } from './db/driver'
 export { createDatabaseAdapter, ForbiddenError } from './adapter'
 export type { DatabaseAdapterOptions } from './adapter'
 export { UnsupportedOperationError } from './db/driver'
-export { ConflictError, NotFoundError, ValidationError } from './db/store'
+export { ConflictError, NotFoundError, ValidationError, withTransaction } from './db/store'
 export type { Entry, EntryStore, SaveInput } from './db/store'
 
 /** Private Nuxt Atelier runtime config (`runtimeConfig.atelier`), server only. */
