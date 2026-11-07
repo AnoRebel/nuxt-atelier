@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "ac3cc929-ba46-4660-99f3-33d4f98a9c83",
+  "id": "9fde9f41-c43b-4fd5-8282-72ef547bc53d",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -16,6 +16,14 @@
     },
     {
       "name": "atelier_revisions",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_users",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_sessions",
       "entityType": "tables"
     },
     {
@@ -197,6 +205,126 @@
       "entityType": "columns"
     },
     {
+      "table": "atelier_users",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_users",
+      "name": "email",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_users",
+      "name": "name",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_users",
+      "name": "role",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_users",
+      "name": "password_hash",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_users",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_users",
+      "name": "_updated_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_sessions",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_sessions",
+      "name": "user_id",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_sessions",
+      "name": "method",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_sessions",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_sessions",
+      "name": "expires_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "atelier_routes",
       "name": "path",
       "type": "text",
@@ -317,6 +445,34 @@
       "entityType": "indexes"
     },
     {
+      "table": "atelier_users",
+      "name": "atelier_users_email_idx",
+      "columns": [
+        {
+          "value": "email",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "atelier_sessions",
+      "name": "atelier_sessions_user_idx",
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
       "table": "atelier_routes",
       "name": "atelier_routes_source_idx",
       "columns": [
@@ -358,6 +514,24 @@
     {
       "table": "atelier_revisions",
       "name": "atelier_revisions_pk",
+      "columns": [
+        "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_users",
+      "name": "atelier_users_pk",
+      "columns": [
+        "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_sessions",
+      "name": "atelier_sessions_pk",
       "columns": [
         "_id"
       ],

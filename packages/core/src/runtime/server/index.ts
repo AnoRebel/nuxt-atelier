@@ -7,6 +7,8 @@ import { assertMigrated as assertMigratedWith } from './db/state'
 import type { EntryStore } from './db/store'
 import { ConflictError, createEntryStore, NotFoundError, ReferencedError, ValidationError } from './db/store'
 import { drivers } from '#atelier-drivers'
+import type { BuiltinAuthAdapter } from './auth/builtin'
+import { createBuiltinAuth } from './auth/builtin'
 
 export * from './define'
 export type { AtelierDriver, Dialect } from './db/driver'
@@ -17,6 +19,7 @@ export { ConflictError, NotFoundError, ReferencedError, ValidationError, withTra
 export type { Entry, EntryStore, GetOptions, Reference, SaveInput } from './db/store'
 export { defineAuthAdapter } from './auth/adapter'
 export type { AuthAdapter, AuthUser, NewUser } from './auth/adapter'
+export type { BuiltinAuthAdapter } from './auth/builtin'
 export { ADMIN_ROLE, createPolicy } from '../shared/policy'
 export type { Capability, ContentAction, ContentPermission, FieldAccess, Policy, PolicyEntry, PolicyUser, Role, Roles } from '../shared/policy'
 
@@ -75,4 +78,15 @@ export function toHttpError(error: unknown): unknown {
   if (error instanceof ConflictError || error instanceof ValidationError || error instanceof NotFoundError || error instanceof ReferencedError)
     return createError({ status: error.statusCode, message: error.message, data: 'data' in error ? error.data : undefined })
   return error
+}
+
+let auth: Promise<BuiltinAuthAdapter> | undefined
+
+/** The auth adapter (`atelier.auth.provider`): who's signed in, signing in and out, managing users. */
+export function useAtelierAuth(): Promise<BuiltinAuthAdapter> {
+  auth ??= useAtelierDatabase().then(driver => createBuiltinAuth(driver)).catch((error) => {
+    auth = undefined
+    throw error
+  })
+  return auth
 }

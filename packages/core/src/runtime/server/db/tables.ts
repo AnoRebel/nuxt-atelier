@@ -7,6 +7,8 @@
 //   atelier_relations       relation values, normalised so references can be found from either side
 //   atelier_revisions       a JSON snapshot per saved version
 //   atelier_routes          URL paths of routable entries
+//   atelier_users           CMS users of the built-in auth adapter
+//   atelier_sessions        their sessions, so signing out or a password reset can revoke them
 //
 // Every field column is nullable: `required` is enforced by validation, so adding a required field
 // later doesn't need a table rewrite. Timestamps are ISO 8601 UTC strings on every engine.
@@ -208,6 +210,22 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
       authorId: kit.key('author_id', ID),
     }, t => [kit.uniqueIndex('atelier_revisions_source_version_idx').on(t.source, t.sourceId, t.version)]),
+    atelier_users: kit.table('atelier_users', {
+      id: kit.key('_id', ID).primaryKey(),
+      email: kit.key('email', 255).notNull(), // stored lowercase
+      name: kit.key('name', 255),
+      role: kit.key('role', NAME).notNull(),
+      passwordHash: kit.key('password_hash', 255), // null for users who sign in another way
+      createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
+      updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
+    }, t => [kit.uniqueIndex('atelier_users_email_idx').on(t.email)]),
+    atelier_sessions: kit.table('atelier_sessions', {
+      id: kit.key('_id', 64).primaryKey(), // SHA-256 of the session id in the cookie
+      userId: kit.key('user_id', ID).notNull(),
+      method: kit.key('method', 16).notNull(), // how it signed in: password, passkey
+      createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
+      expiresAt: kit.key('expires_at', TIMESTAMP).notNull(),
+    }, t => [kit.index('atelier_sessions_user_idx').on(t.userId)]),
     atelier_routes: kit.table('atelier_routes', {
       path: kit.key('path', 255).primaryKey(),
       source: kit.key('source', NAME).notNull(),
