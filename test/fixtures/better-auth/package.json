@@ -1,0 +1,13 @@
+{
+  "name": "@nuxt-atelier/fixture-better-auth",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev"
+  },
+  "dependencies": {
+    "@nuxt-atelier/auth-better-auth": "workspace:*",
+    "better-auth": "catalog:auth",
+    "nuxt": "catalog:"
+  }
+}

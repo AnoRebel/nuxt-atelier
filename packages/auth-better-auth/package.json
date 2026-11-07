@@ -14,6 +14,10 @@
     ".": {
       "types": "./dist/types.d.mts",
       "import": "./dist/module.mjs"
+    },
+    "./config": {
+      "types": "./dist/config.d.mts",
+      "import": "./dist/config.mjs"
     }
   },
   "main": "./dist/module.mjs",
@@ -21,6 +25,9 @@
     "*": {
       ".": [
         "./dist/types.d.mts"
+      ],
+      "config": [
+        "./dist/config.d.mts"
       ]
     }
   },
@@ -33,12 +40,15 @@
     "check:pkg": "publint --pack bun && attw --pack . --profile esm-only"
   },
   "peerDependencies": {
-    "nuxt": ">=4.6.0"
+    "nuxt": ">=4.6.0",
+    "nuxt-atelier": "workspace:^"
   },
   "dependencies": {
-    "@nuxt/kit": "catalog:"
+    "@nuxt/kit": "catalog:",
+    "better-auth": "catalog:auth"
   },
   "devDependencies": {
-    "@nuxt/schema": "catalog:"
+    "@nuxt/schema": "catalog:",
+    "nuxt-atelier": "workspace:^"
   }
 }

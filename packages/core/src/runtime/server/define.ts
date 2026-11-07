@@ -1,6 +1,7 @@
 // Schema helpers with no Nuxt runtime imports: the migrate CLI loads definition files outside Nuxt,
 // with `#atelier/server` aliased to this module.
 import type { Roles } from '../shared/policy'
+import type { TableSpec } from './db/tables'
 import type { CollectionDefinition, SingletonDefinition } from './types'
 
 export * from '../shared/fields'
@@ -22,4 +23,9 @@ export function defineSingleton<const T extends SingletonDefinition>(definition:
  */
 export function defineRoles<const T extends Roles>(roles: T): T {
   return roles
+}
+
+/** Extra tables (`server/atelier/tables.ts`), e.g. an auth adapter's: created and migrated like content tables. */
+export function defineTables<const T extends Record<string, TableSpec>>(tables: T): T {
+  return tables
 }

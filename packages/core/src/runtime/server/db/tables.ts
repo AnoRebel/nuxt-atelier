@@ -19,8 +19,8 @@
 import type { Field } from '../../shared/fields'
 import type { CollectionDefinition, SingletonDefinition } from '../types'
 import type { Dialect } from './driver'
-import { bigint as myBigint, boolean as myBoolean, double as myDouble, index as myIndex, int as myInt, json as myJson, mysqlTable, primaryKey as myPrimaryKey, text as myText, uniqueIndex as myUniqueIndex, varchar as myVarchar } from 'drizzle-orm/mysql-core'
-import { bigint as pgBigint, boolean as pgBoolean, doublePrecision as pgDouble, index as pgIndex, integer as pgInteger, jsonb as pgJsonb, primaryKey as pgPrimaryKey, pgTable, text as pgText, uniqueIndex as pgUniqueIndex, varchar as pgVarchar } from 'drizzle-orm/pg-core'
+import { bigint as myBigint, boolean as myBoolean, datetime as myDatetime, double as myDouble, index as myIndex, int as myInt, json as myJson, mysqlTable, primaryKey as myPrimaryKey, text as myText, uniqueIndex as myUniqueIndex, varchar as myVarchar } from 'drizzle-orm/mysql-core'
+import { bigint as pgBigint, boolean as pgBoolean, doublePrecision as pgDouble, timestamp as pgTimestamp, index as pgIndex, integer as pgInteger, jsonb as pgJsonb, primaryKey as pgPrimaryKey, pgTable, text as pgText, uniqueIndex as pgUniqueIndex, varchar as pgVarchar } from 'drizzle-orm/pg-core'
 import { index as liteIndex, integer as liteInteger, primaryKey as litePrimaryKey, real as liteReal, sqliteTable, text as liteText, uniqueIndex as liteUniqueIndex } from 'drizzle-orm/sqlite-core'
 import { UNIQUE_MAX_LENGTH } from '../../shared/fields'
 
@@ -38,6 +38,8 @@ interface Kit {
   float: (name: string) => Column
   bool: (name: string) => Column
   json: (name: string) => Column
+  /** A JavaScript Date. */
+  date: (name: string) => Column
   index: (name: string) => { on: (...columns: Column[]) => unknown }
   uniqueIndex: (name: string) => { on: (...columns: Column[]) => unknown }
   primaryKey: (columns: Column[]) => unknown
@@ -53,6 +55,7 @@ const kits: Record<Dialect, Kit> = {
     float: name => liteReal(name),
     bool: name => liteInteger(name, { mode: 'boolean' }),
     json: name => liteText(name, { mode: 'json' }),
+    date: name => liteInteger(name, { mode: 'timestamp_ms' }),
     index: liteIndex,
     uniqueIndex: liteUniqueIndex,
     primaryKey: columns => litePrimaryKey({ columns: columns as never }),
@@ -66,6 +69,7 @@ const kits: Record<Dialect, Kit> = {
     float: name => pgDouble(name),
     bool: name => pgBoolean(name),
     json: name => pgJsonb(name),
+    date: name => pgTimestamp(name, { withTimezone: true, mode: 'date', precision: 3 }),
     index: pgIndex,
     uniqueIndex: pgUniqueIndex,
     primaryKey: columns => pgPrimaryKey({ columns: columns as never }),
@@ -80,6 +84,7 @@ const kits: Record<Dialect, Kit> = {
     float: name => myDouble(name),
     bool: name => myBoolean(name),
     json: name => myJson(name),
+    date: name => myDatetime(name, { mode: 'date', fsp: 3 }),
     index: myIndex,
     uniqueIndex: myUniqueIndex,
     primaryKey: columns => myPrimaryKey({ columns: columns as never }),
@@ -167,6 +172,60 @@ function checkFields(owner: Owner, fields: Record<string, Field>, path = '') {
 export interface ContentSchema {
   collections: Record<string, CollectionDefinition>
   singletons: Record<string, SingletonDefinition>
+  /** Extra tables, e.g. an auth adapter's, by table name (from `server/atelier/tables.ts`). */
+  tables?: Record<string, TableSpec>
+}
+
+/** A column of an extra table. JSON, so it travels through migrations like the content schema. */
+export interface ColumnSpec {
+  type: 'string' | 'number' | 'boolean' | 'date' | 'json'
+  /** The SQL column name; defaults to the key. */
+  column?: string
+  required?: boolean
+  unique?: boolean
+  index?: boolean
+  /** A number beyond 32 bits. */
+  bigint?: boolean
+  references?: { table: string, onDelete?: 'cascade' | 'set null' | 'set default' | 'restrict' | 'no action' }
+}
+
+/** An extra table: a string `id` primary key, plus these columns. */
+export interface TableSpec {
+  columns: Record<string, ColumnSpec>
+}
+
+const TABLE_NAME = /^atelier_[a-z][a-z0-9_]*$/
+
+function specTable(kit: Kit, tables: Record<string, Table>, name: string, spec: TableSpec): Table {
+  const columns: Record<string, Column> = { id: kit.key('id', 255).primaryKey() }
+  const indexes: [string, 'index' | 'unique'][] = []
+  for (const [key, c] of Object.entries(spec.columns)) {
+    const sql = c.column ?? key
+    const indexed = c.unique || c.index || c.references
+    let column = c.type === 'string'
+      ? indexed ? kit.key(sql, 255) : kit.text(sql)
+      : c.type === 'number'
+        ? (c.bigint ? kit.bigint(sql) : kit.int(sql))
+        : c.type === 'boolean'
+          ? kit.bool(sql)
+          : c.type === 'date' ? kit.date(sql) : kit.json(sql)
+    if (c.required)
+      column = column.notNull()
+    if (c.references) {
+      const { table, onDelete } = c.references
+      if (!(table in tables) && table !== name)
+        throw new Error(`[nuxt-atelier] Table ${name}: ${key} references ${table}, which isn't defined before it`)
+      column = column.references(() => (table === name ? result : tables[table]).id, onDelete ? { onDelete } : {})
+    }
+    columns[key] = column
+    if (c.unique)
+      indexes.push([key, 'unique'])
+    else if (c.index || c.references)
+      indexes.push([key, 'index'])
+  }
+  const result = kit.table(name, columns, t => indexes.map(([key, kind]) =>
+    (kind === 'unique' ? kit.uniqueIndex(indexName(name, key, 'unique')) : kit.index(indexName(name, key, 'idx'))).on(t[key])))
+  return result
 }
 
 /** Builds every Atelier table for the dialect, keyed by table name. */
@@ -265,6 +324,12 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       source: kit.key('source', NAME).notNull(),
       sourceId: kit.key('source_id', ID).notNull(),
     }, t => [kit.index('atelier_routes_source_idx').on(t.source, t.sourceId)]),
+  }
+
+  for (const [name, spec] of Object.entries(schema.tables ?? {})) {
+    if (!TABLE_NAME.test(name) || name.length > IDENTIFIER_MAX || name in tables || name.startsWith('atelier_c_'))
+      throw new Error(`[nuxt-atelier] Extra table "${name}": use a name starting with atelier_ (not atelier_c_), in lowercase letters, digits and _, that no other table uses`)
+    tables[name] = specTable(kit, tables, name, spec)
   }
 
   for (const [name, definition] of Object.entries(schema.collections)) {
