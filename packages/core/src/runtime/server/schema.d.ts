@@ -2,6 +2,7 @@
 declare module '#atelier-schema' {
   export const collections: Record<string, import('./types').CollectionDefinition>
   export const singletons: Record<string, import('./types').SingletonDefinition>
+  export const roles: import('../shared/policy').Roles
 }
 
 // The app's migrations, bundled at build time by dialect

@@ -54,6 +54,11 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       addServerHandler({ route: `/api/_atelier/auth/${route}`, method, handler: resolve(`./runtime/server/api/auth/${route}.${method}`) })
     if (resolved.auth.passkeys) // off: no passkey routes, so they 404 and nothing of @simplewebauthn is bundled
       addServerHandler({ route: '/api/_atelier/auth/passkeys/**', handler: resolve('./runtime/server/api/auth/passkeys') })
+    addServerHandler({ route: '/api/_atelier/setup', handler: resolve('./runtime/server/api/setup') })
+    for (const resource of ['users', 'roles']) {
+      addServerHandler({ route: `/api/_atelier/${resource}`, handler: resolve(`./runtime/server/api/${resource}`) })
+      addServerHandler({ route: `/api/_atelier/${resource}/**`, handler: resolve(`./runtime/server/api/${resource}`) })
+    }
     addServerHandler({ route: '/api/_atelier/**', handler: resolve('./runtime/server/api/not-found') })
     if (nuxt.options.dev)
       setupDevMigrations(nuxt)
@@ -64,6 +69,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       getContents: () => `declare module '#atelier-schema' {
   export const collections: Record<string, import(${JSON.stringify(types)}).CollectionDefinition>
   export const singletons: Record<string, import(${JSON.stringify(types)}).SingletonDefinition>
+  export const roles: import(${JSON.stringify(resolve('./runtime/shared/policy'))}).Roles
 }
 declare module '#atelier-drivers' {
   export const drivers: import(${JSON.stringify(resolve('./runtime/server/db/driver'))}).DriverLoaders
@@ -82,7 +88,7 @@ declare module '#atelier-migrations' {
     // A new or deleted definition file changes the registry, which Nitro only rebuilds for files it
     // already imports: soft-restart so both the server registry and the types pick it up
     nuxt.hook('builder:watch', async (event, path) => {
-      if ((event === 'add' || event === 'unlink') && /(?:^|\/)atelier\/(?:collections|singletons)\//.test(path))
+      if ((event === 'add' || event === 'unlink') && /(?:^|\/)atelier\/(?:(?:collections|singletons)\/|roles\.[mc]?[jt]s$)/.test(path))
         await nuxt.callHook('restart')
     })
   },

@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "ed57de19-424e-4802-8945-25ef8e09564a",
+  "id": "69f8bc06-ebaf-4aaa-b10c-a62926d9912b",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -24,6 +24,10 @@
     },
     {
       "name": "atelier_sessions",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_roles",
       "entityType": "tables"
     },
     {
@@ -325,6 +329,36 @@
       "entityType": "columns"
     },
     {
+      "table": "atelier_roles",
+      "name": "name",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_roles",
+      "name": "definition",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_roles",
+      "name": "_updated_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "atelier_passkeys",
       "name": "_id",
       "type": "text",
@@ -578,6 +612,15 @@
       "name": "atelier_sessions_pk",
       "columns": [
         "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_roles",
+      "name": "atelier_roles_pk",
+      "columns": [
+        "name"
       ],
       "nameExplicit": false,
       "entityType": "pks"

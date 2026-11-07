@@ -199,6 +199,11 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
     - When disabled, no passkey endpoints are registered and no passkey code ships to the admin.
 - **Better Auth:** `@nuxt-atelier/auth-better-auth` follows the official Better Auth Nuxt integration guide: catch-all `server/api/auth/[...all]`, `better-auth/vue` client, `useSession(useFetch)` for SSR. It uses Better Auth's Drizzle adapter on the same database. CMS roles live in CMS tables, linked by user id.
 - **Authorization:** a single `can(user, action, resource, entry?)` policy engine used by the API, admin and editor. Field-level and entry-level rules are compiled from role definitions.
+- **Roles** are data in two places:
+  - the `atelier_roles` table, edited in the admin by users with the `roles` capability (audited);
+  - `server/atelier/roles.ts` in the app or a layer (`defineRoles`), for teams that keep roles in git. These are read-only in the admin and win on a name clash.
+  - `admin` is built in and can't be defined or edited. First-run setup seeds an `editor` role when none exists.
+  - The policy is rebuilt from both on each request, so a role edit applies at once on every instance.
 - **CSRF:** `SameSite=Lax` cookies + `Origin`/`Sec-Fetch-Site` checks on unsafe methods + a double-submit token for the admin.
 
 ### D9. Lifecycle, jobs, webhooks, real-time signals

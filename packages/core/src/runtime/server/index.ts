@@ -7,8 +7,14 @@ import { assertMigrated as assertMigratedWith } from './db/state'
 import type { EntryStore } from './db/store'
 import { ConflictError, createEntryStore, NotFoundError, ReferencedError, ValidationError } from './db/store'
 import { drivers } from '#atelier-drivers'
+import type { RequestEvent } from 'nuxt/server'
+import type { Capability, Policy } from '../shared/policy'
+import type { AuthUser } from './auth/adapter'
 import type { BuiltinAuthAdapter } from './auth/builtin'
+import type { RoleStore } from './auth/roles'
+import { createPolicy } from '../shared/policy'
 import { createBuiltinAuth } from './auth/builtin'
+import { createRoleStore } from './auth/roles'
 
 export * from './define'
 export type { AtelierDriver, Dialect } from './db/driver'
@@ -20,6 +26,7 @@ export type { Entry, EntryStore, GetOptions, Reference, SaveInput } from './db/s
 export { defineAuthAdapter } from './auth/adapter'
 export type { AuthAdapter, AuthUser, NewUser } from './auth/adapter'
 export type { BuiltinAuthAdapter } from './auth/builtin'
+export type { RoleEntry, RoleStore } from './auth/roles'
 export { ADMIN_ROLE, createPolicy } from '../shared/policy'
 export type { Capability, ContentAction, ContentPermission, FieldAccess, Policy, PolicyEntry, PolicyUser, Role, Roles } from '../shared/policy'
 
@@ -89,4 +96,31 @@ export function useAtelierAuth(): Promise<BuiltinAuthAdapter> {
     throw error
   })
   return auth
+}
+
+let roleStore: Promise<RoleStore> | undefined
+
+/** Roles from the database and from `server/atelier/roles.ts`. */
+export function useAtelierRoles(): Promise<RoleStore> {
+  roleStore ??= (async () => createRoleStore(await useAtelierDatabase(), (await import('#atelier-schema')).roles))()
+    .catch((error) => {
+      roleStore = undefined
+      throw error
+    })
+  return roleStore
+}
+
+/** The permission policy for the current roles. Rebuilt per call, so role edits apply at once. */
+export async function useAtelierPolicy(): Promise<Policy> {
+  return createPolicy(await (await useAtelierRoles()).roles())
+}
+
+/** The signed-in user, or a 401. With a capability, a 403 unless the user's role has it. */
+export async function requireUser(event: RequestEvent, capability?: Capability): Promise<AuthUser> {
+  const user = await (await useAtelierAuth()).getUser(event)
+  if (!user)
+    throw createError({ status: 401, message: 'Sign in first' })
+  if (capability && !(await useAtelierPolicy()).can(user, 'manage', capability))
+    throw createError({ status: 403, message: `Your role can't manage ${capability}` })
+  return user
 }
