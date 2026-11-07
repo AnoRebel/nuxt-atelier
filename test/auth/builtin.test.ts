@@ -1,9 +1,9 @@
 import { pbkdf2Sync } from 'node:crypto'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { $fetch, fetch, setup, startServer } from '@nuxt/test-utils/e2e'
+import { $fetch, fetch, setup, startServer, useTestContext } from '@nuxt/test-utils/e2e'
 import { sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { connect } from '../../packages/core/src/runtime/server/db/driver'
@@ -76,5 +76,13 @@ describe('built-in auth', async () => {
     finally {
       await driver.close()
     }
+  })
+
+  it('has no passkey routes or code when passkeys are off', async () => {
+    expect((await fetch('/api/_atelier/auth/passkeys/login-options', { method: 'POST' })).status).toBe(404)
+    const output = useTestContext().nuxt!.options.nitro.output!.dir!
+    const files = readdirSync(output, { recursive: true, withFileTypes: true }).filter(f => f.isFile() && /\.m?js$/.test(f.name))
+    expect(files.length).toBeGreaterThan(0)
+    expect(files.filter(f => readFileSync(join(f.parentPath, f.name), 'utf8').includes('simplewebauthn'))).toEqual([])
   })
 })

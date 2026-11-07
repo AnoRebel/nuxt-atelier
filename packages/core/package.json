@@ -43,7 +43,8 @@
     "nuxt": ">=4.6.0",
     "pg": "catalog:db",
     "mysql2": "catalog:db",
-    "drizzle-kit": "catalog:db"
+    "drizzle-kit": "catalog:db",
+    "@simplewebauthn/server": "catalog:auth"
   },
   "dependencies": {
     "@nuxt/kit": "catalog:",
@@ -57,7 +58,8 @@
     "pg": "catalog:db",
     "mysql2": "catalog:db",
     "@types/pg": "catalog:db",
-    "drizzle-kit": "catalog:db"
+    "drizzle-kit": "catalog:db",
+    "@simplewebauthn/server": "catalog:auth"
   },
   "peerDependenciesMeta": {
     "pg": {
@@ -67,6 +69,9 @@
       "optional": true
     },
     "drizzle-kit": {
+      "optional": true
+    },
+    "@simplewebauthn/server": {
       "optional": true
     }
   },

@@ -52,6 +52,9 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerPlugin(resolve('./runtime/server/plugins/migrations'))
     for (const [route, method] of [['login', 'post'], ['logout', 'post'], ['me', 'get']] as const)
       addServerHandler({ route: `/api/_atelier/auth/${route}`, method, handler: resolve(`./runtime/server/api/auth/${route}.${method}`) })
+    if (resolved.auth.passkeys) // off: no passkey routes, so they 404 and nothing of @simplewebauthn is bundled
+      addServerHandler({ route: '/api/_atelier/auth/passkeys/**', handler: resolve('./runtime/server/api/auth/passkeys') })
+    addServerHandler({ route: '/api/_atelier/**', handler: resolve('./runtime/server/api/not-found') })
     if (nuxt.options.dev)
       setupDevMigrations(nuxt)
 

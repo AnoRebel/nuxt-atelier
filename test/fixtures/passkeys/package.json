@@ -1,0 +1,12 @@
+{
+  "name": "@nuxt-atelier/fixture-passkeys",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev"
+  },
+  "dependencies": {
+    "nuxt": "catalog:",
+    "@simplewebauthn/browser": "catalog:auth"
+  }
+}

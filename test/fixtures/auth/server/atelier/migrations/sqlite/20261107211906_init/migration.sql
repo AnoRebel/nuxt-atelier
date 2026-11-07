@@ -43,6 +43,17 @@ CREATE TABLE `atelier_sessions` (
 	`expires_at` text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `atelier_passkeys` (
+	`_id` text PRIMARY KEY,
+	`user_id` text NOT NULL,
+	`public_key` text NOT NULL,
+	`counter` integer NOT NULL,
+	`transports` text,
+	`name` text,
+	`_created_at` text NOT NULL,
+	`last_used_at` text
+);
+--> statement-breakpoint
 CREATE TABLE `atelier_routes` (
 	`path` text PRIMARY KEY,
 	`source` text NOT NULL,
@@ -53,4 +64,5 @@ CREATE INDEX `atelier_relations_target_idx` ON `atelier_relations` (`target`,`ta
 CREATE UNIQUE INDEX `atelier_revisions_source_version_idx` ON `atelier_revisions` (`source`,`source_id`,`_version`);--> statement-breakpoint
 CREATE UNIQUE INDEX `atelier_users_email_idx` ON `atelier_users` (`email`);--> statement-breakpoint
 CREATE INDEX `atelier_sessions_user_idx` ON `atelier_sessions` (`user_id`);--> statement-breakpoint
+CREATE INDEX `atelier_passkeys_user_idx` ON `atelier_passkeys` (`user_id`);--> statement-breakpoint
 CREATE INDEX `atelier_routes_source_idx` ON `atelier_routes` (`source`,`source_id`);

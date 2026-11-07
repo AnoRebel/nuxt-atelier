@@ -54,6 +54,11 @@
         "server/api/**/*.ts"
       ]
     },
+    "test/fixtures/passkeys": {
+      "entry": [
+        "server/api/**/*.ts"
+      ]
+    },
     "test/fixtures/pending": {
       "entry": [
         "server/atelier/collections/*.ts",
