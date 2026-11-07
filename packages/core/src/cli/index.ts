@@ -4,14 +4,19 @@ import type { Dialect } from '../runtime/server/db/driver'
 import { relative, resolve } from 'node:path'
 import process from 'node:process'
 import { parseArgs } from 'node:util'
+import { connect } from '../runtime/server/db/driver'
+import { allDrivers } from '../runtime/server/db/loaders'
 import { applyProjectMigrations, generateMigration, loadProject, projectMigrationStatus, withMigrationLock } from './migrate'
+import { exportToFile, importFromFile } from './transfer'
 
-const USAGE = `Usage: atelier migrate <command> [options]
+const USAGE = `Usage: atelier <command> [options]
 
 Commands:
-  generate   write a migration for schema changes to server/atelier/migrations/<dialect>/
-  apply      apply pending migrations to the database
-  status     list applied and pending migrations
+  migrate generate   write a migration for schema changes to server/atelier/migrations/<dialect>/
+  migrate apply      apply pending migrations to the database
+  migrate status     list applied and pending migrations
+  export <file>      write all content to a portable archive (gzipped when <file> ends in .gz)
+  import <file>      load an archive into an empty, migrated database (any engine)
 
 Options:
   --root <dir>          the Nuxt app (default: current directory)
@@ -36,7 +41,7 @@ async function main() {
     },
   })
   const [group, command] = positionals
-  if (values.help || group !== 'migrate' || !command) {
+  if (values.help || !command || !['migrate', 'export', 'import'].includes(group!)) {
     console.log(USAGE)
     return values.help ? 0 : 1
   }
@@ -44,7 +49,20 @@ async function main() {
     throw new Error(`--dialect: expected sqlite, postgres or mysql`)
 
   const project = await loadProject(resolve(values.root))
-  if (command === 'generate') {
+  if (group === 'export' || group === 'import') {
+    const driver = await connect(project.databaseUrl, { loaders: allDrivers })
+    try {
+      const counts = group === 'export'
+        ? await exportToFile(driver, project.schema, resolve(command))
+        : await importFromFile(driver, project.schema, resolve(command))
+      const total = Object.values(counts).reduce((a, b) => a + b, 0)
+      console.log(`${group === 'export' ? 'Exported' : 'Imported'} ${total} rows:\n${Object.entries(counts).map(([t, n]) => `  ${t}: ${n}`).join('\n')}`)
+    }
+    finally {
+      await driver.close()
+    }
+  }
+  else if (command === 'generate') {
     const folder = await withMigrationLock(project.databaseUrl, () => generateMigration(project, { dialect: values.dialect as Dialect | undefined, name: values.name, drop: values.drop, rename: values.rename }))
     console.log(folder ? `Wrote ${relative(process.cwd(), folder)}/migration.sql: review it and commit it.` : 'No schema changes.')
   }
