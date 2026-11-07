@@ -14,6 +14,10 @@
     ".": {
       "types": "./dist/types.d.mts",
       "import": "./dist/module.mjs"
+    },
+    "./adapter": {
+      "types": "./dist/adapter.d.mts",
+      "import": "./dist/adapter.mjs"
     }
   },
   "main": "./dist/module.mjs",
@@ -21,6 +25,9 @@
     "*": {
       ".": [
         "./dist/types.d.mts"
+      ],
+      "adapter": [
+        "./dist/adapter.d.mts"
       ]
     }
   },

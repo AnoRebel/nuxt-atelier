@@ -21,7 +21,9 @@ const schema = {
       },
     },
   },
-  singletons: {},
+  singletons: {
+    settings: { fields: { siteName: f.text({ required: true }), editor: f.relation({ to: 'authors' }) } },
+  },
 }
 const schemaFile = join(mkdtempSync(join(tmpdir(), 'atelier-store-')), 'schema.json')
 writeFileSync(schemaFile, JSON.stringify(schema))
@@ -108,5 +110,18 @@ describe.each(engines)('%s entry store', (_, url) => {
       await expect(rename).rejects.toThrow('Renaming entries needs a multi-statement transaction, which Cloudflare D1 doesn\'t support. Nothing was changed.')
       expect((await store.get('articles', id))!.data.title).toBe('Untouched')
     }
+  })
+
+  it('saves a singleton: first save, update, and a stale save refused', async () => {
+    expect(await store.getSingleton('settings')).toBeUndefined()
+    const first = await store.saveSingleton('settings', { version: null, data: { siteName: 'Atelier', editor: 'a1' } })
+    expect(first).toMatchObject({ version: 1, data: { siteName: 'Atelier', editor: 'a1' } })
+    expect(await relationsOf('settings')).toEqual(['editor[0] → authors/a1'])
+    expect(await store.saveSingleton('settings', { version: 1, data: { siteName: 'Atelier CMS' } })).toMatchObject({ version: 2 })
+    await expect(store.saveSingleton('settings', { version: 1, data: { siteName: 'Stale' } })).rejects.toMatchObject({ statusCode: 409, data: { currentVersion: 2 } })
+    // a second "first save" lost the race too
+    await expect(store.saveSingleton('settings', { version: null, data: { siteName: 'Also first' } })).rejects.toMatchObject({ statusCode: 409 })
+    expect((await store.revisions('settings')).map(r => r.version)).toEqual([2, 1])
+    expect((await store.getSingleton('settings'))!.data.siteName).toBe('Atelier CMS')
   })
 })

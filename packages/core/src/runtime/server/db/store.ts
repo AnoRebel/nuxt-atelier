@@ -44,6 +44,13 @@ export interface Entry {
   data: Record<string, unknown>
 }
 
+export interface SingletonEntry {
+  name: string
+  version: number
+  updatedAt: string
+  data: Record<string, unknown>
+}
+
 export interface SaveInput {
   /** Omit to create an entry. */
   id?: string
@@ -93,7 +100,7 @@ export async function withTransaction<T>(driver: AtelierDriver, operation: strin
 export function createEntryStore(driver: AtelierDriver, schema: ContentSchema) {
   const tables = buildTables(driver.dialect, schema)
   const db = driver.db as Db
-  const { atelier_relations: relations, atelier_revisions: revisions } = tables
+  const { atelier_relations: relations, atelier_revisions: revisions, atelier_singletons: singletons } = tables
 
   function collection(name: string): { definition: CollectionDefinition, table: Db } {
     const definition = schema.collections[name]
@@ -121,6 +128,94 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema) {
     return { id, version: row._version as number, createdAt: row._createdAt as string, updatedAt: row._updatedAt as string, data }
   }
 
+  interface Target<T> {
+    what: string // for messages: `entry "<id>" in "articles"`
+    fields: Record<string, Field>
+    source: string
+    sourceId: string
+    /** The version the client read; undefined creates. */
+    expected: number | undefined
+    authorId: string | undefined
+    isUnique?: (q: Db) => (field: string, value: unknown) => Promise<boolean>
+    currentVersion: (q: Db) => Promise<number | undefined>
+    /** The insert, or the update guarded by the expected version. */
+    write: (q: Db, data: Record<string, unknown>, version: number, now: string) => unknown
+    read: (q: Db) => Promise<T>
+  }
+
+  /**
+   * Saves validated data, its relation rows and a revision atomically: in a transaction, or on D1 as
+   * one batch whose revision insert (unique per source and version) doubles as the version check.
+   */
+  async function persist<T>(target: Target<T>, input: Record<string, unknown>): Promise<T> {
+    const creating = target.expected === undefined
+    const version = creating ? 1 : target.expected! + 1
+    const now = new Date().toISOString()
+    const { source, sourceId } = target
+
+    const validate = async (q: Db) => {
+      const result = await validateEntry(target.fields, input, { isUnique: target.isUnique?.(q) })
+      if (!result.success)
+        throw new ValidationError(result.errors)
+      return result.value
+    }
+    const statements = (q: Db, data: Record<string, unknown>) => {
+      const links = relationRows(target.fields, data)
+      return [
+        target.write(q, data, version, now),
+        ...creating ? [] : [q.delete(relations).where(and(eq(relations.source, source), eq(relations.sourceId, sourceId)))],
+        ...links.length ? [q.insert(relations).values(links.map(l => ({ source, sourceId, ...l })))] : [],
+        // unique per (source, version): a stale save always collides with the winning save's revision
+        q.insert(revisions).values({ id: crypto.randomUUID(), source, sourceId, version, data, createdAt: now, authorId: target.authorId ?? null }),
+      ]
+    }
+    // after a write matched nothing or failed: say why, if it's a missing row or a newer version
+    const refuseStale = async (q: Db) => {
+      const current = await target.currentVersion(q)
+      if (current === undefined && !creating)
+        throw new NotFoundError(`No ${target.what}`)
+      if (current !== undefined && current !== target.expected)
+        throw new ConflictError(current)
+    }
+
+    try {
+      if (!driver.capabilities.transactions) {
+        const data = await validate(db)
+        await refuseStale(db)
+        await db.batch(statements(db, data))
+        return await target.read(db)
+      }
+      return await db.transaction(async (tx: Db) => {
+        const [write, ...rest] = statements(tx, await validate(tx))
+        if (!affected(await write))
+          await refuseStale(tx)
+        for (const statement of rest)
+          await statement
+        return target.read(tx)
+      })
+    }
+    catch (error) {
+      // on D1, or when two first saves race, a lost race shows up as a failed write: report it as a conflict
+      // (a transactional update already checked inside its transaction)
+      const domain = error instanceof ValidationError || error instanceof ConflictError || error instanceof NotFoundError
+      if (!domain && (creating || !driver.capabilities.transactions))
+        await refuseStale(db)
+      throw error
+    }
+  }
+
+  async function readSingleton(q: Db, name: string): Promise<SingletonEntry | undefined> {
+    const [row] = await q.select().from(singletons).where(eq(singletons.name, name)).limit(1)
+    return row && { name, version: row.version, updatedAt: row.updatedAt, data: row.data }
+  }
+
+  function singleton(name: string) {
+    const definition = schema.singletons[name]
+    if (!definition)
+      throw new NotFoundError(`No singleton "${name}"`)
+    return definition
+  }
+
   return {
     /** An entry with its relations, or undefined. */
     get: (name: string, id: string) => read(db, name, id),
@@ -129,77 +224,58 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema) {
      * Creates or updates an entry atomically. Throws ValidationError (422), ConflictError (409) when
      * `version` isn't the current one, or NotFoundError (404).
      */
-    async save(name: string, input: SaveInput): Promise<Entry> {
+    save(name: string, input: SaveInput): Promise<Entry> {
       const { definition, table } = collection(name)
-      const creating = input.id === undefined
-      if (!creating && input.version === undefined)
+      if (input.id !== undefined && input.version === undefined)
         throw new Error('Updating an entry needs the version it was read at')
       const id = input.id ?? crypto.randomUUID()
-      const version = creating ? 1 : input.version! + 1
-      const now = new Date().toISOString()
-
-      const validate = async (q: Db) => {
-        const result = await validateEntry(definition.fields, input.data, {
-          isUnique: (field, value) => isUnique(q, table, field, value, id),
-        })
-        if (!result.success)
-          throw new ValidationError(result.errors)
-        return result.value
-      }
-      const currentVersion = async (q: Db): Promise<number | undefined> =>
-        (await q.select({ version: table._version }).from(table).where(eq(table._id, id)))[0]?.version
-      // the statements of a save, built but not yet run
-      const statements = (q: Db, data: Record<string, unknown>) => {
-        const row = toRow(definition.fields, data)
-        const links = relationRows(definition.fields, data)
-        return [
-          creating
+      return persist({
+        what: `entry "${id}" in "${name}"`,
+        fields: definition.fields,
+        source: name,
+        sourceId: id,
+        expected: input.id === undefined ? undefined : input.version,
+        authorId: input.authorId,
+        isUnique: q => (field, value) => isUnique(q, table, field, value, id),
+        currentVersion: async q => (await q.select({ version: table._version }).from(table).where(eq(table._id, id)))[0]?.version,
+        write: (q, data, version, now) => {
+          const row = toRow(definition.fields, data)
+          return input.id === undefined
             ? q.insert(table).values({ _id: id, _version: version, _createdAt: now, _updatedAt: now, ...row })
             // only the version the client read is updated: a concurrent save makes this match nothing
-            : q.update(table).set({ ...row, _version: version, _updatedAt: now }).where(and(eq(table._id, id), eq(table._version, input.version))),
-          ...creating ? [] : [q.delete(relations).where(and(eq(relations.source, name), eq(relations.sourceId, id)))],
-          ...links.length ? [q.insert(relations).values(links.map(l => ({ source: name, sourceId: id, ...l })))] : [],
-          // unique per (entry, version): a stale save always collides with the winning save's revision
-          q.insert(revisions).values({ id: crypto.randomUUID(), source: name, sourceId: id, version, data, createdAt: now, authorId: input.authorId ?? null }),
-        ]
-      }
-      const refuseStale = async (q: Db) => {
-        const current = await currentVersion(q)
-        if (current === undefined)
-          throw new NotFoundError(`No entry "${id}" in "${name}"`)
-        if (current !== input.version)
-          throw new ConflictError(current)
-      }
-
-      if (!driver.capabilities.transactions) {
-        // D1: one atomic batch. The revision insert is the version check, so a save that loses a race
-        // after the check below still rolls back as a whole.
-        const data = await validate(db)
-        if (!creating)
-          await refuseStale(db)
-        try {
-          await db.batch(statements(db, data))
-        }
-        catch (error) {
-          if (!creating)
-            await refuseStale(db)
-          throw error
-        }
-        return (await read(db, name, id))!
-      }
-
-      return db.transaction(async (tx: Db) => {
-        const [write, ...rest] = statements(tx, await validate(tx))
-        if (!affected(await write) && !creating)
-          await refuseStale(tx)
-        for (const statement of rest)
-          await statement
-        return (await read(tx, name, id))!
-      })
+            : q.update(table).set({ ...row, _version: version, _updatedAt: now }).where(and(eq(table._id, id), eq(table._version, input.version)))
+        },
+        read: async q => (await read(q, name, id))!,
+      }, input.data)
     },
 
-    /** Versions saved for an entry, newest first. */
-    async revisions(name: string, id: string): Promise<{ version: number, createdAt: string, data: Record<string, unknown> }[]> {
+    /** A singleton's saved data, or undefined before its first save. */
+    getSingleton: (name: string) => {
+      singleton(name)
+      return readSingleton(db, name)
+    },
+
+    /** Saves a singleton atomically. `version` is the one read, or undefined/null for the first save. */
+    saveSingleton(name: string, input: { data: Record<string, unknown>, version?: number | null, authorId?: string }): Promise<SingletonEntry> {
+      const definition = singleton(name)
+      const expected = input.version ?? undefined
+      return persist({
+        what: `singleton "${name}"`,
+        fields: definition.fields,
+        source: name,
+        sourceId: name,
+        expected,
+        authorId: input.authorId,
+        currentVersion: async q => (await readSingleton(q, name))?.version,
+        write: (q, data, version, now) => expected === undefined
+          ? q.insert(singletons).values({ name, data, version, updatedAt: now })
+          : q.update(singletons).set({ data, version, updatedAt: now }).where(and(eq(singletons.name, name), eq(singletons.version, expected))),
+        read: async q => (await readSingleton(q, name))!,
+      }, input.data)
+    },
+
+    /** Versions saved for an entry (or a singleton, by its name), newest first. */
+    async revisions(name: string, id: string = name): Promise<{ version: number, createdAt: string, data: Record<string, unknown> }[]> {
       return db.select({ version: revisions.version, createdAt: revisions.createdAt, data: revisions.data }).from(revisions)
         .where(and(eq(revisions.source, name), eq(revisions.sourceId, id)))
         .orderBy(sql`${revisions.version} desc`)
