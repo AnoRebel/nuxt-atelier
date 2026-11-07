@@ -56,8 +56,8 @@ export default createConfigForNuxt({
     rules: { 'vue/multi-word-component-names': 'off' },
   },
   {
-    // tests drive the dialect-generic query builders directly
-    files: ['test/storage/**/*.ts'],
+    // tests drive the dialect-generic query builders and adapter data directly
+    files: ['test/storage/**/*.ts', 'test/adapter/**/*.ts'],
     rules: { '@typescript-eslint/no-explicit-any': 'off' },
   },
   {

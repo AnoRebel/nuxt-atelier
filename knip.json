@@ -19,7 +19,8 @@
         "src/runtime/*/index.ts",
         "src/cli/index.ts",
         "build.config.ts",
-        "src/runtime/server/plugins/*.ts"
+        "src/runtime/server/plugins/*.ts",
+        "src/adapter.ts"
       ]
     },
     "packages/layer": {},

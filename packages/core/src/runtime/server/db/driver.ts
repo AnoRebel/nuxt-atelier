@@ -102,6 +102,8 @@ async function open(dialect: Dialect, url: string, { loaders, poolSize = 10 }: C
     if (url.startsWith('file:'))
       await ensureDir(url.slice('file:'.length))
     const client = createClient({ url })
+    if (url.startsWith('file:')) // a second writer (nuxt dev and the CLI, two saves) waits instead of failing
+      await client.execute('PRAGMA busy_timeout = 5000')
     return { dialect, capabilities, db: drizzle({ client }), ping: async () => void await client.execute('select 1'), close: async () => client.close() }
   }
   if (dialect === 'postgres') {
