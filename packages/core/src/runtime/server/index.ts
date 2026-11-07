@@ -5,7 +5,7 @@ import { createError, useRuntimeConfig } from 'nuxt/server'
 import { connect } from './db/driver'
 import { assertMigrated as assertMigratedWith } from './db/state'
 import type { EntryStore } from './db/store'
-import { ConflictError, createEntryStore, NotFoundError, ValidationError } from './db/store'
+import { ConflictError, createEntryStore, NotFoundError, ReferencedError, ValidationError } from './db/store'
 import { drivers } from '#atelier-drivers'
 
 export * from './define'
@@ -13,8 +13,8 @@ export type { AtelierDriver, Dialect } from './db/driver'
 export { createDatabaseAdapter, ForbiddenError } from './adapter'
 export type { DatabaseAdapterOptions } from './adapter'
 export { UnsupportedOperationError } from './db/driver'
-export { ConflictError, NotFoundError, ValidationError, withTransaction } from './db/store'
-export type { Entry, EntryStore, SaveInput } from './db/store'
+export { ConflictError, NotFoundError, ReferencedError, ValidationError, withTransaction } from './db/store'
+export type { Entry, EntryStore, GetOptions, Reference, SaveInput } from './db/store'
 
 /** Private Nuxt Atelier runtime config (`runtimeConfig.atelier`), server only. */
 export function useAtelierServerConfig() {
@@ -68,7 +68,7 @@ export function useAtelierEntries(): Promise<EntryStore> {
  * its message (Nuxt hides the message of errors it didn't create). Anything else is returned unchanged.
  */
 export function toHttpError(error: unknown): unknown {
-  if (error instanceof ConflictError || error instanceof ValidationError || error instanceof NotFoundError)
+  if (error instanceof ConflictError || error instanceof ValidationError || error instanceof NotFoundError || error instanceof ReferencedError)
     return createError({ status: error.statusCode, message: error.message, data: 'data' in error ? error.data : undefined })
   return error
 }

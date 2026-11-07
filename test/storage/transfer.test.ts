@@ -30,6 +30,8 @@ const schema = {
         faq: f.repeater({ fields: { q: f.text(), who: f.relation({ to: 'authors' }) } }),
       },
     },
+    tags: { fields: { name: f.text() } },
+    authors: { fields: { name: f.text() } },
   },
   singletons: { site: { fields: { name: f.text() } } },
 }

@@ -16,6 +16,7 @@ import { applyMigrations, destructiveChanges, localMigrationNames, migrationsFol
 import { buildTables, collectionTable } from '../runtime/server/db/tables'
 import { allDrivers } from '../runtime/server/db/loaders'
 import { discoverSchema } from '../schema/discover'
+import { serialiseFields } from '../runtime/shared/fields'
 
 const runtime = (path: string) => fileURLToPath(new URL(`../runtime/server/${path}`, import.meta.url))
 const KIT_DIALECTS = { sqlite: 'sqlite', postgres: 'postgresql', mysql: 'mysql' } as const
@@ -68,15 +69,68 @@ export class MissingKitError extends Error {}
 /** Collection-level names for a table change, as the --drop / --rename flags take them. */
 const collectionOf = (table: string) => table.startsWith('atelier_c_') ? table.slice('atelier_c_'.length).replaceAll('_', '-') : undefined
 
-function parseRename(flag: string) {
-  const m = /^([a-z][a-z0-9-]*)(?:\.(\w+))?=(\w[\w-]*)$/.exec(flag)
+interface Rename {
+  change: string
+  hint: { kind: 'table' | 'column', from: string[], to: string[] }
+  /** Atelier's own rows naming the old collection or field, updated in the same migration. */
+  data: { marker: string, sql: string[] }
+}
+
+const literal = (value: string) => `'${value}'` // names and keys are [a-z0-9-] only: nothing to escape
+
+function parseRename(flag: string, dialect: Dialect): Rename {
+  const m = /^([a-z][a-z0-9-]*)(?:\.([a-z][a-z0-9]*))?=([a-z][a-z0-9-]*)$/i.exec(flag)
   if (!m)
     throw new Error(`--rename ${flag}: expected <collection>.<old field>=<new field> or <old collection>=<new collection>`)
   const [, collection, field, to] = m as unknown as [string, string, string | undefined, string]
   const table = collectionTable(collection)
-  return field
-    ? { change: `rename column ${table}.${field} to ${to}`, hint: { kind: 'column', from: [table, field], to: [table, to] } }
-    : { change: `rename table ${table} to ${collectionTable(to)}`, hint: { kind: 'table', from: [table], to: [collectionTable(to)] } }
+  if (!field) {
+    const [from, into] = [literal(collection), literal(to)]
+    return {
+      change: `rename table ${table} to ${collectionTable(to)}`,
+      hint: { kind: 'table', from: [table], to: [collectionTable(to)] },
+      data: {
+        marker: `rename collection ${collection} to ${to}`,
+        sql: [
+          `UPDATE atelier_relations SET source = ${into} WHERE source = ${from};`,
+          `UPDATE atelier_relations SET target = ${into} WHERE target = ${from};`,
+          `UPDATE atelier_revisions SET source = ${into} WHERE source = ${from};`,
+          `UPDATE atelier_routes SET source = ${into} WHERE source = ${from};`,
+        ],
+      },
+    }
+  }
+  // relation values (and nested ones, under `<field>.`) are stored by field path
+  const rest = `substr(field, ${field.length + 1})`
+  const path = dialect === 'mysql' ? `CONCAT(${literal(to)}, ${rest})` : `${literal(to)} || ${rest}`
+  return {
+    change: `rename column ${table}.${field} to ${to}`,
+    hint: { kind: 'column', from: [table, field], to: [table, to] },
+    data: {
+      marker: `rename field ${collection}.${field} to ${to}`,
+      sql: [`UPDATE atelier_relations SET field = ${path} WHERE source = ${literal(collection)} AND (field = ${literal(field)} OR field LIKE ${literal(`${field}.%`)});`],
+    },
+  }
+}
+
+/** Renames the schema declares with `renamedFrom`, as --rename flags. Collection renames come first. */
+function declaredRenames(schema: ContentSchema): string[] {
+  const collections = Object.entries(schema.collections)
+  return [
+    ...collections.flatMap(([name, c]) => c.renamedFrom ? [`${c.renamedFrom}=${name}`] : []),
+    ...collections.flatMap(([name, c]) => Object.entries(c.fields).flatMap(([key, f]) => f.renamedFrom ? [`${name}.${f.renamedFrom}=${key}`] : [])),
+  ]
+}
+
+/** Data updates already written to a migration in `folder`. */
+function writtenDataUpdates(folder: string): Set<string> {
+  const markers = new Set<string>()
+  for (const name of localMigrationNames(folder)) {
+    const sql = readFileSync(join(folder, name, 'migration.sql'), 'utf8')
+    for (const m of sql.matchAll(/^-- atelier:data (.+)$/gm))
+      markers.add(m[1]!)
+  }
+  return markers
 }
 
 function parseDrop(flag: string) {
@@ -120,14 +174,16 @@ export interface GenerateOptions {
 export async function generateMigration(project: Project, options: GenerateOptions = {}): Promise<string | undefined> {
   const kit = await importKit()
   const dialect = options.dialect ?? dialectOf(project.databaseUrl)
-  const renames = (options.rename ?? []).map(parseRename)
+  const flags = [...new Set([...declaredRenames(project.schema), ...options.rename ?? []])]
+  const renames = flags.map(flag => parseRename(flag, dialect))
+    .toSorted((a, b) => Number(a.hint.kind === 'column') - Number(b.hint.kind === 'column'))
   const confirmed = new Set([...(options.drop ?? []).map(parseDrop), ...renames.map(r => r.change)])
 
   // drizzle-kit reads tables from a module's top-level exports
   const tables = Object.keys(buildTables(dialect, project.schema))
   const schemaModule = join(project.buildDir, 'atelier', `tables.${dialect}.ts`)
   mkdirSync(dirname(schemaModule), { recursive: true })
-  const schema = JSON.stringify(project.schema, (key, value) => key === 'validate' ? undefined : value)
+  const schema = serialiseFields(project.schema)
   writeFileSync(schemaModule, `// Generated by \`atelier migrate generate\`
 import { buildTables } from ${JSON.stringify(runtime('db/tables'))}
 const t = buildTables(${JSON.stringify(dialect)}, ${schema})
@@ -135,8 +191,10 @@ ${tables.map((name, i) => `export const t${i} = t[${JSON.stringify(name)}]`).joi
 `)
 
   const out = migrationsFolder(project.rootDir, dialect)
-  const run = (hints?: Parameters<typeof kit.generate>[0]['hints']) =>
-    kit.generate({ dialect: KIT_DIALECTS[dialect], schema: schemaModule, out, name: options.name, hints })
+  const written = writtenDataUpdates(out)
+  const dataUpdates = renames.map(r => r.data).filter(d => !written.has(d.marker))
+  const run = (hints?: Parameters<typeof kit.generate>[0]['hints'], custom?: boolean) =>
+    kit.generate({ dialect: KIT_DIALECTS[dialect], schema: schemaModule, out, name: options.name, hints, custom })
   let result = await run()
   if (result.status === 'missing_hints') {
     // drizzle-kit asks whether a new table or column is a renamed one: yes when a --rename says so
@@ -151,8 +209,11 @@ ${tables.map((name, i) => `export const t${i} = t[${JSON.stringify(name)}]`).joi
     })
     result = await run(hints as never)
   }
-  if (result.status === 'no_changes')
-    return undefined
+  if (result.status === 'no_changes') {
+    if (!dataUpdates.length)
+      return undefined
+    result = await run(undefined, true) // a renamed relation has no column: the data update is the whole migration
+  }
   if (result.status !== 'ok' || !('migration_path' in result))
     throw new Error(`[nuxt-atelier] drizzle-kit generate failed: ${JSON.stringify(result)}`)
 
@@ -165,8 +226,10 @@ ${tables.map((name, i) => `export const t${i} = t[${JSON.stringify(name)}]`).joi
     rmSync(folder, { recursive: true })
     throw new DataLossError(unconfirmed)
   }
-  if (changes.length)
-    writeFileSync(file, `${changes.map(c => `-- atelier:confirm ${c}`).join('\n')}\n${sql}`)
+  const confirmations = changes.map(c => `-- atelier:confirm ${c}\n`).join('')
+  const updates = dataUpdates.map(d => `-- atelier:data ${d.marker}\n${d.sql.join('\n--> statement-breakpoint\n')}`)
+  const body = sql.trim() && !sql.trimStart().startsWith('-- Custom SQL') ? [sql.trimEnd(), ...updates] : updates
+  writeFileSync(file, `${confirmations}${body.join('\n--> statement-breakpoint\n')}\n`)
   return folder
 }
 

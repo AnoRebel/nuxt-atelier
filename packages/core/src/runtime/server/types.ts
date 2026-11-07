@@ -2,6 +2,8 @@ import type { Field } from '../shared/fields'
 
 export interface CollectionDefinition {
   fields: Record<string, Field>
+  /** The collection's previous name, when it was renamed: its entries move instead of being dropped. */
+  renamedFrom?: string
   labels?: { singular?: string, plural?: string }
   /** Entries get URLs and appear in site routing. */
   routable?: boolean

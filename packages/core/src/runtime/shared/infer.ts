@@ -16,17 +16,18 @@ type OptionValue<O> = O extends { value: infer V } ? V : O
 
 /** The stored value type of one field. */
 export type FieldValue<F extends Field>
-  = F extends { type: 'number' } ? number
-    : F extends { type: 'boolean' } ? boolean
-      : F extends { type: 'richText' } ? RichTextDocument
-        : F extends { type: 'json' } ? JsonValue
-          : F extends { type: 'select', options: readonly (infer O)[] } ? OptionValue<O>
-            : F extends { type: 'multiSelect', options: readonly (infer O)[] } ? OptionValue<O>[]
-              : F extends { type: 'relation', many: true } ? string[]
-                : F extends { type: 'object', fields: infer S extends Fields } ? InferEntry<S>
-                  : F extends { type: 'repeater', fields: infer S extends Fields } ? InferEntry<S>[]
-                    : F extends { type: 'blocks' } ? BlockInstance[]
-                      : string // text, textarea, date, email, url, slug, color, media, relation
+  = F extends { 'type': 'custom', '~value'?: infer T } ? T
+    : F extends { type: 'number' } ? number
+      : F extends { type: 'boolean' } ? boolean
+        : F extends { type: 'richText' } ? RichTextDocument
+          : F extends { type: 'json' } ? JsonValue
+            : F extends { type: 'select', options: readonly (infer O)[] } ? OptionValue<O>
+              : F extends { type: 'multiSelect', options: readonly (infer O)[] } ? OptionValue<O>[]
+                : F extends { type: 'relation', many: true } ? string[]
+                  : F extends { type: 'object', fields: infer S extends Fields } ? InferEntry<S>
+                    : F extends { type: 'repeater', fields: infer S extends Fields } ? InferEntry<S>[]
+                      : F extends { type: 'blocks' } ? BlockInstance[]
+                        : string // text, textarea, date, email, url, slug, color, media, relation
 
 type Prettify<T> = { [K in keyof T]: T[K] } & {}
 

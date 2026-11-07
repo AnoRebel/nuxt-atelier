@@ -14,10 +14,11 @@ const root = fileURLToPath(new URL('../fixtures/migrate', import.meta.url))
 const cli = fileURLToPath(new URL('../../packages/core/dist/cli/index.mjs', import.meta.url))
 const collections = join(root, 'server/atelier/collections')
 
-function defineNotes(fields: string) {
+function defineCollection(name: string, definition: string) {
   mkdirSync(collections, { recursive: true })
-  writeFileSync(join(collections, 'notes.ts'), `import { defineCollection, text } from '#atelier/server'\nexport default defineCollection({ fields: { ${fields} } })\n`)
+  writeFileSync(join(collections, `${name}.ts`), `import { defineCollection, relation, text } from '#atelier/server'\nexport default defineCollection(${definition})\n`)
 }
+const defineNotes = (fields: string) => defineCollection('notes', `{ fields: { ${fields} } }`)
 
 describe.each(urlEngines)('atelier migrate on %s', (_, url) => {
   let driver: AtelierDriver
@@ -89,6 +90,39 @@ describe.each(urlEngines)('atelier migrate on %s', (_, url) => {
     expect(latest()).toContain('-- atelier:confirm rename column atelier_c_notes.title to heading')
     expect((await atelier('apply')).output).toContain('Applied:')
     expect(await rows()).toMatchObject([{ heading: 'Hello' }])
+  })
+
+  it('renames a field declared with renamedFrom, with no flag', async () => {
+    defineNotes(`body: text({ renamedFrom: 'heading' })`)
+    expect(await atelier('generate')).toMatchObject({ code: 0 })
+    expect(latest()).toContain('-- atelier:confirm rename column atelier_c_notes.heading to body')
+    expect((await atelier('apply')).output).toContain('Applied:')
+    expect(await rows()).toMatchObject([{ body: 'Hello' }])
+    expect((await atelier('generate')).output).toContain('No schema changes.')
+  })
+
+  it('moves relation values and references when a relation field or a collection is renamed', async () => {
+    defineCollection('people', `{ fields: { name: text() } }`)
+    defineNotes(`body: text({ renamedFrom: 'heading' }), author: relation({ to: 'people' })`)
+    expect(await atelier('generate')).toMatchObject({ code: 0 })
+    expect((await atelier('apply')).output).toContain('Applied:')
+    await query(driver, sql`insert into atelier_relations (source, source_id, field, position, target, target_id) values ('notes', 'n1', 'author', 0, 'people', 'p1')`)
+
+    // a relation has no column: the migration is only the data update
+    defineNotes(`body: text(), writer: relation({ to: 'people', renamedFrom: 'author' })`)
+    expect(await atelier('generate')).toMatchObject({ code: 0 })
+    expect(latest()).toContain('-- atelier:data rename field notes.author to writer')
+    expect((await atelier('apply')).output).toContain('Applied:')
+    expect((await atelier('generate')).output).toContain('No schema changes.')
+
+    rmSync(join(collections, 'people.ts'))
+    defineCollection('persons', `{ renamedFrom: 'people', fields: { name: text() } }`)
+    defineNotes(`body: text(), writer: relation({ to: 'persons' })`)
+    expect(await atelier('generate')).toMatchObject({ code: 0 })
+    expect(latest()).toContain('-- atelier:confirm rename table atelier_c_people to atelier_c_persons')
+    expect((await atelier('apply')).output).toContain('Applied:')
+    expect(await query(driver, sql`select field, target from atelier_relations where source_id = 'n1'`)).toEqual([{ field: 'writer', target: 'persons' }])
+    expect((await atelier('generate')).output).toContain('No schema changes.')
   })
 
   it('refuses to apply a hand-written migration with an unconfirmed drop', async () => {

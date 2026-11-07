@@ -122,19 +122,39 @@ function fieldColumn(kit: Kit, key: string, field: Field): Column | undefined {
     case 'color':
     case 'media':
       return kit.text(key, field.unique ? UNIQUE_MAX_LENGTH : undefined)
+    case 'custom':
+      return field.storage === 'text'
+        ? kit.text(key, field.unique ? UNIQUE_MAX_LENGTH : undefined)
+        : field.storage === 'number' ? kit.float(key) : field.storage === 'boolean' ? kit.bool(key) : kit.json(key)
     default:
       return kit.json(key)
   }
 }
 
-function checkFields(owner: string, fields: Record<string, Field>, nested = false) {
+interface Owner { name: string, singleton: boolean, collections: Record<string, unknown> }
+
+function checkFields(owner: Owner, fields: Record<string, Field>, path = '') {
+  const where = `${owner.name}${path}`
   for (const [key, field] of Object.entries(fields)) {
     if (!FIELD_KEY.test(key) || key.length > IDENTIFIER_MAX)
-      throw new Error(`[nuxt-atelier] ${owner}: field "${key}" must be letters and digits, starting with a letter, at most ${IDENTIFIER_MAX} characters`)
-    if (field.unique && (nested || !SCALAR_TYPES.has(field.type)))
-      throw new Error(`[nuxt-atelier] ${owner}: field "${key}" can't be unique; only top-level ${[...SCALAR_TYPES].join(', ')} fields can`)
+      throw new Error(`[nuxt-atelier] ${where}: field "${key}" must be letters and digits, starting with a letter, at most ${IDENTIFIER_MAX} characters`)
+    const scalar = SCALAR_TYPES.has(field.type) || (field.type === 'custom' && field.storage !== 'json')
+    if (field.unique && (path || !scalar))
+      throw new Error(`[nuxt-atelier] ${where}: field "${key}" can't be unique; only top-level ${[...SCALAR_TYPES].join(', ')} fields can`)
+    if (field.renamedFrom !== undefined) {
+      if (path)
+        throw new Error(`[nuxt-atelier] ${where}: field "${key}" can't declare renamedFrom; only top-level fields can be renamed`)
+      if (!FIELD_KEY.test(field.renamedFrom) || field.renamedFrom in fields)
+        throw new Error(`[nuxt-atelier] ${where}: field "${key}" is renamedFrom "${field.renamedFrom}", which must be a valid field key that no other field uses`)
+    }
+    if (field.type === 'relation') {
+      if (!(field.to in owner.collections))
+        throw new Error(`[nuxt-atelier] ${where}: relation "${key}" points to "${field.to}", which isn't a collection`)
+      if (field.onDelete === 'cascade' && owner.singleton)
+        throw new Error(`[nuxt-atelier] ${where}: relation "${key}" can't cascade deletes: a singleton can't be deleted. Use "restrict" or "nullify"`)
+    }
     if (field.type === 'object' || field.type === 'repeater')
-      checkFields(`${owner}.${key}`, field.fields, true)
+      checkFields(owner, field.fields, `${path}.${key}`)
   }
 }
 
@@ -152,8 +172,14 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
     if (collectionTable(name).length > IDENTIFIER_MAX)
       throw new Error(`[nuxt-atelier] Collection name "${name}" is too long: at most ${IDENTIFIER_MAX - collectionTable('').length} characters`)
   }
-  for (const [name, definition] of Object.entries({ ...schema.collections, ...schema.singletons }))
-    checkFields(name, definition.fields)
+  for (const [name, definition] of Object.entries(schema.collections)) {
+    const from = definition.renamedFrom
+    if (from !== undefined && (!/^[a-z][a-z0-9-]*$/.test(from) || from in schema.collections || from in schema.singletons))
+      throw new Error(`[nuxt-atelier] Collection "${name}" is renamedFrom "${from}", which must be a valid collection name that nothing else uses`)
+    checkFields({ name, singleton: false, collections: schema.collections }, definition.fields)
+  }
+  for (const [name, definition] of Object.entries(schema.singletons))
+    checkFields({ name, singleton: true, collections: schema.collections }, definition.fields)
 
   const tables: Record<string, Table> = {
     atelier_singletons: kit.table('atelier_singletons', {

@@ -4,7 +4,7 @@ import type { Fields } from '../shared/fields'
 import type { EntryStore } from './db/store'
 import type { ContentSchema } from './db/tables'
 import { blockOperations, CONTENT_ADAPTER_CONTRACT, defineContentAdapter } from '../shared/adapter'
-import { defaultsFactory } from '../shared/fields'
+import { defaultsFactory, serialiseFields } from '../shared/fields'
 import { NotFoundError } from './db/store'
 
 export interface DatabaseAdapterOptions {
@@ -56,7 +56,7 @@ export function createDatabaseAdapter(options: DatabaseAdapterOptions): DefinedC
     },
 
     // JSON-safe: custom validators are server-only functions
-    getFieldConfig: async ref => JSON.parse(JSON.stringify(fieldsOf(ref), (key, value) => key === 'validate' ? undefined : value)),
+    getFieldConfig: async ref => JSON.parse(serialiseFields(fieldsOf(ref))),
     listBlockTypes: async () => options.blockTypes ?? [],
 
     addBlock: async (state, at, block, index) => blockOperations.add(state, at, block, index),

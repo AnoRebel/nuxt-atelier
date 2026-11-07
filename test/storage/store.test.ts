@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { UnsupportedOperationError } from '../../packages/core/src/runtime/server/db/driver'
-import { ConflictError, createEntryStore, ValidationError, withTransaction } from '../../packages/core/src/runtime/server/db/store'
+import { ConflictError, createEntryStore, NotFoundError, ReferencedError, ValidationError, withTransaction } from '../../packages/core/src/runtime/server/db/store'
 import * as f from '../../packages/core/src/runtime/shared/fields'
 import { connectEngine, createTables, engines, query, resetDatabase } from './env'
 
@@ -15,14 +15,17 @@ const schema = {
     articles: {
       fields: {
         title: f.text({ required: true, unique: true }),
-        tags: f.relation({ to: 'tags', many: true }),
-        author: f.relation({ to: 'authors' }),
-        faq: f.repeater({ fields: { q: f.text(), who: f.relation({ to: 'authors' }) } }),
+        tags: f.relation({ to: 'tags', many: true, onDelete: 'nullify' }),
+        author: f.relation({ to: 'authors' }), // restrict
+        faq: f.repeater({ fields: { q: f.text(), who: f.relation({ to: 'authors', onDelete: 'nullify' }) } }),
       },
     },
+    authors: { fields: { name: f.text(), mentor: f.relation({ to: 'authors' }) } },
+    tags: { fields: { name: f.text() } },
+    comments: { fields: { text: f.text(), article: f.relation({ to: 'articles', onDelete: 'cascade' }) } },
   },
   singletons: {
-    settings: { fields: { siteName: f.text({ required: true }), editor: f.relation({ to: 'authors' }) } },
+    settings: { fields: { siteName: f.text({ required: true }), editor: f.relation({ to: 'authors', onDelete: 'nullify' }) } },
   },
 }
 const schemaFile = join(mkdtempSync(join(tmpdir(), 'atelier-store-')), 'schema.json')
@@ -123,5 +126,76 @@ describe.each(engines)('%s entry store', (_, url) => {
     await expect(store.saveSingleton('settings', { version: null, data: { siteName: 'Also first' } })).rejects.toMatchObject({ statusCode: 409 })
     expect((await store.revisions('settings')).map(r => r.version)).toEqual([2, 1])
     expect((await store.getSingleton('settings'))!.data.siteName).toBe('Atelier CMS')
+  })
+
+  it('refuses to delete an entry a restricting relation points to, listing the references', async () => {
+    const author = await store.save('authors', { data: { name: 'Ada' } })
+    const article = await store.save('articles', { data: { title: 'By Ada', author: author.id } })
+    const refused = store.delete('authors', author.id)
+    await expect(refused).rejects.toBeInstanceOf(ReferencedError)
+    await expect(refused).rejects.toMatchObject({ statusCode: 409, data: { references: [{ collection: 'articles', id: article.id, field: 'author' }] } })
+    expect(await store.get('authors', author.id)).toBeDefined()
+    // a reference from the entry itself doesn't block it
+    const self = await store.save('authors', { data: { name: 'Self' } })
+    await store.save('authors', { id: self.id, version: 1, data: { name: 'Self', mentor: self.id } })
+    await store.delete('authors', self.id)
+    expect(await store.get('authors', self.id)).toBeUndefined()
+  })
+
+  it('nullifies references, with a new version of each entry holding one', async () => {
+    const [t1, t2] = [await store.save('tags', { data: { name: 'one' } }), await store.save('tags', { data: { name: 'two' } })]
+    const who = await store.save('authors', { data: { name: 'Grace' } })
+    const article = await store.save('articles', { data: { title: 'Tagged', tags: [t1.id, t2.id], faq: [{ q: 'Who?', who: who.id }] } })
+    await store.saveSingleton('settings', { version: (await store.getSingleton('settings'))?.version ?? null, data: { siteName: 'Site', editor: who.id } })
+
+    await store.delete('tags', t1.id)
+    expect(await store.get('articles', article.id)).toMatchObject({ version: 2, data: { tags: [t2.id] } })
+    await store.delete('authors', who.id)
+    expect(await store.get('articles', article.id)).toMatchObject({ version: 3, data: { tags: [t2.id], faq: [{ q: 'Who?', who: null }] } })
+    expect(await relationsOf(article.id)).toEqual([`tags[0] → tags/${t2.id}`])
+    expect((await store.getSingleton('settings'))!.data.editor).toBeNull()
+  })
+
+  it('cascades a delete to the entries that depend on it, atomically', async () => {
+    const article = await store.save('articles', { data: { title: 'With comments' } })
+    const comments = [
+      await store.save('comments', { data: { text: 'First', article: article.id } }),
+      await store.save('comments', { data: { text: 'Second', article: article.id } }),
+    ]
+    await store.delete('articles', article.id)
+    expect(await store.get('articles', article.id)).toBeUndefined()
+    for (const comment of comments) {
+      expect(await store.get('comments', comment.id)).toBeUndefined()
+      expect(await relationsOf(comment.id)).toEqual([])
+    }
+
+    // a restricting reference to a cascaded entry refuses the whole delete
+    const author = await store.save('authors', { data: { name: 'Linus' } })
+    const kept = await store.save('articles', { data: { title: 'Kept', author: author.id } })
+    const comment = await store.save('comments', { data: { text: 'Stays', article: kept.id } })
+    await store.save('articles', { data: { title: 'Points at the comment\'s article', author: author.id } })
+    await expect(store.delete('authors', author.id)).rejects.toBeInstanceOf(ReferencedError)
+    expect(await store.get('comments', comment.id)).toBeDefined()
+    await expect(store.delete('articles', 'missing')).rejects.toBeInstanceOf(NotFoundError)
+  })
+
+  it('populates relations to the depth asked', async () => {
+    const mentor = await store.save('authors', { data: { name: 'Mentor' } })
+    const author = await store.save('authors', { data: { name: 'Mentee', mentor: mentor.id } })
+    const article = await store.save('articles', { data: { title: 'Populated', author: author.id, tags: ['gone'], faq: [{ q: 'Q', who: mentor.id }] } })
+
+    expect((await store.get('articles', article.id))!.data.author).toBe(author.id)
+    const one = (await store.get('articles', article.id, { depth: 1 }))!.data
+    expect(one).toMatchObject({ author: { id: author.id, data: { name: 'Mentee', mentor: mentor.id } }, tags: [], faq: [{ who: { data: { name: 'Mentor' } } }] })
+    const two = (await store.get('articles', article.id, { depth: 2 }))!.data
+    expect(two).toMatchObject({ author: { data: { mentor: { id: mentor.id, data: { name: 'Mentor' } } } } })
+  })
+
+  it('reads a singleton field renamed with renamedFrom from its old key', async () => {
+    const renamed = { ...schema, singletons: { settings: { fields: { title: f.text({ renamedFrom: 'siteName' }), editor: schema.singletons.settings.fields.editor } } } }
+    const saved = (await store.getSingleton('settings'))!
+    const after = createEntryStore(driver, renamed)
+    expect((await after.getSingleton('settings'))!.data).toMatchObject({ title: saved.data.siteName })
+    expect((await after.getSingleton('settings'))!.data).not.toHaveProperty('siteName')
   })
 })
