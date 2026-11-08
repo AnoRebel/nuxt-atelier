@@ -140,6 +140,48 @@ export function contentApiSuite(label: string, rootDir: string) {
       expect((await api('admin', 'PATCH', `/collections/articles/${ids.ada}`, { data: {} })).status).toBe(404)
     })
 
+    it('accepts scoped API tokens, and refuses revoked or expired ones', async () => {
+      const bearer = (token: string, method: string, path: string, body?: unknown) => fetch(`/api/_atelier${path}`, {
+        method,
+        headers: { 'authorization': `Bearer ${token}`, 'content-type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      }).then(r => r.status)
+
+      const reader = await api('admin', 'POST', '/tokens', { name: 'Static site build' })
+      expect(reader.body).toMatchObject({ name: 'Static site build', permissions: { '*': { actions: ['read'] } }, token: expect.stringMatching(/^atk_/) })
+      expect(await bearer(reader.body.token, 'GET', '/collections/articles')).toBe(200)
+      expect(await bearer(reader.body.token, 'POST', '/collections/articles', { data: { title: 'Nope' } })).toBe(403)
+
+      const importer = await api('admin', 'POST', '/tokens', { name: 'Importer', permissions: { articles: { actions: ['create', 'read'], hidden: ['internalNotes'] } } })
+      expect(await bearer(importer.body.token, 'POST', '/collections/articles', { data: { title: 'Imported' } })).toBe(200)
+      expect(await bearer(importer.body.token, 'GET', '/collections/authors')).toBe(403)
+      expect(await bearer(importer.body.token, 'POST', '/collections/articles', { data: { title: 'With notes', internalNotes: 'x' } })).toBe(403)
+      expect(await bearer(importer.body.token, 'GET', '/users')).toBe(401) // tokens reach the content API only
+
+      const listed = (await api('admin', 'GET', '/tokens')).body
+      expect(JSON.stringify(listed)).not.toContain(reader.body.token)
+      expect(listed.map((t: { name: string }) => t.name)).toEqual(expect.arrayContaining(['Static site build', 'Importer']))
+
+      expect((await api('admin', 'DELETE', `/tokens/${reader.body.id}`)).status).toBe(200)
+      expect(await bearer(reader.body.token, 'GET', '/collections/articles')).toBe(401)
+      expect((await api('admin', 'DELETE', `/tokens/${reader.body.id}`)).status).toBe(404)
+      expect(await bearer('atk_made-up', 'GET', '/collections/articles')).toBe(401)
+
+      const soon = await api('admin', 'POST', '/tokens', { name: 'Short-lived', expiresAt: new Date(Date.now() + 1500).toISOString() })
+      expect(await bearer(soon.body.token, 'GET', '/collections/articles')).toBe(200)
+      await new Promise(resolve => setTimeout(resolve, 1600))
+      expect(await bearer(soon.body.token, 'GET', '/collections/articles')).toBe(401)
+
+      expect((await api('writer', 'POST', '/tokens', { name: 'Mine' })).status).toBe(403)
+      const log = (await api('admin', 'GET', '/audit')).body.map((e: { action: string }) => e.action)
+      expect(log).toEqual(expect.arrayContaining(['token.created', 'token.revoked']))
+    })
+
+    it('renders queried content on the server with useAtelierQuery', async () => {
+      const html = await (await fetch('/articles', { headers: { cookie: sessions.admin!.cookie } })).text()
+      expect([...html.matchAll(/<li class="article">([^<]*)<\/li>/g)].map(m => m[1]!.trim())).toEqual(['Guide four', 'Guide one'])
+    })
+
     it('limits writes per user per minute', async () => {
       let status = 200
       for (let i = 0; i < 45 && status === 200; i++)

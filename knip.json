@@ -59,6 +59,7 @@
     },
     "test/fixtures/api": {
       "entry": [
+        "app/**/*.vue",
         "server/api/**/*.ts",
         "server/atelier/**/*.ts"
       ]

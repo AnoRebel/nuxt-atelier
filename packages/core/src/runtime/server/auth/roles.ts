@@ -12,15 +12,18 @@ import { apiError } from '../errors'
 const ACTIONS = ['create', 'read', 'update', 'delete', 'publish'] as const
 const names = v.array(v.pipe(v.string(), v.maxLength(64)))
 
+/** Content permissions per collection or singleton name, as in a role (and an API token). */
+export const ContentPermissionsSchema = v.record(v.pipe(v.string(), v.maxLength(64)), v.strictObject({
+  actions: v.array(v.picklist(ACTIONS)),
+  ownOnly: v.optional(v.array(v.picklist(ACTIONS))),
+  hidden: v.optional(names),
+  readOnly: v.optional(names),
+}))
+
 const RoleSchema = v.strictObject({
   label: v.optional(v.pipe(v.string(), v.maxLength(255))),
   capabilities: v.optional(v.array(v.picklist(['users', 'roles', 'settings', 'media']))),
-  content: v.optional(v.record(v.pipe(v.string(), v.maxLength(64)), v.strictObject({
-    actions: v.array(v.picklist(ACTIONS)),
-    ownOnly: v.optional(v.array(v.picklist(ACTIONS))),
-    hidden: v.optional(names),
-    readOnly: v.optional(names),
-  }))),
+  content: v.optional(ContentPermissionsSchema),
 })
 
 const ROLE_NAME = /^[a-z][a-z0-9-]{0,63}$/

@@ -3,9 +3,10 @@ import type { RequestEvent } from 'nuxt/server'
 import type { Field } from '../shared/fields'
 import type { ContentAction, Policy, PolicyUser } from '../shared/policy'
 import type { Entry } from './db/store'
-import { getRequestURL } from 'nuxt/server'
+import { getRequestHeader, getRequestURL } from 'nuxt/server'
+import { createPolicy } from '../shared/policy'
 import { apiError } from './errors'
-import { assertMigrated, useAtelierAuth, useAtelierPolicy, useAtelierRateLimiter, useAtelierSchema, useAtelierServerConfig } from './index'
+import { assertMigrated, useAtelierAuth, useAtelierPolicy, useAtelierRateLimiter, useAtelierRoles, useAtelierSchema, useAtelierServerConfig, useAtelierTokens } from './index'
 
 export interface Caller {
   principal: PolicyUser
@@ -15,8 +16,20 @@ export interface Caller {
 interface Limits { maxPageSize: number, maxRelationDepth: number, writesPerMinute: number }
 export const limits = () => (useAtelierServerConfig() as unknown as { limits: Limits }).limits
 
-/** The signed-in caller with the current policy; 401 when nobody is. */
+/**
+ * Who's asking, with the policy to check them against: an API token (`Authorization: Bearer atk_…`),
+ * whose permissions act as its own role, or the signed-in user. 401 when neither.
+ */
 export async function caller(event: RequestEvent): Promise<Caller> {
+  const bearer = /^Bearer (.+)$/i.exec(getRequestHeader(event, 'authorization') ?? '')?.[1]
+  if (bearer) {
+    const token = await (await useAtelierTokens()).verify(bearer.trim())
+    if (!token)
+      throw apiError(401, 'This API token is invalid, expired or revoked')
+    const role = `token:${token.id}` // not a valid role name, so it can't clash with a real one
+    const policy = createPolicy({ ...await (await useAtelierRoles()).roles(), [role]: { content: token.permissions } })
+    return { principal: { id: role, role }, policy }
+  }
   const user = await (await useAtelierAuth()).getUser(event)
   if (!user)
     throw apiError(401, 'Sign in first')

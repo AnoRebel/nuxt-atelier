@@ -46,6 +46,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     nuxt.options.alias['#atelier'] = resolve('./runtime/app')
 
     addImports({ name: 'useAtelierConfig', from: resolve('./runtime/app/composables/useAtelierConfig') })
+    addImports(['useAtelierQuery', 'useAtelierEntry'].map(name => ({ name, from: resolve('./runtime/app/composables/useAtelierQuery') })))
     addComponentsDir({ path: resolve('./runtime/app/components'), prefix: 'Atelier' })
 
     // Collections and singletons: rescanned on every Nitro (re)build, so new files are picked up in dev
@@ -60,7 +61,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/csrf') })
     addServerHandler({ route: '/api/_atelier/audit', method: 'get', handler: resolve('./runtime/server/api/audit') })
     addServerHandler({ route: '/api/_atelier/setup', handler: resolve('./runtime/server/api/setup') })
-    for (const resource of ['users', 'roles', 'collections', 'singletons']) {
+    for (const resource of ['users', 'roles', 'tokens', 'collections', 'singletons']) {
       addServerHandler({ route: `/api/_atelier/${resource}`, handler: resolve(`./runtime/server/api/${resource}`) })
       addServerHandler({ route: `/api/_atelier/${resource}/**`, handler: resolve(`./runtime/server/api/${resource}`) })
     }
