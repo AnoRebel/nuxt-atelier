@@ -57,7 +57,7 @@ export default createConfigForNuxt({
   },
   {
     // tests drive the dialect-generic query builders and adapter data directly
-    files: ['test/storage/**/*.ts', 'test/adapter/**/*.ts'],
+    files: ['test/storage/**/*.ts', 'test/adapter/**/*.ts', 'test/api/**/*.ts'],
     rules: { '@typescript-eslint/no-explicit-any': 'off' },
   },
   {

@@ -47,7 +47,8 @@
         "vitest": "5.0.5",
         "@nuxt/test-utils": "4.3.4",
         "miniflare": "4.20260730.0",
-        "playwright-core": "1.64.0"
+        "playwright-core": "1.64.0",
+        "@seriousme/openapi-schema-validator": "2.11.0"
       },
       "auth": {
         "better-auth": "1.7.14",
@@ -101,6 +102,7 @@
     "drizzle-orm": "catalog:db",
     "miniflare": "catalog:test",
     "playwright-core": "catalog:test",
+    "@seriousme/openapi-schema-validator": "catalog:test",
     "better-auth": "catalog:auth"
   },
   "simple-git-hooks": {
