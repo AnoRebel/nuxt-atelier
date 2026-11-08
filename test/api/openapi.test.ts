@@ -50,7 +50,7 @@ describe('openApiDocument()', () => {
     const paths = Object.keys(document.paths as object)
     for (const path of ['/api/_atelier/collections/blog-posts', '/api/_atelier/collections/blog-posts/{id}', '/api/_atelier/collections/authors', '/api/_atelier/singletons/settings'])
       expect(paths).toContain(path)
-    const data = (document.components as { schemas: Record<string, { properties: Record<string, Record<string, any>>, required: string[] }> }).schemas.BlogPostsData!
+    const data = (document.components as { schemas: Record<string, { properties: Record<string, any>, required: string[] }> }).schemas.BlogPostsData!
     expect(data.required).toEqual(['title'])
     expect(data.properties.title).toMatchObject({ type: 'string', maxLength: 120, title: 'Title' })
     expect(data.properties.status.anyOf[0]).toEqual({ type: 'string', enum: ['draft', 'published'] })
