@@ -6,7 +6,7 @@
 //   atelier_singletons      one row per singleton, its data as JSON
 //   atelier_relations       relation values, normalised so references can be found from either side
 //   atelier_revisions       a JSON snapshot per saved version
-//   atelier_routes          URL paths of routable entries
+//   atelier_routes          URL paths of routable entries, per locale ('' for every locale)
 //   atelier_users           CMS users of the built-in auth adapter
 //   atelier_sessions        their sessions, so signing out or a password reset can revoke them
 //   atelier_audit           security-relevant events: who did what to what, when, from where
@@ -25,6 +25,7 @@ import { bigint as myBigint, boolean as myBoolean, datetime as myDatetime, doubl
 import { bigint as pgBigint, boolean as pgBoolean, doublePrecision as pgDouble, timestamp as pgTimestamp, index as pgIndex, integer as pgInteger, jsonb as pgJsonb, primaryKey as pgPrimaryKey, pgTable, text as pgText, uniqueIndex as pgUniqueIndex, varchar as pgVarchar } from 'drizzle-orm/pg-core'
 import { index as liteIndex, integer as liteInteger, primaryKey as litePrimaryKey, real as liteReal, sqliteTable, text as liteText, uniqueIndex as liteUniqueIndex } from 'drizzle-orm/sqlite-core'
 import { UNIQUE_MAX_LENGTH } from '../../shared/fields'
+import { checkRoute, MAX_PATH } from '../routes'
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- column builders differ per dialect; the tables are typed by use, not here */
 type Column = any
@@ -253,9 +254,14 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
     if (from !== undefined && (!/^[a-z][a-z0-9-]*$/.test(from) || from in schema.collections || from in schema.singletons))
       throw new Error(`[nuxt-atelier] Collection "${name}" is renamedFrom "${from}", which must be a valid collection name that nothing else uses`)
     checkFields({ name, singleton: false, collections: schema.collections }, definition.fields)
+    if (definition.route)
+      checkRoute(name, definition.route, definition.fields)
   }
-  for (const [name, definition] of Object.entries(schema.singletons))
+  for (const [name, definition] of Object.entries(schema.singletons)) {
     checkFields({ name, singleton: true, collections: schema.collections }, definition.fields)
+    if (definition.route)
+      checkRoute(name, definition.route, definition.fields)
+  }
 
   const tables: Record<string, Table> = {
     atelier_singletons: kit.table('atelier_singletons', {
@@ -342,10 +348,14 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       lastUsedAt: kit.key('last_used_at', TIMESTAMP),
     }, t => [kit.index('atelier_passkeys_user_idx').on(t.userId)]),
     atelier_routes: kit.table('atelier_routes', {
-      path: kit.key('path', 255).primaryKey(),
+      path: kit.key('path', MAX_PATH).notNull(), // canonical: see canonicalPath()
+      locale: kit.key('locale', 35).notNull(), // '' when the pattern is shared by every locale
       source: kit.key('source', NAME).notNull(),
-      sourceId: kit.key('source_id', ID).notNull(),
-    }, t => [kit.index('atelier_routes_source_idx').on(t.source, t.sourceId)]),
+      sourceId: kit.key('source_id', NAME).notNull(), // an entry id, or a singleton's name
+    }, t => [
+      kit.primaryKey([t.path, t.locale]),
+      kit.index('atelier_routes_source_idx').on(t.source, t.sourceId),
+    ]),
   }
 
   for (const [name, spec] of Object.entries(schema.tables ?? {})) {

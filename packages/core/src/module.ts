@@ -1,7 +1,7 @@
 import type { NuxtModule } from '@nuxt/schema'
 import { resolve as resolvePath } from 'node:path'
 import type { ModuleOptions } from './options'
-import { addComponentsDir, addImports, addServerHandler, addServerPlugin, addServerTemplate, addTemplate, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, updateTemplates } from '@nuxt/kit'
+import { addComponentsDir, addImports, extendPages, addServerHandler, addServerPlugin, addServerTemplate, addTemplate, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, updateTemplates } from '@nuxt/kit'
 import { blockComponentsTemplate, blockDirectories, discoverBlocks } from './blocks/discover'
 import { transformBlockSfc } from './blocks/transform'
 import { setupDevMigrations } from './cli/dev'
@@ -53,6 +53,15 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addImports({ name: 'useAtelierArea', from: resolve('./runtime/app/composables/useAtelierArea') })
     addImports({ name: 'useAtelierPreview', from: resolve('./runtime/app/composables/useAtelierPreview') })
     addComponentsDir({ path: resolve('./runtime/app/components'), prefix: 'Atelier' })
+    // the catch-all serving routable entries: ranked below every page of the app, so the app's own pages win.
+    // Only in apps that route: Nuxt turns its router on when this hook adds a page, and an app with just an
+    // app.vue (no <NuxtPage>) would then 404 everywhere. Those apps render entries themselves.
+    const pagesOption = nuxt.options.pages as boolean | { enabled?: boolean } | undefined
+    const pagesForced = pagesOption === true || (typeof pagesOption === 'object' && pagesOption.enabled === true)
+    extendPages((pages) => {
+      if (pages.length || pagesForced)
+        pages.push({ name: 'atelier-page', path: '/:path(.*)*', file: resolve('./runtime/app/pages/AtelierPage'), meta: { layout: false } })
+    })
 
     // Collections and singletons: rescanned on every Nitro (re)build, so new files are picked up in dev
     addServerTemplate({ filename: '#atelier-schema', getContents: schemaTemplate })
@@ -104,6 +113,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       addServerHandler({ route: `/api/_atelier/${resource}`, handler: resolve(`./runtime/server/api/${resource}`) })
       addServerHandler({ route: `/api/_atelier/${resource}/**`, handler: resolve(`./runtime/server/api/${resource}`) })
     }
+    addServerHandler({ route: '/api/_atelier/routes', handler: resolve('./runtime/server/api/routes') })
     addServerHandler({ route: '/api/_atelier/**', handler: resolve('./runtime/server/api/not-found') })
     if (nuxt.options.dev)
       setupDevMigrations(nuxt)

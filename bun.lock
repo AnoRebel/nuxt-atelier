@@ -292,6 +292,12 @@
         "nuxt": "catalog:",
       },
     },
+    "test/fixtures/routing": {
+      "name": "@nuxt-atelier/fixture-routing",
+      "dependencies": {
+        "nuxt": "catalog:",
+      },
+    },
     "test/fixtures/schema": {
       "name": "@nuxt-atelier/fixture-schema",
       "dependencies": {
@@ -912,6 +918,8 @@
     "@nuxt-atelier/fixture-passkeys": ["@nuxt-atelier/fixture-passkeys@workspace:test/fixtures/passkeys"],
 
     "@nuxt-atelier/fixture-pending": ["@nuxt-atelier/fixture-pending@workspace:test/fixtures/pending"],
+
+    "@nuxt-atelier/fixture-routing": ["@nuxt-atelier/fixture-routing@workspace:test/fixtures/routing"],
 
     "@nuxt-atelier/fixture-schema": ["@nuxt-atelier/fixture-schema@workspace:test/fixtures/schema"],
 

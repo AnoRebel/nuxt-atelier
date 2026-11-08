@@ -23,7 +23,11 @@
         "src/runtime/server/api/**/*.ts",
         "src/runtime/server/middleware/*.ts",
         "src/runtime/app/components/*.ts",
+        "src/runtime/app/pages/*.ts",
         "src/adapter.ts"
+      ],
+      "ignoreUnresolved": [
+        "#components"
       ]
     },
     "packages/auth-better-auth": {
@@ -135,6 +139,12 @@
     "test/fixtures/ui-css": {
       "entry": [
         "app/**/*.{vue,ts}"
+      ]
+    },
+    "test/fixtures/routing": {
+      "entry": [
+        "app/**/*.{vue,ts}",
+        "server/**/*.ts"
       ]
     }
   },
