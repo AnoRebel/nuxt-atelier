@@ -182,6 +182,15 @@ export function contentApiSuite(label: string, rootDir: string) {
       expect([...html.matchAll(/<li class="article">([^<]*)<\/li>/g)].map(m => m[1]!.trim())).toEqual(['Guide four', 'Guide one'])
     })
 
+    it('describes the API in OpenAPI 3.1, for administrators', async () => {
+      const { Validator } = await import('@seriousme/openapi-schema-validator')
+      const { status, body } = await api('admin', 'GET', '/openapi.json')
+      expect(status).toBe(200)
+      expect((await new Validator().validate(body)).valid).toBe(true)
+      expect(Object.keys(body.paths)).toEqual(expect.arrayContaining(['/api/_atelier/collections/articles', '/api/_atelier/collections/authors/{id}', '/api/_atelier/singletons/settings']))
+      expect((await api('writer', 'GET', '/openapi.json')).status).toBe(403)
+    })
+
     it('limits writes per user per minute', async () => {
       let status = 200
       for (let i = 0; i < 45 && status === 200; i++)

@@ -60,6 +60,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       addServerHandler({ route: '/api/_atelier/auth/passkeys/**', handler: resolve('./runtime/server/api/auth/passkeys') })
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/csrf') })
     addServerHandler({ route: '/api/_atelier/audit', method: 'get', handler: resolve('./runtime/server/api/audit') })
+    addServerHandler({ route: '/api/_atelier/openapi.json', method: 'get', handler: resolve('./runtime/server/api/openapi') })
     addServerHandler({ route: '/api/_atelier/setup', handler: resolve('./runtime/server/api/setup') })
     for (const resource of ['users', 'roles', 'tokens', 'collections', 'singletons']) {
       addServerHandler({ route: `/api/_atelier/${resource}`, handler: resolve(`./runtime/server/api/${resource}`) })
