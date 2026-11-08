@@ -2,6 +2,7 @@
 // collection and singleton, with JSON Schemas of their fields.
 import type { Field, Fields } from '../shared/fields'
 import type { ContentSchema } from './db/tables'
+import type { RouteDefinition } from './types'
 import { UNIQUE_MAX_LENGTH } from '../shared/fields'
 
 type JsonSchema = Record<string, unknown>
@@ -92,7 +93,14 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
     },
   }
   const paths: Record<string, Record<string, unknown>> = {}
-  const entry = (data: string) => ({ type: 'object', properties: { id: { type: 'string' }, version: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' }, createdBy: { type: ['string', 'null'] }, data: ref(data) }, required: ['id', 'version', 'createdAt', 'updatedAt', 'createdBy', 'data'] })
+  // routable types: the entry's URL, and every locale's for per-locale patterns
+  const urls = (route: RouteDefinition | undefined): JsonSchema => !route
+    ? {}
+    : {
+        path: { type: ['string', 'null'], description: 'The entry\'s URL (in the first locale of a per-locale pattern)' },
+        ...typeof route.pattern === 'string' ? {} : { paths: { type: 'object', additionalProperties: { type: 'string' }, description: 'The entry\'s URL in each locale' } },
+      }
+  const entry = (data: string, route?: RouteDefinition) => ({ type: 'object', properties: { id: { type: 'string' }, version: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' }, createdBy: { type: ['string', 'null'] }, ...urls(route), data: ref(data) }, required: ['id', 'version', 'createdAt', 'updatedAt', 'createdBy', 'data'] })
   const depth = param('depth', 'Levels of relations to replace with the entries they point to')
   const fields = param('fields', 'Comma-separated fields to return')
 
@@ -100,7 +108,7 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
     const type = pascal(name)
     const tag = [name]
     schemas[`${type}Data`] = dataSchema(definition.fields)
-    schemas[`${type}Entry`] = entry(`${type}Data`)
+    schemas[`${type}Entry`] = entry(`${type}Data`, definition.route)
     schemas[`${type}List`] = { type: 'object', properties: { items: { type: 'array', items: ref(`${type}Entry`) }, total: { type: 'integer' }, limit: { type: 'integer' }, next: { type: ['string', 'null'] } }, required: ['items', 'total', 'limit', 'next'] }
     const body = (required: boolean) => ({ required: true, content: { 'application/json': { schema: { type: 'object', properties: { ...required ? {} : { version: { type: 'integer' } }, data: required ? ref(`${type}Data`) : { type: 'object' } }, required: required ? ['data'] : ['version', 'data'] } } } })
     const id = param('id', 'The entry id', { type: 'string' }, 'path')
@@ -141,7 +149,7 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
     const type = pascal(name)
     const tag = [name]
     schemas[`${type}Data`] = dataSchema(definition.fields)
-    schemas[`${type}Singleton`] = { type: 'object', properties: { name: { const: name }, version: { type: ['integer', 'null'] }, updatedAt: { type: ['string', 'null'] }, data: ref(`${type}Data`) }, required: ['name', 'version', 'data'] }
+    schemas[`${type}Singleton`] = { type: 'object', properties: { name: { const: name }, version: { type: ['integer', 'null'] }, updatedAt: { type: ['string', 'null'] }, ...urls(definition.route), data: ref(`${type}Data`) }, required: ['name', 'version', 'data'] }
     paths[`${BASE}/singletons/${name}`] = {
       get: { tags: tag, summary: `Get ${name} (its defaults, with version null, before its first save)`, parameters: [depth, fields], responses: { 200: json(ref(`${type}Singleton`)), ...errors(401, 403) } },
       patch: { tags: tag, summary: `Save ${name}: \`data\` is merged; \`version\` is the one you read, or null for the first save`, requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { version: { type: ['integer', 'null'] }, data: { type: 'object' } }, required: ['version', 'data'] } } } }, responses: { 200: json(ref(`${type}Singleton`)), ...errors(401, 403, 409, 422, 429) } },
@@ -149,6 +157,32 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
     paths[`${BASE}/singletons/${name}/revisions`] = {
       get: { tags: tag, summary: 'Saved versions, newest first', responses: { 200: json({ type: 'array', items: ref('Revision') }), ...errors(401, 403) } },
     }
+  }
+
+  paths[`${BASE}/routes`] = {
+    get: {
+      tags: ['routes'],
+      summary: 'The entry served at a site path, with how its type renders it',
+      parameters: [{ ...param('path', 'A site path, like /about'), required: true }, param('locale', 'The locale of a per-locale pattern'), depth],
+      responses: {
+        200: json({
+          type: 'object',
+          properties: {
+            path: { type: 'string', description: 'The canonical path' },
+            locale: { type: 'string', description: 'The locale of the matching pattern, or "" for one shared by every locale' },
+            kind: { enum: ['collection', 'singleton'] },
+            name: { type: 'string', description: 'The collection or singleton' },
+            id: { type: 'string', description: 'The entry id, or the singleton\'s name' },
+            component: { type: ['string', 'null'] },
+            layout: { type: ['string', 'null'] },
+            blocks: { type: 'array', items: { type: 'string' }, description: 'The type\'s blocks fields, rendered in this order without a component' },
+            entry: { type: 'object', description: 'The entry or singleton, as its own endpoint returns it' },
+          },
+          required: ['path', 'locale', 'kind', 'name', 'id', 'component', 'layout', 'blocks', 'entry'],
+        }),
+        ...errors(401, 403, 404),
+      },
+    },
   }
 
   return {

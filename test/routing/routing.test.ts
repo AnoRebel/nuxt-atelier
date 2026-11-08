@@ -1,0 +1,106 @@
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { $fetch, fetch, setup, startServer } from '@nuxt/test-utils/e2e'
+import { beforeAll, describe, expect, it } from 'vitest'
+
+const rootDir = fileURLToPath(new URL('../fixtures/routing', import.meta.url))
+
+describe('site routing', async () => {
+  await setup({ setupTimeout: 300_000, rootDir })
+  let cookie = ''
+  let csrf = ''
+
+  const api = async (path: string, method = 'GET', body?: unknown) => {
+    const response = await fetch(path, {
+      method,
+      headers: { 'content-type': 'application/json', cookie, 'x-atelier-csrf': csrf },
+      ...body === undefined ? {} : { body: JSON.stringify(body) },
+    })
+    return { status: response.status, body: await response.json() }
+  }
+  const page = async (path: string, signedIn = true) => {
+    const response = await fetch(path, { headers: signedIn ? { cookie } : {} })
+    return { status: response.status, html: (await response.text()).replace(/<!--[[\]]-->/g, '') }
+  }
+
+  beforeAll(async () => {
+    await startServer({ env: {
+      NUXT_ATELIER_DATABASE_URL: `file:${join(mkdtempSync(join(tmpdir(), 'atelier-routing-')), 'db.sqlite')}`,
+      NUXT_APP_SECRET: 'a-test-secret-that-is-long-enough-123456',
+    } })
+    await $fetch('/api/test/users', { method: 'POST', body: { email: 'admin@example.com', role: 'admin', password: 'password 123' } })
+    const signedIn = await fetch('/api/_atelier/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'admin@example.com', password: 'password 123' }) })
+    const cookies = signedIn.headers.getSetCookie().map(c => c.split(';')[0]!)
+    cookie = cookies.join('; ')
+    csrf = cookies.find(c => c.startsWith('atelier-csrf='))!.split('=')[1]!
+  })
+
+  it('serves an entry at its URL with the catch-all page, rendering its blocks in the default layout', async () => {
+    const created = await api('/api/_atelier/collections/pages', 'POST', { data: {
+      title: 'About',
+      slug: 'about',
+      content: [{ id: 'b1', type: 'Hero', props: { title: 'About us' } }],
+    } })
+    expect(created.status).toBe(200)
+    expect(created.body.path).toBe('/about') // entries carry their URL (Pruvious #12)
+
+    const about = await page('/about')
+    expect(about.status).toBe(200)
+    expect(about.html).toMatch(/<div class="layout-default"><h1 class="hero">\s*About us\s*<\/h1><\/div>/)
+    expect((await page('/about/')).html).toContain('About us') // a trailing slash is the same page
+
+    // renaming the slug moves the page
+    const renamed = await api(`/api/_atelier/collections/pages/${created.body.id}`, 'PATCH', { version: 1, data: { slug: 'about-us' } })
+    expect(renamed.body.path).toBe('/about-us')
+    expect((await page('/about')).status).toBe(404)
+    expect((await page('/about-us')).html).toContain('About us')
+
+    const list = await api('/api/_atelier/collections/pages')
+    expect(list.body.items.map((e: { path: string }) => e.path)).toEqual(['/about-us'])
+  })
+
+  it('serves each locale\'s pattern with the type\'s component and layout (Pruvious #73)', async () => {
+    const { body } = await api('/api/_atelier/collections/projects', 'POST', { data: { name: 'Harbour', slug: 'harbour' } })
+    expect(body.path).toBe('/projects/harbour')
+    expect(body.paths).toEqual({ en: '/projects/harbour', et: '/projektid/harbour' })
+
+    for (const path of ['/projects/harbour', '/projektid/harbour']) {
+      const { status, html } = await page(path)
+      expect(status).toBe(200)
+      expect(html).toMatch(new RegExp(`<div class="layout-wide"><article class="project"><h1>Harbour</h1><p class="path">\\s*${path}\\s*</p></article></div>`))
+    }
+    const resolved = await api('/api/_atelier/routes?path=/projektid/harbour')
+    expect(resolved.body).toMatchObject({ path: '/projektid/harbour', locale: 'et', kind: 'collection', name: 'projects', id: body.id, component: 'ProjectPage', layout: 'wide' })
+  })
+
+  it('serves a routable singleton', async () => {
+    const saved = await api('/api/_atelier/singletons/home', 'PATCH', { version: null, data: { headline: 'Welcome', content: [{ id: 'h1', type: 'Hero', props: { title: 'Home' } }] } })
+    expect(saved.body.path).toBe('/')
+    expect((await page('/')).html).toMatch(/<h1 class="hero">\s*Home\s*<\/h1>/)
+  })
+
+  it('refuses a URL another entry already has, per locale', async () => {
+    const taken = await api('/api/_atelier/collections/pages', 'POST', { data: { title: 'Again', slug: 'about-us' } })
+    expect(taken.status).toBe(422)
+    expect(taken.body.data.errors).toEqual([{ path: 'slug', message: expect.stringMatching(/^The URL \/about-us is already used by entry ".+" in "pages"$/) }])
+    // "projects" is a page slug: /projects is free, /projects/harbour isn't reachable from pages
+    expect((await api('/api/_atelier/collections/pages', 'POST', { data: { title: 'Projects', slug: 'projects' } })).status).toBe(200)
+  })
+
+  it('leaves the app\'s own pages in front of entries with the same URL', async () => {
+    expect((await api('/api/_atelier/collections/pages', 'POST', { data: { title: 'Contact', slug: 'contact' } })).status).toBe(200)
+    expect((await page('/contact')).html).toContain('<main class="host-contact">')
+  })
+
+  it('answers 404 for unknown paths, protocol-relative paths and visitors who can\'t read the entry', async () => {
+    expect((await page('/nothing-here')).status).toBe(404)
+    expect((await api('/api/_atelier/routes?path=//evil.example')).status).toBe(404)
+    const missing = await api('/api/_atelier/routes?path=/nothing-here')
+    expect(missing.body).toMatchObject({ statusCode: 404, data: { code: 'not_found' } })
+    // not signed in: the content API's 401, and the site's 404, the same as for a missing page
+    expect((await (await fetch('/api/_atelier/routes?path=/about-us')).json()).data.code).toBe('unauthenticated')
+    expect((await page('/about-us', false)).status).toBe(404)
+  })
+})

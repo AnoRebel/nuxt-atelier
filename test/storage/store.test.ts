@@ -28,6 +28,9 @@ const schema = {
     writers: { fields: { name: f.text(), books: f.relation({ to: 'books', many: true, inverse: 'writers' }) } },
     chapters: { fields: { title: f.text(), book: f.relation({ to: 'books', inverse: 'chapters' }) } },
     people: { fields: { name: f.text(), friends: f.relation({ to: 'people', many: true, inverse: 'friends' }) } },
+    // routable: a shared pattern and one per locale
+    pages: { route: { pattern: '/{slug}' }, fields: { slug: f.slug({ required: true }) } },
+    places: { route: { pattern: { en: '/places/{slug}', et: '/kohad/{slug}' } }, fields: { slug: f.slug({ required: true }), near: f.relation({ to: 'places' }) } },
   },
   singletons: {
     settings: { fields: { siteName: f.text({ required: true }), editor: f.relation({ to: 'authors', onDelete: 'nullify' }) } },
@@ -228,6 +231,30 @@ describe.each(engines)('%s entry store', (_, url) => {
     expect(one).toMatchObject({ author: { id: author.id, data: { name: 'Mentee', mentor: mentor.id } }, tags: [], faq: [{ who: { data: { name: 'Mentor' } } }] })
     const two = (await store.get('articles', article.id, { depth: 2 }))!.data
     expect(two).toMatchObject({ author: { data: { mentor: { id: mentor.id, data: { name: 'Mentor' } } } } })
+  })
+
+  it('stores routable entries\' paths, resolves them, refuses taken ones and drops them on delete', async () => {
+    const page = await store.save('pages', { data: { slug: 'about' } })
+    expect(page.path).toBe('/about')
+    const place = await store.save('places', { data: { slug: 'harbour' } })
+    expect(place).toMatchObject({ path: '/places/harbour', paths: { en: '/places/harbour', et: '/kohad/harbour' } })
+    expect(await store.resolve('/kohad/harbour', 'et')).toEqual({ path: '/kohad/harbour', locale: 'et', kind: 'collection', name: 'places', id: place.id })
+    expect(await store.resolve('/kohad/harbour', 'en')).toBeUndefined()
+    // related entries carry their path too
+    const near = await store.save('places', { data: { slug: 'pier', near: place.id } })
+    expect((await store.get('places', near.id, { depth: 1 }))!.data.near).toMatchObject({ path: '/places/harbour' })
+
+    const taken = await store.save('pages', { data: { slug: 'about' } }).catch(e => e)
+    expect(taken).toBeInstanceOf(ValidationError)
+    expect(taken.errors).toEqual([{ path: 'slug', message: `The URL /about is already used by entry "${page.id}" in "pages"` }])
+
+    const moved = await store.save('pages', { id: page.id, version: 1, data: { slug: 'about-us' } })
+    expect(moved.path).toBe('/about-us')
+    expect(await store.resolve('/about')).toBeUndefined()
+    expect((await store.save('pages', { data: { slug: 'about' } })).path).toBe('/about') // free again
+
+    await store.delete('pages', page.id)
+    expect(await store.resolve('/about-us')).toBeUndefined()
   })
 
   it('reads a singleton field renamed with renamedFrom from its old key', async () => {

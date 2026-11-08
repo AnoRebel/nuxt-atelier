@@ -55,6 +55,10 @@ export interface RelatedEntry {
   createdAt: string
   updatedAt: string
   createdBy: string | null
+  /** Routable types: the entry's URL (in the first locale of a per-locale pattern), or null. */
+  path?: string | null
+  /** Per-locale patterns: the entry's URL in each locale. */
+  paths?: Record<string, string>
   data: Record<string, unknown>
 }
 
@@ -76,6 +80,10 @@ export interface TypedEntry<N extends CollectionName, Populated extends boolean 
   createdAt: string
   updatedAt: string
   createdBy: string | null
+  /** Routable types: the entry's URL (in the first locale of a per-locale pattern), or null. */
+  path?: string | null
+  /** Per-locale patterns: the entry's URL in each locale. */
+  paths?: Record<string, string>
   data: Populated extends true ? PopulatedEntry<N> : Data<N>
 }
 

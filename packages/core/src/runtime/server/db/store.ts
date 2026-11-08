@@ -2,13 +2,15 @@
 // transaction: all of it persists or none does. Writes carry the version the client last read; a write
 // against an older version is refused with a 409 rather than overwriting someone else's save.
 import type { Field, FieldError, RelationField } from '../../shared/fields'
-import type { CollectionDefinition } from '../types'
+import type { EntryPath } from '../routes'
+import type { CollectionDefinition, RouteDefinition } from '../types'
 import type { AtelierDriver } from './driver'
 import type { Db } from './entries'
 import type { ContentSchema } from './tables'
 import type { ListQuery } from './query'
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { validateEntry } from '../../shared/fields'
+import { entryPaths, MAX_PATH, patterns, presentPaths } from '../routes'
 import { UnsupportedOperationError } from './driver'
 import { fromRow, getRow, isUnique, toRow } from './entries'
 import { afterCursor, compileFilter, compileSort, decodeCursor, encodeCursor, orderBy } from './query'
@@ -63,7 +65,23 @@ export interface Entry {
   updatedAt: string
   /** The user who created it, when known. */
   createdBy: string | null
+  /** Routable collections: the entry's URL (in the first locale of a per-locale pattern), or null. */
+  path?: string | null
+  /** Per-locale patterns: the entry's URL in each locale. */
+  paths?: Record<string, string>
   data: Record<string, unknown>
+}
+
+/** What a site path resolves to. */
+export interface ResolvedRoute {
+  /** The canonical path, and the locale of its pattern ('' when shared by every locale). */
+  path: string
+  locale: string
+  kind: 'collection' | 'singleton'
+  /** The collection or singleton. */
+  name: string
+  /** The entry id; a singleton's name. */
+  id: string
 }
 
 export interface ListOptions extends ListQuery {
@@ -85,6 +103,9 @@ export interface SingletonEntry {
   name: string
   version: number
   updatedAt: string
+  /** Routable singletons: its URL, as for entries. */
+  path?: string | null
+  paths?: Record<string, string>
   data: Record<string, unknown>
 }
 
@@ -196,6 +217,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const links: (RelationRow & { sourceId: string })[] = await q.select().from(relations)
         .where(and(eq(relations.source, name), inArray(relations.sourceId, rows.map(r => r._id as string))))
         .orderBy(asc(relations.sourceId), asc(relations.field), asc(relations.position))
+      const urls = await storedPaths(q, name, definition.route, rows.map(r => r._id as string))
       for (const row of rows) {
         const id = row._id as string
         const data = fromRow(definition.fields, row)
@@ -206,7 +228,15 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
           const targets = links.filter(l => l.sourceId === id && (l.field === key || l.field === field.renamedFrom)).map(l => l.targetId)
           data[key] = field.many ? targets : targets[0] ?? null
         }
-        found.set(id, { id, version: row._version as number, createdAt: row._createdAt as string, updatedAt: row._updatedAt as string, createdBy: (row._createdBy as string | null) ?? null, data })
+        found.set(id, {
+          id,
+          version: row._version as number,
+          createdAt: row._createdAt as string,
+          updatedAt: row._updatedAt as string,
+          createdBy: (row._createdBy as string | null) ?? null,
+          ...definition.route && presentPaths(definition.route, urls.get(id) ?? []),
+          data,
+        })
       }
     }
     return found
@@ -214,9 +244,57 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
 
   const read = async (q: Db, name: string, id: string) => (await readMany(q, name, [id])).get(id)
 
+  /** The stored paths of routable entries, by entry id: one query, none when not routable. */
+  async function storedPaths(q: Db, source: string, route: RouteDefinition | undefined, ids: string[]): Promise<Map<string, EntryPath[]>> {
+    const byId = new Map<string, EntryPath[]>()
+    if (!route || !ids.length)
+      return byId
+    const rows: { path: string, locale: string, sourceId: string }[] = await q.select().from(routes)
+      .where(and(eq(routes.source, source), inArray(routes.sourceId, ids)))
+    for (const row of rows)
+      byId.set(row.sourceId, [...byId.get(row.sourceId) ?? [], { path: row.path, locale: row.locale }])
+    return byId
+  }
+
   async function readSingleton(q: Db, name: string): Promise<SingletonEntry | undefined> {
     const [row] = await q.select().from(singletons).where(eq(singletons.name, name)).limit(1)
-    return row && { name, version: row.version, updatedAt: row.updatedAt, data: renamed(singleton(name).fields, row.data) }
+    if (!row)
+      return undefined
+    const { route, fields } = singleton(name)
+    const urls = route ? (await storedPaths(q, name, route, [name])).get(name) ?? [] : []
+    return { name, version: row.version, updatedAt: row.updatedAt, ...route && presentPaths(route, urls), data: renamed(fields, row.data) }
+  }
+
+  const routeOf = (source: string): RouteDefinition | undefined => (schema.collections[source] ?? schema.singletons[source])?.route
+
+  /**
+   * 422 when a path of this data is too long or already another entry's. Paths shared by every locale
+   * conflict with any locale's; per-locale ones only within their locale.
+   * ponytail: two saves racing for one free path both pass this; the (path, locale) primary key stops the
+   * second, which then fails as a database error rather than a 422.
+   */
+  async function assertPathsFree(q: Db, source: string, sourceId: string, data: Record<string, unknown>): Promise<void> {
+    const route = routeOf(source)
+    const mine = entryPaths(route, data)
+    if (!route || !mine.length)
+      return
+    // errors go on the first placeholder's field (a fixed path, like a singleton's "/", has none)
+    const fieldOf = (locale: string) => /\{([a-z][a-z0-9]*)\}/i.exec(patterns(route).find(([l]) => l === locale)![1])?.[1] ?? ''
+    const errors: FieldError[] = []
+    for (const { locale, path } of mine) {
+      if (path.length > MAX_PATH)
+        errors.push({ path: fieldOf(locale), message: `The URL would be longer than ${MAX_PATH} characters` })
+    }
+    const taken: { path: string, locale: string, source: string, sourceId: string }[] = await q.select().from(routes)
+      .where(inArray(routes.path, [...new Set(mine.map(p => p.path))]))
+    for (const { locale, path } of mine) {
+      const other = taken.find(t => t.path === path && !(t.source === source && t.sourceId === sourceId)
+        && (t.locale === locale || t.locale === '' || locale === ''))
+      if (other)
+        errors.push({ path: fieldOf(locale), message: `The URL ${path}${locale ? ` (${locale})` : ''} is already used by ${other.source in schema.singletons ? `singleton "${other.source}"` : `entry "${other.sourceId}" in "${other.source}"`}` })
+    }
+    if (errors.length)
+      throw new ValidationError(errors)
   }
 
   /** Calls `visit` for every relation value in `data`, nested ones included; `set` replaces it. */
@@ -363,10 +441,14 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     const { source, sourceId, expected } = target
     const version = expected === undefined ? 1 : expected + 1
     const links = relationRows(target.fields, data)
+    const route = routeOf(source)
+    const paths = entryPaths(route, data).filter(p => p.path.length <= MAX_PATH) // checked by assertPathsFree on saves
     return [
       target.write(q, data, version, now),
       ...expected === undefined ? [] : [q.delete(relations).where(and(eq(relations.source, source), eq(relations.sourceId, sourceId)))],
       ...links.length ? [q.insert(relations).values(links.map(l => ({ source, sourceId, ...l })))] : [],
+      ...route && expected !== undefined ? [q.delete(routes).where(and(eq(routes.source, source), eq(routes.sourceId, sourceId)))] : [],
+      ...paths.length ? [q.insert(routes).values(paths.map(p => ({ ...p, source, sourceId })))] : [],
       // unique per (source, version): a stale save always collides with the winning save's revision
       q.insert(revisions).values({ id: crypto.randomUUID(), source, sourceId, version, data, createdAt: now, authorId: target.authorId ?? null }),
     ]
@@ -448,6 +530,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const result = await validateEntry(target.fields, input, { isUnique: target.isUnique?.(q), blocks: schema.blocks, maxNestingDepth: options.maxNestingDepth })
       if (!result.success)
         throw new ValidationError(result.errors)
+      await assertPathsFree(q, target.source, target.sourceId, result.value)
       return result.value
     }
     // after a write matched nothing or failed: say why, if it's a missing row or a newer version
@@ -613,6 +696,20 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     /** Saves a singleton atomically. `version` is the one read, or undefined/null for the first save. */
     saveSingleton(name: string, input: { data: Record<string, unknown>, version?: number | null, authorId?: string }): Promise<SingletonEntry> {
       return persist(singletonTarget(name, input.version ?? undefined, input.authorId), input.data)
+    },
+
+    /**
+     * The entry a site path belongs to: a canonical path (see canonicalPath), in `locale` when given.
+     * A path shared by every locale matches any; without a locale, a shared path wins over a per-locale one.
+     */
+    async resolve(path: string, locale?: string): Promise<ResolvedRoute | undefined> {
+      const rows: { path: string, locale: string, source: string, sourceId: string }[] = await db.select().from(routes).where(eq(routes.path, path))
+      const row = locale === undefined
+        ? rows.find(r => r.locale === '') ?? rows[0]
+        : rows.find(r => r.locale === locale) ?? rows.find(r => r.locale === '')
+      if (!row || !routeOf(row.source))
+        return undefined // a type no longer routable
+      return { path: row.path, locale: row.locale, kind: row.source in schema.singletons ? 'singleton' : 'collection', name: row.source, id: row.sourceId }
     },
 
     /** Versions saved for an entry (or a singleton, by its name), newest first. */

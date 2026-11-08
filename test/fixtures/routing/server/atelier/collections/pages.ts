@@ -1,0 +1,6 @@
+import { blocks, defineCollection, slug, text } from '#atelier/server'
+
+export default defineCollection({
+  route: { pattern: '/{slug}' },
+  fields: { title: text({ required: true }), slug: slug({ required: true }), content: blocks() },
+})

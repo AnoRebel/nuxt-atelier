@@ -2,7 +2,7 @@ import { defineCollection, relation, repeater, richText, select, text } from '#a
 
 export default defineCollection({
   labels: { singular: 'Article', plural: 'Articles' },
-  routable: true,
+  route: { pattern: '/articles/{title}' },
   fields: {
     title: text({ required: true }),
     status: select({ options: ['draft', { value: 'published', label: 'Published' }], required: true }),
