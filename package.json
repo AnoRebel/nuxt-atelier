@@ -15,9 +15,9 @@
     ],
     "catalog": {
       "vue": "3.5.44",
-      "@nuxt/kit": "^4.6.3",
-      "@nuxt/schema": "4.6.3",
-      "nuxt": "4.6.3",
+      "@nuxt/kit": "^4.6.4",
+      "@nuxt/schema": "4.6.4",
+      "nuxt": "4.6.4",
       "valibot": "^1.5.0",
       "jiti": "^2.7.0"
     },
@@ -31,8 +31,8 @@
       "quality": {
         "eslint": "10.14.0",
         "@nuxt/eslint-config": "1.17.0",
-        "oxlint": "1.90.0",
-        "knip": "6.44.0",
+        "oxlint": "1.91.0",
+        "knip": "6.44.1",
         "publint": "0.3.25",
         "@arethetypeswrong/cli": "0.18.5",
         "lint-staged": "17.6.0",
@@ -44,14 +44,14 @@
         "@takumi-rs/core": "2.19.0"
       },
       "test": {
-        "vitest": "5.0.5",
+        "vitest": "5.1.0",
         "@nuxt/test-utils": "4.3.4",
         "miniflare": "4.20260730.0",
-        "playwright-core": "1.64.0",
+        "playwright-core": "1.64.1",
         "@seriousme/openapi-schema-validator": "2.11.0"
       },
       "auth": {
-        "better-auth": "1.7.14",
+        "better-auth": "1.7.17",
         "@simplewebauthn/server": "14.0.3",
         "@simplewebauthn/browser": "14.0.0"
       },
