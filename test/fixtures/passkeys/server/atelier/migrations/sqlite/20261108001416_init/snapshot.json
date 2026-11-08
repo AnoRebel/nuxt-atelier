@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "f4fdd4e7-e3d0-4b16-9f65-786fb79cf205",
+  "id": "7134456b-7bdb-41e7-b437-9dbe160c110f",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -15,19 +15,7 @@
       "entityType": "tables"
     },
     {
-      "name": "atelier_ba_users",
-      "entityType": "tables"
-    },
-    {
-      "name": "atelier_ba_sessions",
-      "entityType": "tables"
-    },
-    {
-      "name": "atelier_ba_accounts",
-      "entityType": "tables"
-    },
-    {
-      "name": "atelier_ba_verifications",
+      "name": "atelier_routes",
       "entityType": "tables"
     },
     {
@@ -47,6 +35,10 @@
       "entityType": "tables"
     },
     {
+      "name": "atelier_tokens",
+      "entityType": "tables"
+    },
+    {
       "name": "atelier_rate_limits",
       "entityType": "tables"
     },
@@ -56,10 +48,6 @@
     },
     {
       "name": "atelier_passkeys",
-      "entityType": "tables"
-    },
-    {
-      "name": "atelier_routes",
       "entityType": "tables"
     },
     {
@@ -163,8 +151,8 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_ba_users",
-      "name": "id",
+      "table": "atelier_routes",
+      "name": "path",
       "type": "text",
       "notNull": false,
       "autoincrement": false,
@@ -173,8 +161,8 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_ba_users",
-      "name": "name",
+      "table": "atelier_routes",
+      "name": "source",
       "type": "text",
       "notNull": true,
       "autoincrement": false,
@@ -183,329 +171,9 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_ba_users",
-      "name": "email",
+      "table": "atelier_routes",
+      "name": "source_id",
       "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_users",
-      "name": "emailVerified",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_users",
-      "name": "image",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_users",
-      "name": "createdAt",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_users",
-      "name": "updatedAt",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_users",
-      "name": "role",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_sessions",
-      "name": "id",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_sessions",
-      "name": "expiresAt",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_sessions",
-      "name": "token",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_sessions",
-      "name": "createdAt",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_sessions",
-      "name": "updatedAt",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_sessions",
-      "name": "ipAddress",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_sessions",
-      "name": "userAgent",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_sessions",
-      "name": "userId",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "id",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "accountId",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "providerId",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "userId",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "accessToken",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "refreshToken",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "idToken",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "accessTokenExpiresAt",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "refreshTokenExpiresAt",
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "scope",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "password",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "createdAt",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "updatedAt",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_verifications",
-      "name": "id",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_verifications",
-      "name": "identifier",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_verifications",
-      "name": "value",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_verifications",
-      "name": "expiresAt",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_verifications",
-      "name": "createdAt",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_ba_verifications",
-      "name": "updatedAt",
-      "type": "integer",
       "notNull": true,
       "autoincrement": false,
       "default": null,
@@ -783,6 +451,96 @@
       "entityType": "columns"
     },
     {
+      "table": "atelier_tokens",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_tokens",
+      "name": "name",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_tokens",
+      "name": "hash",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_tokens",
+      "name": "permissions",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_tokens",
+      "name": "expires_at",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_tokens",
+      "name": "created_by",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_tokens",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_tokens",
+      "name": "last_used_at",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_tokens",
+      "name": "revoked_at",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "atelier_rate_limits",
       "name": "key",
       "type": "text",
@@ -923,36 +681,6 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_routes",
-      "name": "path",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_routes",
-      "name": "source",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_routes",
-      "name": "source_id",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
       "table": "atelier_relations",
       "name": "atelier_relations_target_idx",
       "columns": [
@@ -971,67 +699,15 @@
       "entityType": "indexes"
     },
     {
-      "table": "atelier_ba_users",
-      "name": "atelier_ba_users_email_unique",
+      "table": "atelier_routes",
+      "name": "atelier_routes_source_idx",
       "columns": [
         {
-          "value": "email",
+          "value": "source",
           "isExpression": false
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "atelier_ba_sessions",
-      "name": "atelier_ba_sessions_token_unique",
-      "columns": [
+        },
         {
-          "value": "token",
-          "isExpression": false
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "atelier_ba_sessions",
-      "name": "atelier_ba_sessions_userId_idx",
-      "columns": [
-        {
-          "value": "userId",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "atelier_ba_accounts_userId_idx",
-      "columns": [
-        {
-          "value": "userId",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "atelier_ba_verifications",
-      "name": "atelier_ba_verifications_identifier_idx",
-      "columns": [
-        {
-          "value": "identifier",
+          "value": "source_id",
           "isExpression": false
         }
       ],
@@ -1119,6 +795,20 @@
       "entityType": "indexes"
     },
     {
+      "table": "atelier_tokens",
+      "name": "atelier_tokens_hash_idx",
+      "columns": [
+        {
+          "value": "hash",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
       "table": "atelier_passkeys",
       "name": "atelier_passkeys_user_idx",
       "columns": [
@@ -1131,54 +821,6 @@
       "where": null,
       "origin": "manual",
       "entityType": "indexes"
-    },
-    {
-      "table": "atelier_routes",
-      "name": "atelier_routes_source_idx",
-      "columns": [
-        {
-          "value": "source",
-          "isExpression": false
-        },
-        {
-          "value": "source_id",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "atelier_ba_sessions",
-      "name": "fk_atelier_ba_sessions_userId_atelier_ba_users_id_fk",
-      "columns": [
-        "userId"
-      ],
-      "tableTo": "atelier_ba_users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "entityType": "fks"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "fk_atelier_ba_accounts_userId_atelier_ba_users_id_fk",
-      "columns": [
-        "userId"
-      ],
-      "tableTo": "atelier_ba_users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "entityType": "fks"
     },
     {
       "table": "atelier_relations",
@@ -1202,37 +844,10 @@
       "entityType": "pks"
     },
     {
-      "table": "atelier_ba_users",
-      "name": "atelier_ba_users_pk",
+      "table": "atelier_routes",
+      "name": "atelier_routes_pk",
       "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "atelier_ba_sessions",
-      "name": "atelier_ba_sessions_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "atelier_ba_accounts",
-      "name": "atelier_ba_accounts_pk",
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "atelier_ba_verifications",
-      "name": "atelier_ba_verifications_pk",
-      "columns": [
-        "id"
+        "path"
       ],
       "nameExplicit": false,
       "entityType": "pks"
@@ -1274,6 +889,15 @@
       "entityType": "pks"
     },
     {
+      "table": "atelier_tokens",
+      "name": "atelier_tokens_pk",
+      "columns": [
+        "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
       "table": "atelier_rate_limits",
       "name": "atelier_rate_limits_pk",
       "columns": [
@@ -1296,15 +920,6 @@
       "name": "atelier_passkeys_pk",
       "columns": [
         "_id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "atelier_routes",
-      "name": "atelier_routes_pk",
-      "columns": [
-        "path"
       ],
       "nameExplicit": false,
       "entityType": "pks"

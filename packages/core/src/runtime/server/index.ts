@@ -1,13 +1,15 @@
 // `#atelier/server`: the server-side public API
 import type { AtelierDriver } from './db/driver'
 import type { TableSpec } from './db/tables'
+import type { CollectionName, CollectionQuery, TypedEntry, TypedEntryList } from '../shared/query'
+import type { ListQuery } from './db/query'
 import type { CollectionDefinition, SingletonDefinition } from './types'
 import { useRuntimeConfig } from 'nuxt/server'
 import { connect, UnsupportedOperationError } from './db/driver'
 import { QueryError } from './db/query'
 import { buildTables } from './db/tables'
 import { assertMigrated as assertMigratedWith } from './db/state'
-import type { EntryStore } from './db/store'
+import type { Entry, EntryStore } from './db/store'
 import { ConflictError, createEntryStore, NotFoundError, ReferencedError, ValidationError } from './db/store'
 import { drivers } from '#atelier-drivers'
 import type { RequestEvent } from 'nuxt/server'
@@ -22,6 +24,7 @@ import type { AuditInput, AuditLog } from './auth/audit'
 import { createAuditLog } from './auth/audit'
 import { clientIp, createRateLimiter } from './auth/rate-limit'
 import { createRoleStore } from './auth/roles'
+import { createTokenStore } from './auth/tokens'
 import { apiError } from './errors'
 
 export * from './define'
@@ -40,6 +43,7 @@ export { defineAuthAdapter } from './auth/adapter'
 export type { AuthAdapter, AuthUser, NewUser } from './auth/adapter'
 export type { BuiltinAuthAdapter } from './auth/builtin'
 export type { RoleEntry, RoleStore } from './auth/roles'
+export type { TokenInfo, TokenStore } from './auth/tokens'
 export type { AuditAction, AuditEntry, AuditInput, AuditLog } from './auth/audit'
 export { ADMIN_ROLE, createPolicy } from '../shared/policy'
 export type { Capability, ContentAction, ContentPermission, FieldAccess, Policy, PolicyEntry, PolicyUser, Role, Roles } from '../shared/policy'
@@ -202,3 +206,33 @@ export async function audit(event: RequestEvent, input: AuditInput): Promise<voi
   const { trustProxy } = useAtelierServerConfig().auth as { trustProxy: boolean }
   await (await useAtelierAudit()).record(input, clientIp(event, trustProxy))
 }
+
+let tokens: Promise<ReturnType<typeof createTokenStore>> | undefined
+
+/** API tokens for headless clients. */
+export function useAtelierTokens(): Promise<ReturnType<typeof createTokenStore>> {
+  tokens ??= useAtelierDatabase().then(createTokenStore).catch((error) => {
+    tokens = undefined
+    throw error
+  })
+  return tokens
+}
+
+/**
+ * A page of a collection's entries, typed from its definition. Server code is trusted: no permission
+ * checks (the API applies them). Page size and depth are capped by `limits`.
+ */
+export async function queryEntries<N extends CollectionName, Q extends CollectionQuery<N> = CollectionQuery<N>>(name: N, query?: Q): Promise<TypedEntryList<N, Q extends { depth: number } ? true : false>> {
+  const { limits } = useAtelierServerConfig() as unknown as { limits: { maxPageSize: number, maxRelationDepth: number } }
+  const limit = Math.min(query?.limit ?? 20, limits.maxPageSize)
+  const page = await (await useAtelierEntries()).list(name, { ...query as ListQuery, limit, depth: Math.min(query?.depth ?? 0, limits.maxRelationDepth) })
+  const data = (entry: Entry) => query?.fields ? Object.fromEntries(Object.entries(entry.data).filter(([key]) => (query.fields as string[]).includes(key))) : entry.data
+  return { items: page.items.map(entry => ({ ...entry, data: data(entry) })) as never, total: page.total, limit, next: page.next }
+}
+
+/** One entry of a collection, typed from its definition, or undefined. No permission checks. */
+export async function getEntry<N extends CollectionName, D extends number | undefined = undefined>(name: N, id: string, options?: { depth?: D }): Promise<TypedEntry<N, D extends number ? true : false> | undefined> {
+  const { limits } = useAtelierServerConfig() as unknown as { limits: { maxRelationDepth: number } }
+  return await (await useAtelierEntries()).get(name, id, { depth: Math.min(options?.depth ?? 0, limits.maxRelationDepth) }) as never
+}
+export type { CollectionFilter, CollectionName, CollectionQuery, Condition as FieldCondition, PopulatedEntry, RelatedEntry, SortKey, SystemField, TypedEntry, TypedEntryList } from '../shared/query'

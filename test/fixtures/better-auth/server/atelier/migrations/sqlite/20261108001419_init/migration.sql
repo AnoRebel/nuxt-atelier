@@ -15,6 +15,12 @@ CREATE TABLE `atelier_relations` (
 	CONSTRAINT `atelier_relations_pk` PRIMARY KEY(`source`, `source_id`, `field`, `position`)
 );
 --> statement-breakpoint
+CREATE TABLE `atelier_routes` (
+	`path` text PRIMARY KEY,
+	`source` text NOT NULL,
+	`source_id` text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `atelier_ba_users` (
 	`id` text PRIMARY KEY,
 	`name` text NOT NULL,
@@ -103,6 +109,18 @@ CREATE TABLE `atelier_audit` (
 	`details` text
 );
 --> statement-breakpoint
+CREATE TABLE `atelier_tokens` (
+	`_id` text PRIMARY KEY,
+	`name` text NOT NULL,
+	`hash` text NOT NULL,
+	`permissions` text NOT NULL,
+	`expires_at` text,
+	`created_by` text NOT NULL,
+	`_created_at` text NOT NULL,
+	`last_used_at` text,
+	`revoked_at` text
+);
+--> statement-breakpoint
 CREATE TABLE `atelier_rate_limits` (
 	`key` text PRIMARY KEY,
 	`count` integer NOT NULL,
@@ -126,13 +144,8 @@ CREATE TABLE `atelier_passkeys` (
 	`last_used_at` text
 );
 --> statement-breakpoint
-CREATE TABLE `atelier_routes` (
-	`path` text PRIMARY KEY,
-	`source` text NOT NULL,
-	`source_id` text NOT NULL
-);
---> statement-breakpoint
 CREATE INDEX `atelier_relations_target_idx` ON `atelier_relations` (`target`,`target_id`);--> statement-breakpoint
+CREATE INDEX `atelier_routes_source_idx` ON `atelier_routes` (`source`,`source_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `atelier_ba_users_email_unique` ON `atelier_ba_users` (`email`);--> statement-breakpoint
 CREATE UNIQUE INDEX `atelier_ba_sessions_token_unique` ON `atelier_ba_sessions` (`token`);--> statement-breakpoint
 CREATE INDEX `atelier_ba_sessions_userId_idx` ON `atelier_ba_sessions` (`userId`);--> statement-breakpoint
@@ -143,5 +156,5 @@ CREATE UNIQUE INDEX `atelier_users_email_idx` ON `atelier_users` (`email`);--> s
 CREATE INDEX `atelier_sessions_user_idx` ON `atelier_sessions` (`user_id`);--> statement-breakpoint
 CREATE INDEX `atelier_audit_at_idx` ON `atelier_audit` (`at`);--> statement-breakpoint
 CREATE INDEX `atelier_audit_actor_idx` ON `atelier_audit` (`actor_id`);--> statement-breakpoint
-CREATE INDEX `atelier_passkeys_user_idx` ON `atelier_passkeys` (`user_id`);--> statement-breakpoint
-CREATE INDEX `atelier_routes_source_idx` ON `atelier_routes` (`source`,`source_id`);
+CREATE UNIQUE INDEX `atelier_tokens_hash_idx` ON `atelier_tokens` (`hash`);--> statement-breakpoint
+CREATE INDEX `atelier_passkeys_user_idx` ON `atelier_passkeys` (`user_id`);

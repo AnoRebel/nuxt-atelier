@@ -10,6 +10,7 @@
 //   atelier_users           CMS users of the built-in auth adapter
 //   atelier_sessions        their sessions, so signing out or a password reset can revoke them
 //   atelier_audit           security-relevant events: who did what to what, when, from where
+//   atelier_tokens          API tokens for headless clients: hashed, scoped, expiring, revocable
 //   atelier_rate_limits     counters for rate-limited actions, shared by every server instance
 //   atelier_roles           roles edited in the admin (code-defined ones are in server/atelier/roles.ts)
 //   atelier_passkeys        their passkeys (WebAuthn credentials), when passkey sign-in is enabled
@@ -299,6 +300,17 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       ip: kit.key('ip', 64),
       details: kit.json('details'),
     }, t => [kit.index('atelier_audit_at_idx').on(t.at), kit.index('atelier_audit_actor_idx').on(t.actorId)]),
+    atelier_tokens: kit.table('atelier_tokens', {
+      id: kit.key('_id', ID).primaryKey(),
+      name: kit.key('name', 255).notNull(),
+      hash: kit.key('hash', 64).notNull(), // SHA-256 of the token; the token itself is shown once
+      permissions: kit.json('permissions').notNull(), // content permissions, as in a role
+      expiresAt: kit.key('expires_at', TIMESTAMP),
+      createdBy: kit.key('created_by', ID).notNull(),
+      createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
+      lastUsedAt: kit.key('last_used_at', TIMESTAMP),
+      revokedAt: kit.key('revoked_at', TIMESTAMP),
+    }, t => [kit.uniqueIndex('atelier_tokens_hash_idx').on(t.hash)]),
     atelier_rate_limits: kit.table('atelier_rate_limits', {
       key: kit.key('key', 64).primaryKey(), // SHA-256 of what's limited, e.g. sign-ins from an IP for an email
       count: kit.int('count').notNull(),
