@@ -1,6 +1,9 @@
 import type { NuxtModule } from '@nuxt/schema'
+import { resolve as resolvePath } from 'node:path'
 import type { ModuleOptions } from './options'
-import { addComponentsDir, addImports, addServerHandler, addServerPlugin, addServerTemplate, addTypeTemplate, createResolver, defineNuxtModule } from '@nuxt/kit'
+import { addComponentsDir, addImports, addServerHandler, addServerPlugin, addServerTemplate, addTemplate, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, updateTemplates } from '@nuxt/kit'
+import { blockComponentsTemplate, blockDirectories, discoverBlocks } from './blocks/discover'
+import { transformBlockSfc } from './blocks/transform'
 import { setupDevMigrations } from './cli/dev'
 import { resolveOptions } from './options'
 import { registryTypes, schemaTemplate } from './schema/discover'
@@ -31,7 +34,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     config.atelier = {
       databaseUrl: resolved.database.url, // NUXT_ATELIER_DATABASE_URL
       dbPoolSize: resolved.limits.dbPoolSize,
-      limits: { maxPageSize: resolved.limits.maxPageSize, maxRelationDepth: resolved.limits.maxRelationDepth, writesPerMinute: resolved.limits.writesPerMinute },
+      limits: { maxPageSize: resolved.limits.maxPageSize, maxRelationDepth: resolved.limits.maxRelationDepth, maxNestingDepth: resolved.limits.maxNestingDepth, writesPerMinute: resolved.limits.writesPerMinute },
       migrations: { autoApply: resolved.migrations.autoApply }, // NUXT_ATELIER_MIGRATIONS_AUTO_APPLY
       storage: { dir: resolved.storage.dir }, // NUXT_ATELIER_STORAGE_DIR
       auth: { signInAttempts: resolved.auth.signInAttempts, signInWindow: resolved.auth.signInWindow, trustProxy: resolved.auth.trustProxy },
@@ -47,6 +50,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
 
     addImports({ name: 'useAtelierConfig', from: resolve('./runtime/app/composables/useAtelierConfig') })
     addImports(['useAtelierQuery', 'useAtelierEntry'].map(name => ({ name, from: resolve('./runtime/app/composables/useAtelierQuery') })))
+    addImports({ name: 'useAtelierPreview', from: resolve('./runtime/app/composables/useAtelierPreview') })
     addComponentsDir({ path: resolve('./runtime/app/components'), prefix: 'Atelier' })
 
     // Collections and singletons: rescanned on every Nitro (re)build, so new files are picked up in dev
@@ -54,6 +58,39 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerTemplate({ filename: '#atelier-drivers', getContents: () => driversTemplate(nuxt.options.rootDir, resolved.database.url) })
     addServerTemplate({ filename: '#atelier-migrations', getContents: () => migrationsTemplate(nuxt.options.rootDir) })
     addServerPlugin(resolve('./runtime/server/plugins/migrations'))
+
+    // blocks: lazy components for the app (`#atelier-blocks`); their schemas go to the server in `#atelier-schema`
+    const components = new Map<string, { filePath: string, export: string }>()
+    nuxt.hook('components:extend', (list) => {
+      components.clear()
+      for (const c of list)
+        components.set(c.pascalName, { filePath: c.filePath, export: c.export ?? 'default' })
+    })
+    const blocksTemplate = addTemplate({ filename: 'atelier/blocks.mjs', getContents: () => blockComponentsTemplate(discoverBlocks(nuxt), components) })
+    nuxt.options.alias['#atelier-blocks'] = blocksTemplate.dst
+    let nitro: { hooks: { callHook: (name: 'rollup:reload') => Promise<unknown> } } | undefined
+    nuxt.hook('nitro:init', (instance) => {
+      nitro = instance as never
+    })
+    // macro-style blocks: drop the schema and the field helpers from the component the browser loads
+    const blockDirs = blockDirectories(nuxt).map(dir => `${dir}/`)
+    nuxt.hook('builder:watch', async (_event, path) => {
+      const file = resolvePath(nuxt.options.srcDir, path)
+      if (!blockDirs.some(dir => file.startsWith(dir)))
+        return
+      await updateTemplates({ filter: template => template.filename === 'atelier/blocks.mjs' })
+      await nitro?.hooks.callHook('rollup:reload') // the server's block schemas
+    })
+    addVitePlugin({
+      name: 'nuxt-atelier:blocks',
+      enforce: 'pre',
+      transform(code, id) {
+        // the SFC itself, never the Vue plugin's sub-modules (`?vue&type=…`)
+        if (!id.endsWith('.vue') || id.includes('?') || !blockDirs.some(dir => id.startsWith(dir)))
+          return
+        return transformBlockSfc(code, id)
+      },
+    })
     for (const [route, method] of [['login', 'post'], ['logout', 'post'], ['me', 'get']] as const)
       addServerHandler({ route: `/api/_atelier/auth/${route}`, method, handler: resolve(`./runtime/server/api/auth/${route}.${method}`) })
     if (resolved.auth.passkeys) // off: no passkey routes, so they 404 and nothing of @simplewebauthn is bundled
@@ -78,6 +115,10 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
   export const singletons: Record<string, import(${JSON.stringify(types)}).SingletonDefinition>
   export const roles: import(${JSON.stringify(resolve('./runtime/shared/policy'))}).Roles
   export const tables: Record<string, import(${JSON.stringify(resolve('./runtime/server/db/tables'))}).TableSpec>
+  export const blocks: Record<string, import(${JSON.stringify(resolve('./runtime/shared/blocks'))}).BlockSchema>
+}
+declare module '#atelier-blocks' {
+  export const blocks: Record<string, { component: () => Promise<import('vue').Component>, areas: string[] }>
 }
 declare module '#atelier-drivers' {
   export const drivers: import(${JSON.stringify(resolve('./runtime/server/db/driver'))}).DriverLoaders

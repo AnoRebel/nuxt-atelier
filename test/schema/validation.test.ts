@@ -108,10 +108,10 @@ describe('structured field paths', () => {
     ])
   })
 
-  it('reports unknown keys at their path', async () => {
-    expect(await errors(fields, { title: 'Ok', faq: [{ question: 'Q', extra: 1 }] })).toEqual([
-      { path: 'faq.0.extra', message: 'unknown field' },
-    ])
+  it('refuses unknown top-level keys, and keeps stale keys in nested objects so the entry still saves', async () => {
+    expect(await errors(fields, { title: 'Ok', subtitle: 'typo' })).toEqual([{ path: 'subtitle', message: 'unknown field' }])
+    const result = await f.validateEntry(fields, { title: 'Ok', faq: [{ question: 'Q', removedSubField: 1 }] })
+    expect(result).toMatchObject({ success: true, value: { faq: [{ question: 'Q', removedSubField: 1 }] } })
   })
 
   it('returns the parsed value when valid', async () => {

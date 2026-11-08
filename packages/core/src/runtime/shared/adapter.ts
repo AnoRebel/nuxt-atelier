@@ -5,6 +5,7 @@
 // Versioned: an adapter declares the contract version it implements, and defineContentAdapter refuses
 // one it doesn't know. Optional operations switch features on: `capabilities` says which are present,
 // and the UI hides what an adapter doesn't implement instead of calling it.
+import type { AreaRules } from './blocks'
 import type { Fields } from './fields'
 import type { BlockInstance } from './infer'
 
@@ -30,11 +31,16 @@ export type BlockLocation = { field: string } | { parent: string, area: string }
 export interface BlockTypeDescriptor {
   type: string
   label?: string
+  description?: string
   group?: string
+  tags?: string[]
+  icon?: string
   /** The block's props, described like content fields. */
   fields: Fields
+  /** Presentation options, also passed as props. */
+  options?: Fields
   /** Nested block areas, by name. */
-  areas?: Record<string, { allow?: string[], min?: number, max?: number }>
+  areas?: Record<string, AreaRules>
 }
 
 export interface Permissions {

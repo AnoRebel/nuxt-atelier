@@ -1,0 +1,52 @@
+// <AtelierBlocks :blocks="entry.data.content" />: renders a block list. Each block's fields and options
+// are its component's props; each nested area is the component's slot of the same name, so block
+// components need nothing from Nuxt Atelier. Components load lazily, per block type.
+import type { Component, PropType, Slot } from 'vue'
+import type { BlockInstance } from '../../shared/infer'
+import { defineAsyncComponent, defineComponent, h } from 'vue'
+import { blocks as registry } from '#atelier-blocks'
+import { useAtelierPreview } from '../composables/useAtelierPreview'
+
+const components = new Map<string, Component>()
+const warned = new Set<string>()
+
+function componentOf(type: string): Component {
+  let component = components.get(type)
+  if (!component) {
+    component = defineAsyncComponent(registry[type]!.component)
+    components.set(type, component)
+  }
+  return component
+}
+
+const AtelierBlocks = defineComponent({
+  name: 'AtelierBlocks',
+  props: {
+    blocks: { type: Array as PropType<BlockInstance[] | null>, default: () => [] },
+  },
+  setup(props) {
+    const preview = useAtelierPreview()
+    return () => (props.blocks ?? []).map((block) => {
+      const entry = registry[block.type]
+      if (!entry) {
+        // content can outlive its block type: skip it rather than fail the page (the admin offers removal)
+        if (!warned.has(block.type)) {
+          warned.add(block.type)
+          console.warn(`[nuxt-atelier] Skipped a block of unknown type "${block.type}" (id ${block.id}): it's no longer defined`)
+        }
+        return null
+      }
+      const values: Record<string, unknown> = { ...block.props }
+      const slots: Record<string, Slot> = {}
+      for (const area of entry.areas) {
+        const nested = values[area]
+        Reflect.deleteProperty(values, area)
+        slots[area] = () => [h(AtelierBlocks, { blocks: Array.isArray(nested) ? nested as BlockInstance[] : [] })]
+      }
+      const editing = preview.value ? { 'data-at-block': block.id, 'data-at-type': block.type } : {}
+      return h(componentOf(block.type), { key: block.id, ...values, ...editing }, slots)
+    })
+  },
+})
+
+export default AtelierBlocks

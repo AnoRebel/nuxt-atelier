@@ -57,7 +57,8 @@ export function createDatabaseAdapter(options: DatabaseAdapterOptions): DefinedC
 
     // JSON-safe: custom validators are server-only functions
     getFieldConfig: async ref => JSON.parse(serialiseFields(fieldsOf(ref))),
-    listBlockTypes: async () => options.blockTypes ?? [],
+    listBlockTypes: async () => options.blockTypes ?? Object.values(schema.blocks ?? {}).map(({ name, fields, options: blockOptions, ...meta }) =>
+      JSON.parse(serialiseFields({ type: name, ...meta, fields, options: blockOptions }))),
 
     addBlock: async (state, at, block, index) => blockOperations.add(state, at, block, index),
     moveBlock: async (state, id, to, index) => blockOperations.move(state, id, to, index),

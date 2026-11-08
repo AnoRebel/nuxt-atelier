@@ -27,8 +27,8 @@ const cases: [string, Field, unknown[], unknown[]][] = [
   ['media', f.media({ accept: ['image/*'] }), ['m_123'], [123, { id: 'm_1' }]],
   ['relation', f.relation({ to: 'authors' }), ['a_1'], [['a_1'], 7]],
   ['relation (many)', f.relation({ to: 'tags', many: true }), [[], ['t_1', 't_2']], [['t_1', 't_1'], 't_1', [1]]],
-  ['object', f.object({ fields: { street: f.text(), zip: f.number({ integer: true }) } }), [{}, { street: 'Main', zip: 12345 }], [{ zip: '12345' }, { other: 1 }, 'Main']],
-  ['repeater', f.repeater({ fields: { q: f.text(), a: f.richText() } }), [[], [{ q: 'Why?', a: doc }, {}]], [[{ q: 1 }], [{ x: 'y' }], { q: 'Why?' }]],
+  ['object', f.object({ fields: { street: f.text(), zip: f.number({ integer: true }) } }), [{}, { street: 'Main', zip: 12345 }, { other: 1 }], [{ zip: '12345' }, 'Main']],
+  ['repeater', f.repeater({ fields: { q: f.text(), a: f.richText() } }), [[], [{ q: 'Why?', a: doc }, {}], [{ x: 'y' }]], [[{ q: 1 }], { q: 'Why?' }]],
   ['blocks', f.blocks(), [[], [{ id: 'b1', type: 'hero', props: { title: 'Hi' } }]], [[{ id: 'b1', type: 'hero' }], [{ id: '', type: 'hero', props: {} }], [{ id: 'b1', type: '', props: {} }]]],
   ['blocks (allow)', f.blocks({ allow: ['hero'] }), [[{ id: 'b1', type: 'hero', props: {} }]], [[{ id: 'b1', type: 'cta', props: {} }]]],
 ]

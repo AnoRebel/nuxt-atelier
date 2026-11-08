@@ -22,6 +22,7 @@
         "src/runtime/server/plugins/*.ts",
         "src/runtime/server/api/**/*.ts",
         "src/runtime/server/middleware/*.ts",
+        "src/runtime/app/components/*.ts",
         "src/adapter.ts"
       ]
     },
@@ -70,6 +71,19 @@
         "server/atelier/roles.ts"
       ]
     },
+    "test/fixtures/blocks": {
+      "entry": [
+        "app/**/*.{vue,ts}",
+        "layers/base/app/blocks/*.vue",
+        "server/**/*.ts"
+      ]
+    },
+    "test/fixtures/blocks-dev": {
+      "entry": [
+        "app/blocks/*.vue",
+        "server/**/*.ts"
+      ]
+    },
     "test/fixtures/better-auth": {
       "entry": [
         "server/atelier/*.ts"
@@ -104,6 +118,7 @@
     "#atelier/server",
     "#atelier-migrations",
     "#atelier-drivers",
-    "#atelier-better-auth"
+    "#atelier-better-auth",
+    "#atelier-blocks"
   ]
 }

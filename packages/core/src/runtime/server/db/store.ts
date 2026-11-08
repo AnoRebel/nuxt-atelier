@@ -163,7 +163,7 @@ export async function withTransaction<T>(driver: AtelierDriver, operation: strin
   return (driver.db as Db).transaction(fn)
 }
 
-export function createEntryStore(driver: AtelierDriver, schema: ContentSchema) {
+export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, options: { maxNestingDepth?: number } = {}) {
   const tables = buildTables(driver.dialect, schema)
   const db = driver.db as Db
   const { atelier_relations: relations, atelier_revisions: revisions, atelier_routes: routes, atelier_singletons: singletons } = tables
@@ -381,7 +381,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema) {
     const now = new Date().toISOString()
 
     const validate = async (q: Db) => {
-      const result = await validateEntry(target.fields, input, { isUnique: target.isUnique?.(q) })
+      const result = await validateEntry(target.fields, input, { isUnique: target.isUnique?.(q), blocks: schema.blocks, maxNestingDepth: options.maxNestingDepth })
       if (!result.success)
         throw new ValidationError(result.errors)
       return result.value

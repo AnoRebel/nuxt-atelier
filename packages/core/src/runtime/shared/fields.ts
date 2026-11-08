@@ -1,6 +1,7 @@
 // Field helpers: each returns a plain descriptor. `fieldSchema()` derives the Valibot schema from a
 // descriptor, so the admin and the server validate with the same rules. Everything except a custom
 // `validate` is JSON-serialisable.
+import type { AreaRules, BlockSchema } from './blocks'
 import * as v from 'valibot'
 
 /** Any Standard Schema (Valibot, Zod, ArkType, …): https://standardschema.dev */
@@ -96,7 +97,8 @@ export type Field
     | MultiSelectField | DateField | EmailField | UrlField | SlugField | ColorField | JsonField
     | MediaField | RelationField | ObjectField | RepeaterField | BlocksField | CustomField
 
-type Options<F extends Field> = Omit<F, 'type'>
+export type FieldOptions<F extends Field> = Omit<F, 'type'>
+type Options<F extends Field> = FieldOptions<F>
 
 // `const` generics keep literal options (`required: true`, select values, `many: true`) so entry types can be inferred
 const helper = <F extends Field>(type: F['type']) =>
@@ -240,8 +242,8 @@ const builders: { [T in Field['type']]: (field: Extract<Field, { type: T }>) => 
   json: () => v.custom(isJson, 'expected a JSON value'),
   media: () => id,
   relation: f => f.many ? pipe(v.array(id, 'expected a list of ids'), unique, ...items(f)) : id,
-  object: f => entrySchema(f.fields),
-  repeater: f => pipe(v.arrayAsync(entrySchema(f.fields), 'expected a list'), ...items(f)),
+  object: f => entrySchema(f.fields, true),
+  repeater: f => pipe(v.arrayAsync(entrySchema(f.fields, true), 'expected a list'), ...items(f)),
   custom: f => pipe(stored[f.storage], standard(f.schema)),
   blocks: f => pipe(v.array(v.object({
     id,
@@ -285,13 +287,19 @@ export function fieldSchema(field: Field): Schema {
   }))
 }
 
-/** The schema for a whole entry (or object / repeater item): known fields only, missing ones are empty. */
-export function entrySchema(fields: Fields): Schema {
+/**
+ * The schema for a whole entry (or object / repeater item): missing fields are empty. Unknown keys are
+ * refused at the top level and kept in nested objects (see below).
+ */
+export function entrySchema(fields: Fields, nested = false): Schema {
   const keys = Object.keys(fields)
+  const entries = Object.fromEntries(keys.map(k => [k, fieldSchema(fields[k]!)]))
   return v.pipeAsync(
     v.custom<Record<string, unknown>>(isPlainObject, 'expected an object'),
     v.transform(input => ({ ...Object.fromEntries(keys.map(k => [k, undefined])), ...input })),
-    v.strictObjectAsync(Object.fromEntries(keys.map(k => [k, fieldSchema(fields[k]!)])), 'expected an object'),
+    // a key inside an object or repeater item may be left from a removed sub-field: keep it, so the
+    // entry still saves (findStaleContent reports it); a top-level unknown key is a mistake
+    nested ? v.looseObjectAsync(entries, 'expected an object') : v.strictObjectAsync(entries, 'expected an object'),
   )
 }
 
@@ -308,6 +316,10 @@ export type ValidationResult
 export interface ValidateOptions {
   /** Whether no other entry has `value` in `field`. Required when a field is `unique`; storage supplies it. */
   isUnique?: (field: string, value: unknown) => Promise<boolean>
+  /** Block schemas by name: blocks fields then check each block's props and nested areas. */
+  blocks?: Record<string, BlockSchema>
+  /** How deep blocks may nest (default 10). */
+  maxNestingDepth?: number
 }
 
 /** Validates entry data against its fields, collecting every failing field path and reason. */
@@ -326,7 +338,77 @@ export async function validateEntry(fields: Fields, data: unknown, options: Vali
     if (!await options.isUnique(key, value))
       errors.push({ path: key, message: 'already used by another entry' })
   }
+  if (options.blocks)
+    errors.push(...await blockErrors(fields, result.output as Record<string, unknown>, options.blocks, options.maxNestingDepth ?? 10))
   return errors.length ? { success: false, errors } : { success: true, value: result.output as Record<string, unknown> }
+}
+
+/** Whether a block may go in an area: not denied, and allowed (by name, `group:<g>` or `tag:<t>`). */
+export function placeable(type: string, schema: BlockSchema | undefined, rules: AreaRules): boolean {
+  const matches = (pattern: string) => pattern === type
+    || (pattern.startsWith('group:') && schema?.group === pattern.slice(6))
+    || (pattern.startsWith('tag:') && (schema?.tags ?? []).includes(pattern.slice(4)))
+  return !rules.deny?.some(matches) && (!rules.allow || rules.allow.some(matches))
+}
+
+interface BlockValue { id: string, type: string, props: Record<string, unknown> }
+
+/**
+ * Errors in the block lists of entry data: each known block's fields and options, and its nested
+ * areas' placement rules, item counts and depth. Unknown block types and props no longer in a block's
+ * schema are kept as they are, so stale content still saves.
+ */
+async function blockErrors(fields: Fields, data: Record<string, unknown>, registry: Record<string, BlockSchema>, maxDepth: number): Promise<FieldError[]> {
+  const errors: FieldError[] = []
+  const ids = new Set<string>()
+
+  const list = async (blocks: BlockValue[], path: string, depth: number, area?: { name: string, rules: AreaRules, parent: string }) => {
+    if (depth > maxDepth) {
+      errors.push({ path, message: `blocks nest at most ${maxDepth} levels deep` })
+      return
+    }
+    if (area?.rules.min !== undefined && blocks.length < area.rules.min)
+      errors.push({ path, message: `area "${area.name}" of ${area.parent} needs at least ${area.rules.min} blocks` })
+    if (area?.rules.max !== undefined && blocks.length > area.rules.max)
+      errors.push({ path, message: `area "${area.name}" of ${area.parent} takes at most ${area.rules.max} blocks` })
+    for (const [i, block] of blocks.entries()) {
+      const at = `${path}.${i}`
+      if (ids.has(block.id))
+        errors.push({ path: `${at}.id`, message: `the block id "${block.id}" is used twice` })
+      ids.add(block.id)
+      const schema = registry[block.type]
+      if (area && !placeable(block.type, schema, area.rules))
+        errors.push({ path: at, message: `"${block.type}" can't be placed in area "${area.name}" of ${area.parent}` })
+      if (!schema)
+        continue
+      for (const [key, field] of Object.entries({ ...schema.fields, ...schema.options })) {
+        const result = await v.safeParseAsync(fieldSchema(field), block.props[key])
+        if (!result.success)
+          errors.push(...result.issues.map(issue => ({ path: [`${at}.props.${key}`, v.getDotPath(issue)].filter(Boolean).join('.'), message: messageOf(issue) })))
+      }
+      for (const [name, rules] of Object.entries(schema.areas)) {
+        const nested = block.props[name] ?? [] // an area added since: empty
+        if (!Array.isArray(nested) || !nested.every(b => b && typeof b === 'object' && typeof b.id === 'string' && typeof b.type === 'string' && b.props && typeof b.props === 'object'))
+          errors.push({ path: `${at}.props.${name}`, message: 'expected a list of blocks' })
+        else
+          await list(nested, `${at}.props.${name}`, depth + 1, { name, rules, parent: block.type })
+      }
+    }
+  }
+
+  const walk = async (defs: Fields, value: Record<string, unknown> | undefined, prefix: string) => {
+    for (const [key, field] of Object.entries(defs)) {
+      const v2 = value?.[key]
+      if (field.type === 'blocks' && Array.isArray(v2))
+        await list(v2 as BlockValue[], `${prefix}${key}`, 1)
+      else if (field.type === 'object' && v2 && typeof v2 === 'object')
+        await walk(field.fields, v2 as Record<string, unknown>, `${prefix}${key}.`)
+      else if (field.type === 'repeater' && Array.isArray(v2))
+        for (const [i, item] of v2.entries()) await walk(field.fields, item, `${prefix}${key}.${i}.`)
+    }
+  }
+  await walk(fields, data, '')
+  return errors
 }
 
 function issueToError(issue: v.BaseIssue<unknown>): FieldError {
