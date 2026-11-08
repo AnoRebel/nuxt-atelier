@@ -87,7 +87,7 @@
 - [x] 8.7 Implement `<AtelierBlocks>`/`<AtelierField>` rendering with lazy component imports, unknown-block skip + warning, and preview-only data attributes; verify SSR output contains no editing attributes for public requests (`<AtelierBlocks>` (areas as named slots, lazy components, unknown types skipped with a warning) and `<AtelierField>`; editing attributes only with `useAtelierPreview()`)
 - [x] 8.8 Implement schema reconciliation: detect orphaned/missing fields and areas on load, keep entries loadable and saveable, expose repair operations; verify removed-field and added-area tests (`findStaleContent` and `contentRepairs` (drop, move to a renamed field, add a missing area) from `#atelier` and `#atelier/server`. Stale content validates, including unknown keys in objects and repeater items, which used to fail as `unknown field`)
 - [x] 8.9 (test/fixtures/ui-{nuxt-ui,shadcn,tailwind,css} share content through the ui-shared layer; test/blocks/ui checks the same text and links in each, an HTML snapshot per library, hydration without mismatches, and the library's CSS applied) Add UI-agnostic fixtures (Nuxt UI, shadcn-vue via `shadcn-nuxt` 2.9, Tailwind-only, plain CSS) rendering the same content; verify e2e snapshots per fixture
-- [ ] 8.10 Write docs: block authoring (macro style and schema-file style), nesting rules, options, overriding blocks from layers, using different UI libraries, reconciliation and repairing content
+- [x] 8.10 (docs/content/3.reference/14.blocks.md) Write docs: block authoring (macro style and schema-file style), nesting rules, options, overriding blocks from layers, using different UI libraries, reconciliation and repairing content
 
 ## 9. Site routing and redirects (site-routing)
 
