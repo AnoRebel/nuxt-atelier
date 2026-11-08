@@ -82,7 +82,7 @@ export function contentApiSuite(label: string, rootDir: string) {
     it('omits fields the caller can\'t read, there and in populated entries', async () => {
       const { body } = await api('writer', 'GET', `/collections/articles${q({ filter: { title: { eq: 'Hello' } }, depth: '1' })}`)
       expect(body.items[0].data).not.toHaveProperty('internalNotes')
-      expect(body.items[0].data.author.data).toEqual({ name: 'Ada' }) // email hidden from writers
+      expect(body.items[0].data.author.data).toEqual({ name: 'Ada', coauthored: [] }) // email hidden from writers
       expect((await api('admin', 'GET', `/collections/articles${q({ filter: { title: { eq: 'Hello' } } })}`)).body.items[0].data.internalNotes).toBe('check the facts')
     })
 
@@ -197,6 +197,18 @@ export function contentApiSuite(label: string, rootDir: string) {
         status = (await api('other', 'POST', '/collections/articles', { data: { title: `Burst ${i}` } })).status
       expect(status).toBe(429)
       expect((await api('admin', 'POST', '/collections/articles', { data: { title: 'Unaffected' } })).status).toBe(200)
+    })
+
+    it('syncs two-way relations, refusing a change to the other side the caller can\'t make', async () => {
+      const bea = (await api('admin', 'POST', '/collections/authors', { data: { name: 'Bea' } })).body
+      const article = (await api('admin', 'POST', '/collections/articles', { data: { title: 'Pair', coauthors: [bea.id] } })).body
+      expect((await api('admin', 'GET', `/collections/authors/${bea.id}`)).body.data.coauthored).toEqual([article.id])
+
+      // writers may update their own articles but only read authors: linking one would change the author
+      const own = (await api('writer', 'POST', '/collections/articles', { data: { title: 'Mine' } })).body
+      const denied = await api('writer', 'PATCH', `/collections/articles/${own.id}`, { version: 1, data: { coauthors: [bea.id] } })
+      expect(denied).toMatchObject({ status: 403, body: { data: { code: 'forbidden' } } })
+      expect((await api('admin', 'GET', `/collections/authors/${bea.id}`)).body.data.coauthored).toEqual([article.id])
     })
   })
 }

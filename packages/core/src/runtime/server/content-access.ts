@@ -1,8 +1,8 @@
 // Shared by the collection and singleton endpoints: who's asking, what they may see, and limits.
 import type { RequestEvent } from 'nuxt/server'
-import type { Field } from '../shared/fields'
+import type { Field, RelationField } from '../shared/fields'
 import type { ContentAction, Policy, PolicyUser } from '../shared/policy'
-import type { Entry } from './db/store'
+import type { Entry, EntryStore } from './db/store'
 import { getRequestHeader, getRequestURL } from 'nuxt/server'
 import { createPolicy } from '../shared/policy'
 import { apiError } from './errors'
@@ -47,6 +47,39 @@ export function assertWritable(who: Caller, resource: string, data: Record<strin
   const fields = who.policy.unwritable(who.principal, resource, data, before)
   if (fields.length)
     throw apiError(403, `Your role can't change ${fields.join(', ')}`, { fields })
+}
+
+/**
+ * A save through one side of a two-way relation also changes the entries on the other side: 403 unless
+ * the caller may update each of them and write their inverse field. When the inverse holds one entry,
+ * linking moves it, so the entry it pointed to (in this collection) must be updatable too.
+ */
+export async function assertInversesWritable(who: Caller, entries: EntryStore, name: string, id: string | undefined, fields: Record<string, Field>, data: Record<string, unknown>, before?: Record<string, unknown>) {
+  const schema = await useAtelierSchema()
+  const ids = (value: unknown): string[] => value == null ? [] : Array.isArray(value) ? value as string[] : [value as string]
+  for (const [key, field] of Object.entries(fields)) {
+    if (field.type !== 'relation' || !field.inverse || !(key in data))
+      continue
+    const old = new Set(ids(before?.[key]))
+    const now = new Set(ids(data[key]))
+    const changed = [...old.symmetricDifference(now)]
+    const inverse = schema.collections[field.to]!.fields[field.inverse] as RelationField
+    for (const otherId of changed) {
+      const other = await entries.get(field.to, otherId)
+      if (!other)
+        continue // validation reports a missing entry
+      allow(who, 'update', field.to, other)
+      const after = now.has(otherId) ? 'linked' : 'unlinked'
+      if (who.policy.unwritable(who.principal, field.to, { [field.inverse]: after }, { [field.inverse]: null }).length)
+        throw apiError(403, `Your role can't change ${field.inverse} in "${field.to}", which this change updates`, { fields: [field.inverse] })
+      const previous = other.data[field.inverse]
+      if (!inverse.many && now.has(otherId) && typeof previous === 'string' && previous !== id) {
+        const moved = await entries.get(name, previous)
+        if (moved)
+          allow(who, 'update', name, moved)
+      }
+    }
+  }
 }
 
 /** Counts a write against the caller's per-minute limit; 429 once it's used up. */

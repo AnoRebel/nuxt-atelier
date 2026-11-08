@@ -26,4 +26,21 @@ describe('schema checks', () => {
     expect(build({ posts: { renamedFrom: 'authors', fields: {} } }))
       .toThrow('Collection "posts" is renamedFrom "authors"')
   })
+
+  it('refuses an inverse that doesn\'t point back, and inverses on nested or singleton fields', () => {
+    const books = (inverse: string) => ({ books: { fields: { writers: f.relation({ to: 'authors', many: true, inverse }) } } })
+    expect(build(books('books'))).toThrow('books: relation "writers" has the inverse "authors.books", which must be a relation to "books" with inverse "writers"')
+    expect(() => buildTables('sqlite', { singletons: {}, collections: {
+      ...books('books'),
+      authors: { fields: { books: f.relation({ to: 'books', many: true, inverse: 'other' }) } },
+    } })).toThrow('with inverse "writers"')
+    expect(() => buildTables('sqlite', { singletons: {}, collections: {
+      ...books('books'),
+      authors: { fields: { books: f.relation({ to: 'books', many: true, inverse: 'writers' }) } },
+    } })).not.toThrow()
+    expect(build({ posts: { fields: { faq: f.repeater({ fields: { who: f.relation({ to: 'authors', inverse: 'x' }) } }) } } }))
+      .toThrow('posts.faq: relation "who" can\'t have an inverse')
+    expect(build({}, { settings: { fields: { editor: f.relation({ to: 'authors', inverse: 'x' }) } } }))
+      .toThrow('settings: relation "editor" can\'t have an inverse')
+  })
 })

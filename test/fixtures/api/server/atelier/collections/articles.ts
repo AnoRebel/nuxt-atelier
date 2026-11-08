@@ -9,5 +9,6 @@ export default defineCollection({
     tags: multiSelect({ options: ['vue', 'nuxt'] }),
     author: relation({ to: 'authors', onDelete: 'nullify' }),
     internalNotes: text(),
+    coauthors: relation({ to: 'authors', many: true, inverse: 'coauthored' }),
   },
 })

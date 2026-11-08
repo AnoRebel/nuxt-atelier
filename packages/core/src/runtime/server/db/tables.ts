@@ -144,7 +144,7 @@ function fieldColumn(kit: Kit, key: string, field: Field): Column | undefined {
   }
 }
 
-interface Owner { name: string, singleton: boolean, collections: Record<string, unknown> }
+interface Owner { name: string, singleton: boolean, collections: Record<string, { fields: Record<string, Field> }> }
 
 function checkFields(owner: Owner, fields: Record<string, Field>, path = '') {
   const where = `${owner.name}${path}`
@@ -165,6 +165,13 @@ function checkFields(owner: Owner, fields: Record<string, Field>, path = '') {
         throw new Error(`[nuxt-atelier] ${where}: relation "${key}" points to "${field.to}", which isn't a collection`)
       if (field.onDelete === 'cascade' && owner.singleton)
         throw new Error(`[nuxt-atelier] ${where}: relation "${key}" can't cascade deletes: a singleton can't be deleted. Use "restrict" or "nullify"`)
+      if (field.inverse !== undefined) {
+        if (path || owner.singleton)
+          throw new Error(`[nuxt-atelier] ${where}: relation "${key}" can't have an inverse; only top-level relations of collections can`)
+        const other = owner.collections[field.to]!.fields[field.inverse]
+        if (other?.type !== 'relation' || other.to !== owner.name || other.inverse !== key)
+          throw new Error(`[nuxt-atelier] ${where}: relation "${key}" has the inverse "${field.to}.${field.inverse}", which must be a relation to "${owner.name}" with inverse "${key}"`)
+      }
     }
     if (field.type === 'object' || field.type === 'repeater')
       checkFields(owner, field.fields, `${path}.${key}`)
