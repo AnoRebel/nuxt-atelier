@@ -41,11 +41,13 @@ the host's own server routes (P#100, P#120, `requireUser`).
 Done while reading: an empty area passes no slot on public pages, so a block can check `$slots.<area>`
 (P#82, B#13).
 
-Not planned yet, for the maintainer to decide:
+Added to v1 by the maintainer (2026-11-08):
 
-- per-locale URL patterns (P#73)
-- two-way relations, where setting a relation on one side shows it on the other (P#124)
-- creating a related entry from inside a relation field (P#32)
-- a placeholder in previews for blocks that render nothing, so they can still be selected (B#24)
+- per-locale URL patterns (P#73): 9.1
+- two-way relations (P#124): 4.9
+- creating a related entry from inside a relation field (P#32): 15.11
+- a placeholder in previews for blocks that render nothing (B#24), and inline editing of the entry's own fields (B#23): 14.12
+
+Not planned:
+
 - passing slot props from a block down to its nested blocks (P#93)
-- editing fields of the page itself, not just its blocks, inline in the preview (B#23)

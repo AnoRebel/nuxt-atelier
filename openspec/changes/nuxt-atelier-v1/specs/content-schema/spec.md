@@ -59,6 +59,13 @@ Relation fields SHALL reference entries of named collections, SHALL be resolvabl
 - **WHEN** an entry referenced by a relation configured to block deletion is deleted
 - **THEN** the deletion is refused with an error listing the referencing entries
 
+### Requirement: Two-way relations
+A relation field SHALL be able to declare its inverse: a relation field on the target collection pointing back. Both sides SHALL stay in sync whichever side is edited, in the same transaction, and both SHALL read, filter and populate like any relation.
+
+#### Scenario: Editing one side
+- **WHEN** `books.authors` declares the inverse `authors.books` and an editor adds author A to book B
+- **THEN** reading author A lists book B in `books`, and removing A from B's authors removes B from A's books
+
 ### Requirement: Schema identity
 Fields SHALL have stable keys so renames can be declared explicitly, preserving existing data instead of treating a rename as drop-and-add.
 

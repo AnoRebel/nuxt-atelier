@@ -45,6 +45,20 @@ Text and rich-text fields marked inline-editable SHALL be editable directly in t
 - **WHEN** an editor double-clicks an inline-editable rich-text region and types
 - **THEN** the text updates in place and the corresponding admin field reflects the change
 
+### Requirement: Blocks that render nothing
+In previews, a block whose component renders no element SHALL get a placeholder, so it can still be selected, moved and deleted in the preview.
+
+#### Scenario: Empty teaser list
+- **WHEN** a "latest news" block renders nothing because no news is published
+- **THEN** the preview shows a placeholder naming the block, and selecting it opens the block's form
+
+### Requirement: Inline editing of entry fields
+Fields of the entry itself, not only of its blocks (such as a page's title or a boolean flag), SHALL be editable in the preview when the host template marks them, through the same edit state and undo history as block fields.
+
+#### Scenario: Page title
+- **WHEN** a host layout renders the page title inside a field marker and an editor edits it in the preview
+- **THEN** the entry's title field changes in the form and in the preview, and undo restores it
+
 ### Requirement: Undo and redo
 The editor SHALL keep an ordered history of edit operations for the session with undo/redo via toolbar and keyboard shortcuts.
 

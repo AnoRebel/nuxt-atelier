@@ -13,6 +13,10 @@ Collections and singletons SHALL be declarable as routable with a URL pattern (e
 - **WHEN** an editor publishes a page with slug `about` in a routable `pages` collection mapped to `/{slug}`
 - **THEN** `/about` renders that page using the configured component and layout
 
+#### Scenario: Localized URL pattern
+- **WHEN** a localized `projects` collection declares the pattern `/projects/{slug}` for English and `/projektid/{slug}` for Estonian
+- **THEN** the Estonian translation is served at `/projektid/<slug>` and the English one at `/projects/<slug>`
+
 ### Requirement: Host routes take precedence
 CMS-resolved routes SHALL only handle paths not matched by the host app's own pages.
 

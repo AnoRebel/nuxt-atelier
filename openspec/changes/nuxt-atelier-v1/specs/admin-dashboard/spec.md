@@ -62,6 +62,13 @@ The admin SHALL provide list views with search, filters, sortable columns, colum
 - **WHEN** an editor selects 10 drafts and runs bulk publish
 - **THEN** all 10 permitted entries are published and any failures are reported per entry
 
+### Requirement: Inline creation of related entries
+A relation field's input SHALL let an editor create a new entry in the target collection without leaving the form, when they may create entries there; the new entry is then selected in the field.
+
+#### Scenario: New author from a book
+- **WHEN** an editor editing a book chooses "New author" in its authors field, fills the author's form and saves it
+- **THEN** the author is created and added to the book's authors, and the book's unsaved changes are kept
+
 ### Requirement: Dashboard home
 The admin home SHALL show recent activity, the user's drafts, scheduled items, failed jobs, and pending migrations warnings, extensible with widgets.
 

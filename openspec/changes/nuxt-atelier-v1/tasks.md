@@ -38,6 +38,7 @@
 - [x] 4.5 Implement relation semantics (populate depth, on-delete restrict/nullify/cascade) and stable field keys with explicit rename declarations; verify tests for restrict refusal and rename preserving data (done after section 5: its verification needs the storage layer. `renamedFrom` on top-level fields and collections; migrations also move relation rows and history, and singleton data is read from the old key until saved)
 - [x] 4.6 Implement custom field type registration (model, validators, admin input component reference); verify a `geo-point` fixture field validates and stores (done after section 5: its verification needs the storage layer. `defineFieldType` returns a helper whose descriptor carries its storage, Standard Schema and input component name: no global registry; the admin rendering the input is verified with the admin forms)
 - [x] 4.7 Generate types for collections/singletons/fields for app and server code with HMR refresh on schema change; verify a type test fails on an unknown field and passes after adding it during dev
+- [ ] 4.9 (added from Pruvious #124, see parent-issues.md) Implement two-way relations: `inverse` on a relation names the relation field pointing back; both sides kept in sync in one transaction (including on delete), checked at schema load (target field exists, points back, is a relation), and documented; verify editing either side updates the other on every engine
 - [x] 4.8 Write docs: schema concepts, every field type with options and examples, validation, relations, custom fields
 
 ## 5. Storage engine and migrations (content-storage)
@@ -91,11 +92,11 @@
 
 ## 9. Site routing and redirects (site-routing)
 
-- [ ] 9.1 Implement routable content types with URL patterns and per-type page component/layout, plus the lowest-priority catch-all page via `extendPages`, and the routes API (`GET /api/_atelier/routes`, path → entry resolution) under the content API's permissions and error shape; verify publishing `about` serves `/about`
+- [ ] 9.1 Implement routable content types with URL patterns (a pattern per locale allowed, from Pruvious #73; entries of routable types carry their path, from Pruvious #12) and per-type page component/layout, plus the lowest-priority catch-all page via `extendPages`, and the routes API (`GET /api/_atelier/routes`, path → entry resolution) under the content API's permissions and error shape; verify publishing `about` serves `/about`
 - [ ] 9.2 Verify host route precedence with a fixture where `pages/contact.vue` shadows a CMS entry, and implement the admin shadowing warning data
 - [ ] 9.3 Implement unique per-locale hierarchical paths with descendant updates and optional automatic redirects; verify parent rename test
 - [ ] 9.4 Implement 404 for unpublished/missing paths via the host error page; verify status 404 e2e
-- [ ] 9.5 Implement redirects (patterns, 301/302/307/308, loop detection) evaluated in server middleware from a cached map; verify loop refusal and redirect e2e
+- [ ] 9.5 Implement redirects (patterns, 301/302/307/308, loop detection, never a protocol-relative `Location`: Pruvious #127) evaluated in server middleware from a cached map; verify loop refusal and redirect e2e
 - [ ] 9.6 Implement id-based internal links resolved at render and `useAtelierRouteEntry()` composable; verify renamed-target link test and typed entry in a host layout
 - [ ] 9.7 Write docs: routable content, URL patterns, host page precedence, redirects guide
 
@@ -151,6 +152,7 @@
 - [ ] 14.8 Implement proxy editing mode for opted-in blocks; verify carousel proxy reorder e2e
 - [ ] 14.9 Verify style isolation with a fixture applying hostile global CSS (`* { box-sizing: content-box }`, `button { all: unset }`): admin chrome renders correctly and preview matches the public page screenshot
 - [ ] 14.10 Implement keyboard-only block moving with live-region announcements and run axe on editor chrome; verify no serious/critical violations and keyboard move e2e
+- [ ] 14.12 (added from blökkli #24, #23, see parent-issues.md) Implement preview placeholders for blocks that render no element, and inline editing of the entry's own fields marked in host templates (same edit state and undo history); verify an empty-teaser placeholder is selectable and a page-title inline edit undoes
 - [ ] 14.11 Write docs: visual editor guide for editors (with screenshots), editor architecture and bridge protocol reference, making blocks editor-friendly, proxy mode, extending the editor
 
 ## 15. Admin dashboard (admin-dashboard)
@@ -164,6 +166,7 @@
 - [ ] 15.7 Implement dashboard home widgets (activity, drafts, scheduled, failed jobs, pending migrations) using `@tanstack/vue-charts` where charts are needed; verify failed-job widget e2e
 - [ ] 15.8 Implement unsaved-changes guard and local recovery copies (VueUse storage); verify crash-recovery e2e
 - [ ] 15.9 Verify WCAG 2.2 AA with axe across core admin views and tablet viewport e2e; fix violations until the suite reports none serious/critical
+- [ ] 15.11 (added from Pruvious #32, see parent-issues.md) Implement inline creation of related entries from a relation field (permission-checked, the new entry selected, the parent form's unsaved changes kept); verify e2e
 - [ ] 15.10 Write docs: admin tour (editors), theming and branding, overriding admin components, custom admin pages and widgets, building an alternative admin kit on the headless composables
 
 ## 16. Editorial collaboration (editorial-collaboration)
