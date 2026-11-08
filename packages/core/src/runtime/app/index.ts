@@ -1,4 +1,6 @@
 // `#atelier`: the app-side public API
+export { useAtelierArea } from './composables/useAtelierArea'
+export type { AtelierArea } from './composables/useAtelierArea'
 export { useAtelierConfig } from './composables/useAtelierConfig'
 export { blocks, boolean, color, date, defineBlock, email, json, media, multiSelect, number, object, relation, repeater, richText, select, slug, text, textarea, url } from './blocks'
 export type { BlockFile, BlockMeta, BlockProp } from './blocks'

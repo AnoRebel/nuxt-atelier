@@ -50,6 +50,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
 
     addImports({ name: 'useAtelierConfig', from: resolve('./runtime/app/composables/useAtelierConfig') })
     addImports(['useAtelierQuery', 'useAtelierEntry'].map(name => ({ name, from: resolve('./runtime/app/composables/useAtelierQuery') })))
+    addImports({ name: 'useAtelierArea', from: resolve('./runtime/app/composables/useAtelierArea') })
     addImports({ name: 'useAtelierPreview', from: resolve('./runtime/app/composables/useAtelierPreview') })
     addComponentsDir({ path: resolve('./runtime/app/components'), prefix: 'Atelier' })
 

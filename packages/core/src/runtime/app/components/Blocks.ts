@@ -3,8 +3,10 @@
 // components need nothing from Nuxt Atelier. Components load lazily, per block type.
 import type { Component, PropType, Slot } from 'vue'
 import type { BlockInstance } from '../../shared/infer'
-import { defineAsyncComponent, defineComponent, h } from 'vue'
+import type { AtelierArea } from '../composables/useAtelierArea'
+import { computed, defineAsyncComponent, defineComponent, h, inject, provide } from 'vue'
 import { blocks as registry } from '#atelier-blocks'
+import { areaKey } from '../composables/useAtelierArea'
 import { useAtelierPreview } from '../composables/useAtelierPreview'
 
 const components = new Map<string, Component>()
@@ -23,9 +25,14 @@ const AtelierBlocks = defineComponent({
   name: 'AtelierBlocks',
   props: {
     blocks: { type: Array as PropType<BlockInstance[] | null>, default: () => [] },
+    // set when rendering a block's area: the area, and the props the block passed to its slot
+    area: { type: Object as PropType<Omit<AtelierArea, 'parent'> | null>, default: null },
   },
   setup(props) {
     const preview = useAtelierPreview()
+    // a list without `area` (the top of a page, or blocks a block renders itself) starts a new tree
+    const parent = inject(areaKey, null)
+    provide(areaKey, computed(() => props.area && { ...props.area, parent: parent?.value ?? null }))
     return () => (props.blocks ?? []).map((block) => {
       const entry = registry[block.type]
       if (!entry) {
@@ -43,8 +50,10 @@ const AtelierBlocks = defineComponent({
         Reflect.deleteProperty(values, area)
         // an empty area passes no slot (so a block can check `$slots.<area>`), except in previews,
         // where the editor needs it as a drop target
-        if (nested.length || preview.value)
-          slots[area] = () => [h(AtelierBlocks, { blocks: nested })]
+        if (nested.length || preview.value) {
+          slots[area] = (slotProps: Record<string, unknown> = {}) =>
+            [h(AtelierBlocks, { blocks: nested, area: { name: area, props: slotProps, block: { id: block.id, type: block.type } } })]
+        }
       }
       const editing = preview.value ? { 'data-at-block': block.id, 'data-at-type': block.type } : {}
       return h(componentOf(block.type), { key: block.id, ...values, ...editing }, slots)
