@@ -1,6 +1,14 @@
 export default defineNuxtConfig({
   extends: ['docus'],
-  modules: ['nuxt-atelier'],
+  modules: ['nuxt-atelier', 'nuxt-umami'],
+  app: {
+    head: {
+      // Rybbit (rybbit.anorebel.net): only when a site id is set at build time, like Umami below
+      script: process.env.NUXT_RYBBIT_SITE_ID
+        ? [{ 'src': 'https://rybbit.anorebel.net/api/script.js', 'defer': true, 'data-site-id': process.env.NUXT_RYBBIT_SITE_ID }]
+        : [],
+    },
+  },
   site: {
     name: 'Nuxt Atelier',
     url: 'https://nuxt-atelier.anorebel.net',
@@ -30,5 +38,13 @@ export default defineNuxtConfig({
     notes: [
       'Reading this documentation as an agent: append `.md` to any page URL, or send `Accept: text/markdown`.',
     ],
+  },
+  // Umami (umami.anorebel.net), proxied through the docs server so blockers and CORS don't drop it
+  umami: {
+    id: process.env.NUXT_UMAMI_SITE_ID || '',
+    host: 'https://umami.anorebel.net',
+    autoTrack: true,
+    proxy: 'cloak',
+    enabled: !!process.env.NUXT_UMAMI_SITE_ID,
   },
 })

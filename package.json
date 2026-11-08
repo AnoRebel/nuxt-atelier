@@ -44,7 +44,8 @@
       },
       "docs": {
         "docus": "5.15.0",
-        "@takumi-rs/core": "2.19.0"
+        "@takumi-rs/core": "2.19.0",
+        "nuxt-umami": "3.2.1"
       },
       "test": {
         "vitest": "5.0.5",

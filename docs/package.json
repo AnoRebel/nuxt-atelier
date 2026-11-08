@@ -11,6 +11,7 @@
     "@takumi-rs/core": "catalog:docs",
     "docus": "catalog:docs",
     "nuxt": "catalog:",
-    "nuxt-atelier": "workspace:*"
+    "nuxt-atelier": "workspace:*",
+    "nuxt-umami": "catalog:docs"
   }
 }
