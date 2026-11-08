@@ -41,13 +41,14 @@ the host's own server routes (P#100, P#120, `requireUser`).
 Done while reading: an empty area passes no slot on public pages, so a block can check `$slots.<area>`
 (P#82, B#13).
 
+Done on the maintainer's request (2026-11-09): P#93, slot props for nested blocks. A block reads the props
+its parent passes to the area's slot, and the areas around it, with `useAtelierArea()` (8.11). They come
+through injection, never as the nested block's props or attributes, so a slot prop can't override a field or
+leak into the HTML as an attribute (as an extra prop would on any block that doesn't declare it).
+
 Added to v1 by the maintainer (2026-11-08):
 
 - per-locale URL patterns (P#73): 9.1
 - two-way relations (P#124): 4.9
 - creating a related entry from inside a relation field (P#32): 15.11
 - a placeholder in previews for blocks that render nothing (B#24), and inline editing of the entry's own fields (B#23): 14.12
-
-Not planned:
-
-- passing slot props from a block down to its nested blocks (P#93)

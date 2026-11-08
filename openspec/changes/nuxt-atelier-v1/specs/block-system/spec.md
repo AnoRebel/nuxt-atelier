@@ -62,6 +62,13 @@ The system SHALL provide a rendering component that renders a stored list of blo
 - **WHEN** stored content contains a block type no longer defined
 - **THEN** public rendering skips it without crashing and logs a warning, and the admin shows it as an unknown block that can be removed
 
+### Requirement: Area context for nested blocks
+The system SHALL let a block rendered in another block's area read the props that block passes to the area's slot, the area's name, the block it belongs to and the enclosing areas, without passing slot props as the nested block's props or attributes.
+
+#### Scenario: Slot props reach a nested block
+- **WHEN** a Columns block renders `<slot name="left" side="start" />` and a Card sits in its `left` area
+- **THEN** the Card reads `side` as `"start"` from its area, along with the Columns block's id and any area around that Columns block, and no `side` attribute is rendered
+
 ### Requirement: Schema reconciliation
 When block or field schemas change, the system SHALL detect stored data that no longer matches, keep it readable and repairable in the admin, and SHALL NOT block saving unrelated changes because of stale fields.
 

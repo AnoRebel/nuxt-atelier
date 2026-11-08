@@ -55,6 +55,34 @@ describe('blocks', async () => {
     expect(page).toMatch(/<aside class="note"[^>]*data-v-[^>]*>\s*Scoped CSS only\s*<\/aside>/)
   })
 
+  it('gives nested blocks the props their parent passes to the slot, and the areas around them (Pruvious #93)', async () => {
+    const { status, body } = await save([
+      { id: 'a0', type: 'Tile', props: { label: 'top' } },
+      { id: 'a1', type: 'Columns', props: {
+        left: [{ id: 'a2', type: 'Columns', props: { left: [{ id: 'a3', type: 'Tile', props: { label: 'deep' } }], right: [] } }],
+        right: [{ id: 'a4', type: 'Tile', props: { label: 'right' } }],
+      } },
+    ])
+    expect(status).toBe(200)
+    const page = await html(`/${body.id}`)
+    expect(page).toMatch(/<div class="tile">\s*top/) // a top-level block has no area
+    expect(page).toMatch(/<div class="tile" data-side="start" data-in="a2.left" data-outer="a1.left:start">\s*deep/)
+    expect(page).toMatch(/<div class="tile" data-side="end" data-in="a1.right">\s*right/)
+    expect(page).not.toMatch(/<div class="(left|right)"[^>]* side=/) // slot props never become attributes
+
+    // nested blocks follow slot props that change on the client
+    const browser = await createPage()
+    await browser.context().addCookies(cookie.split('; ').map((c) => {
+      const [name, value] = c.split('=') as [string, string]
+      return { name, value, url: url('/') }
+    }))
+    await browser.goto(url(`/${body.id}`), { waitUntil: 'networkidle' })
+    await browser.click('.columns >> nth=0 >> .flip')
+    await browser.waitForSelector('[data-in="a1.right"][data-side="start"]')
+    expect(await browser.locator('[data-in="a2.left"]').getAttribute('data-outer')).toBe('a1.left:end')
+    await browser.close()
+  })
+
   it('adds editing attributes only to preview renders', async () => {
     const { body } = await save([
       { id: 'p1', type: 'Hero', props: { title: 'Attrs', items: [{ id: 'p2', type: 'Card', props: { heading: 'x' } }] } },
