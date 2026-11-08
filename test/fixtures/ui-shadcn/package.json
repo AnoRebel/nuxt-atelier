@@ -1,0 +1,18 @@
+{
+  "name": "@nuxt-atelier/fixture-ui-shadcn",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "catalog:ui",
+    "class-variance-authority": "catalog:ui",
+    "clsx": "catalog:ui",
+    "nuxt": "catalog:",
+    "reka-ui": "catalog:ui",
+    "shadcn-nuxt": "catalog:ui",
+    "tailwind-merge": "catalog:ui",
+    "tailwindcss": "catalog:ui"
+  }
+}

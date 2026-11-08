@@ -53,6 +53,16 @@
         "playwright-core": "1.64.0",
         "@seriousme/openapi-schema-validator": "2.11.0"
       },
+      "ui": {
+        "@nuxt/ui": "4.12.0",
+        "tailwindcss": "4.3.3",
+        "@tailwindcss/vite": "4.3.3",
+        "shadcn-nuxt": "2.9.0",
+        "reka-ui": "2.11.0",
+        "class-variance-authority": "0.7.1",
+        "clsx": "2.1.1",
+        "tailwind-merge": "3.7.0"
+      },
       "auth": {
         "better-auth": "1.7.14",
         "@simplewebauthn/server": "14.0.3",

@@ -1,0 +1,13 @@
+{
+  "name": "@nuxt-atelier/fixture-ui-tailwind",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "catalog:ui",
+    "nuxt": "catalog:",
+    "tailwindcss": "catalog:ui"
+  }
+}
