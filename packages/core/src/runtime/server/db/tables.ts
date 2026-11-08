@@ -1,6 +1,6 @@
 // Drizzle tables generated from the content schema, for each SQL dialect.
 //
-//   atelier_c_<collection>  one row per entry: system columns (_id, _version, _created_at, _updated_at),
+//   atelier_c_<collection>  one row per entry: system columns (_id, _version, _created_at, _updated_at, _created_by),
 //                           one typed column per field. Scalars get native types; rich text, objects,
 //                           repeaters, blocks, multi-selects and JSON are JSON columns.
 //   atelier_singletons      one row per singleton, its data as JSON
@@ -339,6 +339,7 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       _version: kit.int('_version').notNull(),
       _createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
       _updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
+      _createdBy: kit.key('_created_by', ID), // the user who created it, for own-entries-only permissions
     }
     const unique: string[] = []
     for (const [key, field] of Object.entries(definition.fields)) {

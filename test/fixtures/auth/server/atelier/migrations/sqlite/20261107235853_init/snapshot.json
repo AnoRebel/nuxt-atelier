@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "b18a6a74-e6e1-4274-973c-563b07206635",
+  "id": "59d9ab9d-71e9-49ef-85fa-35f85432922c",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -12,10 +12,6 @@
     },
     {
       "name": "atelier_relations",
-      "entityType": "tables"
-    },
-    {
-      "name": "atelier_c_notes",
       "entityType": "tables"
     },
     {
@@ -145,56 +141,6 @@
       "name": "target_id",
       "type": "text",
       "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_id",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_version",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_created_at",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_updated_at",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "title",
-      "type": "text",
-      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
@@ -785,15 +731,6 @@
       "name": "atelier_singletons_pk",
       "columns": [
         "name"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "atelier_c_notes_pk",
-      "columns": [
-        "_id"
       ],
       "nameExplicit": false,
       "entityType": "pks"

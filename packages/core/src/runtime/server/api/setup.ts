@@ -2,10 +2,11 @@
 //   GET   { needed }       whether setup is still open
 //   POST  { email, name?, password }
 import * as v from 'valibot'
-import { createError, defineEventHandler, readValidatedBody } from 'nuxt/server'
+import { defineEventHandler } from 'nuxt/server'
 import { ADMIN_ROLE } from '../../shared/policy'
 import { EDITOR_ROLE } from '../auth/roles'
 import { assertMigrated, audit, useAtelierAuth, useAtelierRoles } from '../index'
+import { apiError, readValid } from '../errors'
 
 const Admin = v.object({
   email: v.pipe(v.string(), v.trim(), v.email('Enter an email address'), v.maxLength(255)),
@@ -20,11 +21,11 @@ export default defineEventHandler(async (event) => {
   if (event.req.method === 'GET')
     return { needed }
   if (event.req.method !== 'POST')
-    throw createError({ status: 405, message: 'Method not allowed' })
+    throw apiError(405, 'Method not allowed')
   if (!needed) // the screen and the endpoint close for good once any user exists
-    throw createError({ status: 409, message: 'Setup is done: sign in instead' })
+    throw apiError(409, 'Setup is done: sign in instead', {}, 'setup_done')
 
-  const body = await readValidatedBody(event, Admin)
+  const body = await readValid(event, Admin)
   // ponytail: two setups racing within the same instant could both create an admin; harmless (both are admins) and only possible before the first one finishes
   const user = await auth.users.create({ ...body, role: ADMIN_ROLE })
   const roles = await useAtelierRoles()

@@ -5,8 +5,9 @@
 //      sealed session cookie, so a cookie planted from a sibling subdomain can't supply a matching one.
 // Requests from non-browser clients send neither header and carry no session cookie, so 1 and 2 pass
 // and 3 doesn't apply; they authenticate another way (API tokens).
-import { createError, defineEventHandler, getRequestHeader, getRequestURL, useRuntimeConfig } from 'nuxt/server'
+import { defineEventHandler, getRequestHeader, getRequestURL, useRuntimeConfig } from 'nuxt/server'
 import { useAtelierAuth } from '../index'
+import { apiError } from '../errors'
 
 const SAFE = new Set(['GET', 'HEAD', 'OPTIONS'])
 
@@ -15,7 +16,7 @@ export default defineEventHandler(async (event) => {
   if (SAFE.has(event.req.method) || !url.pathname.startsWith('/api/_atelier/'))
     return
 
-  const refuse = (why: string) => createError({ status: 403, message: `Cross-site request refused: ${why}` })
+  const refuse = (why: string) => apiError(403, `Cross-site request refused: ${why}`, {}, 'csrf')
   const site = getRequestHeader(event, 'sec-fetch-site')
   if (site && site !== 'same-origin' && site !== 'none')
     throw refuse(`Sec-Fetch-Site is ${site}`)

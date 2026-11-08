@@ -198,6 +198,18 @@
         "nuxt-atelier": "workspace:*",
       },
     },
+    "test/fixtures/api": {
+      "name": "@nuxt-atelier/fixture-api",
+      "dependencies": {
+        "nuxt": "catalog:",
+      },
+    },
+    "test/fixtures/api-v5": {
+      "name": "@nuxt-atelier/fixture-api-v5",
+      "dependencies": {
+        "nuxt": "catalog:",
+      },
+    },
     "test/fixtures/auth": {
       "name": "@nuxt-atelier/fixture-auth",
       "dependencies": {
@@ -799,6 +811,10 @@
     "@nuxt-atelier/docs": ["@nuxt-atelier/docs@workspace:docs"],
 
     "@nuxt-atelier/editor": ["@nuxt-atelier/editor@workspace:packages/editor"],
+
+    "@nuxt-atelier/fixture-api": ["@nuxt-atelier/fixture-api@workspace:test/fixtures/api"],
+
+    "@nuxt-atelier/fixture-api-v5": ["@nuxt-atelier/fixture-api-v5@workspace:test/fixtures/api-v5"],
 
     "@nuxt-atelier/fixture-auth": ["@nuxt-atelier/fixture-auth@workspace:test/fixtures/auth"],
 

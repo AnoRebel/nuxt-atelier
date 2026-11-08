@@ -2,8 +2,9 @@
 import type { AtelierDriver } from './db/driver'
 import type { TableSpec } from './db/tables'
 import type { CollectionDefinition, SingletonDefinition } from './types'
-import { createError, useRuntimeConfig } from 'nuxt/server'
-import { connect } from './db/driver'
+import { useRuntimeConfig } from 'nuxt/server'
+import { connect, UnsupportedOperationError } from './db/driver'
+import { QueryError } from './db/query'
 import { buildTables } from './db/tables'
 import { assertMigrated as assertMigratedWith } from './db/state'
 import type { EntryStore } from './db/store'
@@ -21,15 +22,20 @@ import type { AuditInput, AuditLog } from './auth/audit'
 import { createAuditLog } from './auth/audit'
 import { clientIp, createRateLimiter } from './auth/rate-limit'
 import { createRoleStore } from './auth/roles'
+import { apiError } from './errors'
 
 export * from './define'
 export type { AtelierDriver, Dialect } from './db/driver'
 export { createDatabaseAdapter, ForbiddenError } from './adapter'
 export type { DatabaseAdapterOptions } from './adapter'
 export { UnsupportedOperationError } from './db/driver'
+export { QueryError } from './db/query'
+export type { Condition, Filter, ListQuery, Operator } from './db/query'
+export { apiError, readValid, validated } from './errors'
+export type { ErrorCode } from './errors'
 export { ConflictError, NotFoundError, ReferencedError, ValidationError, withTransaction } from './db/store'
 export type { ColumnSpec, TableSpec } from './db/tables'
-export type { Entry, EntryStore, GetOptions, Reference, SaveInput } from './db/store'
+export type { Entry, EntryList, EntryStore, ListOptions, GetOptions, Reference, SaveInput } from './db/store'
 export { defineAuthAdapter } from './auth/adapter'
 export type { AuthAdapter, AuthUser, NewUser } from './auth/adapter'
 export type { BuiltinAuthAdapter } from './auth/builtin'
@@ -92,12 +98,20 @@ export function useAtelierEntries(): Promise<EntryStore> {
 }
 
 /**
- * The HTTP error for a failed save: 409 with `currentVersion`, 422 with field `errors`, or 404, each with
- * its message (Nuxt hides the message of errors it didn't create). Anything else is returned unchanged.
+ * The API error for a store error, with its message (Nuxt hides the message of errors it didn't
+ * create) and code: 409 `conflict` with `currentVersion`, 409 `referenced` with `references`, 422
+ * `validation_failed` with field `errors`, 404, 400 `invalid_query`, 501 `unsupported`. Anything else
+ * is returned unchanged.
  */
 export function toHttpError(error: unknown): unknown {
-  if (error instanceof ConflictError || error instanceof ValidationError || error instanceof NotFoundError || error instanceof ReferencedError)
-    return createError({ status: error.statusCode, message: error.message, data: 'data' in error ? error.data : undefined })
+  if (error instanceof ConflictError || error instanceof ValidationError || error instanceof ReferencedError)
+    return apiError(error.statusCode, error.message, error.data, error instanceof ReferencedError ? 'referenced' : undefined)
+  if (error instanceof NotFoundError)
+    return apiError(404, error.message)
+  if (error instanceof QueryError)
+    return apiError(400, error.message, {}, 'invalid_query')
+  if (error instanceof UnsupportedOperationError)
+    return apiError(501, error.message)
   return error
 }
 
@@ -146,9 +160,9 @@ export async function useAtelierPolicy(): Promise<Policy> {
 export async function requireUser(event: RequestEvent, capability?: Capability): Promise<AuthUser> {
   const user = await (await useAtelierAuth()).getUser(event)
   if (!user)
-    throw createError({ status: 401, message: 'Sign in first' })
+    throw apiError(401, 'Sign in first')
   if (capability && !(await useAtelierPolicy()).can(user, 'manage', capability))
-    throw createError({ status: 403, message: `Your role can't manage ${capability}` })
+    throw apiError(403, `Your role can't manage ${capability}`)
   return user
 }
 

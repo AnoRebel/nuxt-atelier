@@ -5,9 +5,9 @@ import type { AtelierDriver } from '../db/driver'
 import type { Db } from '../db/entries'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
-import { createError } from 'nuxt/server'
 import { ADMIN_ROLE } from '../../shared/policy'
 import { buildTables } from '../db/tables'
+import { apiError } from '../errors'
 
 const ACTIONS = ['create', 'read', 'update', 'delete', 'publish'] as const
 const names = v.array(v.pipe(v.string(), v.maxLength(64)))
@@ -55,9 +55,9 @@ export function createRoleStore(driver: AtelierDriver, codeRoles: Roles) {
 
   const editable = (name: string) => {
     if (name === ADMIN_ROLE)
-      throw createError({ status: 409, message: 'The admin role is built in and can\'t be changed' })
+      throw apiError(409, 'The admin role is built in and can\'t be changed')
     if (name in codeRoles)
-      throw createError({ status: 409, message: `The role "${name}" is defined in server/atelier/roles.ts: change it there` })
+      throw apiError(409, `The role "${name}" is defined in server/atelier/roles.ts: change it there`)
   }
 
   return {
@@ -82,11 +82,11 @@ export function createRoleStore(driver: AtelierDriver, codeRoles: Roles) {
     /** Creates or replaces a database role. */
     async save(name: string, role: unknown): Promise<Role> {
       if (!ROLE_NAME.test(name))
-        throw createError({ status: 400, message: 'A role name uses lowercase letters, digits and "-", starting with a letter' })
+        throw apiError(400, 'A role name uses lowercase letters, digits and "-", starting with a letter')
       editable(name)
       const result = v.safeParse(RoleSchema, role)
       if (!result.success)
-        throw createError({ status: 422, message: 'Invalid role', data: { errors: result.issues.map(i => ({ path: v.getDotPath(i) ?? '', message: i.message })) } })
+        throw apiError(422, 'Invalid role', { errors: result.issues.map(i => ({ path: v.getDotPath(i) ?? '', message: i.message })) })
       const values = { definition: result.output, updatedAt: new Date().toISOString() }
       if (name in await stored())
         await db.update(table).set(values).where(eq(table.name, name))
@@ -99,7 +99,7 @@ export function createRoleStore(driver: AtelierDriver, codeRoles: Roles) {
     async remove(name: string, inUse: boolean): Promise<void> {
       editable(name)
       if (inUse)
-        throw createError({ status: 409, message: `Users still have the role "${name}": give them another role first` })
+        throw apiError(409, `Users still have the role "${name}": give them another role first`)
       await db.delete(table).where(eq(table.name, name))
     },
   }

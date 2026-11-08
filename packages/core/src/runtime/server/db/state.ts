@@ -6,7 +6,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { migrations } from '#atelier-migrations'
-import { createError, useRuntimeConfig } from 'nuxt/server'
+import { useRuntimeConfig } from 'nuxt/server'
+import { apiError } from '../errors'
 import { applyMigrationList, applyMigrations, migrationStatus } from './migrations'
 
 let check: Promise<string[]> | undefined
@@ -55,9 +56,6 @@ export async function assertMigrated(driver: () => Promise<AtelierDriver>): Prom
     return
   const pending = await pendingMigrations(driver)
   if (pending.length) {
-    throw createError({
-      status: 503,
-      message: `The database has ${pending.length} pending migration${pending.length === 1 ? '' : 's'} (${pending.join(', ')}). Run \`atelier migrate apply\`.`,
-    })
+    throw apiError(503, `The database has ${pending.length} pending migration${pending.length === 1 ? '' : 's'} (${pending.join(', ')}). Run \`atelier migrate apply\`.`, { pending })
   }
 }

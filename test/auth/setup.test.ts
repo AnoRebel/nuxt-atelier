@@ -32,7 +32,7 @@ describe('first-run setup, users and roles', async () => {
 
   it('creates the first administrator only while there are no users, and signs them in', async () => {
     expect((await api('GET', '/setup')).body).toEqual({ needed: true })
-    expect((await api('POST', '/setup', { email: 'root@example.com', password: 'short' })).status).toBe(400)
+    expect((await api('POST', '/setup', { email: 'root@example.com', password: 'short' })).status).toBe(422)
 
     const created = await api('POST', '/setup', { email: 'root@example.com', name: 'Root', password: 'password 123' })
     expect(created).toMatchObject({ status: 200, body: { email: 'root@example.com', role: 'admin' } })

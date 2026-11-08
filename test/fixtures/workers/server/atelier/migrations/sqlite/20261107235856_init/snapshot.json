@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "e33bf5e5-420a-4425-bdd0-b7a00a77b2a4",
+  "id": "e1142d8e-158a-4054-87a5-829722f18ede",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -185,6 +185,16 @@
       "name": "_updated_at",
       "type": "text",
       "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "_created_by",
+      "type": "text",
+      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
