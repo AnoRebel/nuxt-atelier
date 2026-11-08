@@ -4,6 +4,9 @@ FROM oven/bun:1.4.4 AS bun
 FROM node:26-slim AS build
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
+# analytics site ids (public, baked into the prerendered pages); empty leaves analytics off
+ARG NUXT_UMAMI_SITE_ID= NUXT_RYBBIT_SITE_ID=
+ENV NUXT_UMAMI_SITE_ID=$NUXT_UMAMI_SITE_ID NUXT_RYBBIT_SITE_ID=$NUXT_RYBBIT_SITE_ID
 COPY . .
 # no .git in the image, so skip installing git hooks
 RUN SKIP_SIMPLE_GIT_HOOKS=1 bun install --frozen-lockfile
