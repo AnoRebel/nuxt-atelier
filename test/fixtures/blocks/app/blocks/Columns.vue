@@ -9,7 +9,10 @@ defineBlock({ label: 'Columns', group: 'layout', areas: { left: { min: 1 }, righ
     <div class="left">
       <slot name="left" />
     </div>
-    <div class="right">
+    <div
+      v-if="$slots.right"
+      class="right"
+    >
       <slot name="right" />
     </div>
   </div>

@@ -39,9 +39,12 @@ const AtelierBlocks = defineComponent({
       const values: Record<string, unknown> = { ...block.props }
       const slots: Record<string, Slot> = {}
       for (const area of entry.areas) {
-        const nested = values[area]
+        const nested = Array.isArray(values[area]) ? values[area] as BlockInstance[] : []
         Reflect.deleteProperty(values, area)
-        slots[area] = () => [h(AtelierBlocks, { blocks: Array.isArray(nested) ? nested as BlockInstance[] : [] })]
+        // an empty area passes no slot (so a block can check `$slots.<area>`), except in previews,
+        // where the editor needs it as a drop target
+        if (nested.length || preview.value)
+          slots[area] = () => [h(AtelierBlocks, { blocks: nested })]
       }
       const editing = preview.value ? { 'data-at-block': block.id, 'data-at-type': block.type } : {}
       return h(componentOf(block.type), { key: block.id, ...values, ...editing }, slots)

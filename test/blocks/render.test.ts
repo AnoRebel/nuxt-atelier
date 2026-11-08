@@ -50,12 +50,16 @@ describe('blocks', async () => {
     expect(page).toMatch(/<section class="hero hero--dark"[^>]*><h1><span>Welcome<\/span><\/h1><div class="hero__items"><article class="card">\s*Inside the hero\s*<\/article><figure class="image">\s*A picture\s*<\/figure><\/div><\/section>/)
     expect(page).not.toContain('layer-hero') // the app's Hero replaces the layer's
     expect(page).toMatch(/<div class="left"><blockquote class="quote">\s*Hello <cite>Ada<\/cite><\/blockquote><\/div>/) // a layer block
+    expect(page).not.toContain('class="right"') // an empty area passes no slot
     expect(page).toContain('<span class="badge" data-tone="warning">New</span>') // schema-file block, option as a prop
     expect(page).toMatch(/<aside class="note"[^>]*data-v-[^>]*>\s*Scoped CSS only\s*<\/aside>/)
   })
 
   it('adds editing attributes only to preview renders', async () => {
-    const { body } = await save([{ id: 'p1', type: 'Hero', props: { title: 'Attrs', items: [{ id: 'p2', type: 'Card', props: { heading: 'x' } }] } }])
+    const { body } = await save([
+      { id: 'p1', type: 'Hero', props: { title: 'Attrs', items: [{ id: 'p2', type: 'Card', props: { heading: 'x' } }] } },
+      { id: 'p3', type: 'Columns', props: { left: [{ id: 'p4', type: 'Card', props: { heading: 'y' } }], right: [] } },
+    ])
     const publicPage = await html(`/${body.id}`)
     expect(publicPage).toContain('Attrs')
     expect(publicPage).not.toMatch(/data-at-/)
@@ -63,6 +67,7 @@ describe('blocks', async () => {
     expect(preview).toContain('data-at-block="p1"')
     expect(preview).toContain('data-at-block="p2"')
     expect(preview).toContain('data-at-field="title"')
+    expect(preview).toContain('class="right"') // in previews, empty areas keep their slot as a drop target
   })
 
   it('skips a block whose type no longer exists, rendering the rest', async () => {
