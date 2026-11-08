@@ -110,6 +110,32 @@
         "server/atelier/collections/*.ts",
         "server/api/**/*.ts"
       ]
+    },
+    "test/fixtures/ui-shared": {
+      "entry": [
+        "app/**/*.vue",
+        "server/**/*.ts"
+      ]
+    },
+    "test/fixtures/ui-nuxt-ui": {
+      "entry": [
+        "app/**/*.{vue,ts}"
+      ]
+    },
+    "test/fixtures/ui-shadcn": {
+      "entry": [
+        "app/**/*.{vue,ts}"
+      ]
+    },
+    "test/fixtures/ui-tailwind": {
+      "entry": [
+        "app/**/*.{vue,ts}"
+      ]
+    },
+    "test/fixtures/ui-css": {
+      "entry": [
+        "app/**/*.{vue,ts}"
+      ]
     }
   },
   "ignoreUnresolved": [

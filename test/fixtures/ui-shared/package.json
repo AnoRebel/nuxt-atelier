@@ -1,0 +1,8 @@
+{
+  "name": "@nuxt-atelier/fixture-ui-shared",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "nuxt": "catalog:"
+  }
+}
