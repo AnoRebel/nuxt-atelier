@@ -23,3 +23,6 @@ coverage/
 .DS_Store
 .idea/
 *.log
+
+# temporary compiled modules from tests
+test/**/.tmp-*

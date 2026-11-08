@@ -2,6 +2,7 @@ import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Nuxt } from '@nuxt/schema'
 import { getLayerDirectories } from '@nuxt/kit'
+import { blockSchemas, discoverBlocks } from '../blocks/discover'
 
 type SchemaKind = 'collections' | 'singletons'
 
@@ -72,6 +73,7 @@ export function schemaTemplate(): string {
     })
     exports.push(`export const ${kind} = {\n${entries.join('\n')}\n}`)
   }
+  exports.push(`export const blocks = ${JSON.stringify(blockSchemas(discoverBlocks()))}`)
   return [...lines, '', ...exports, ''].join('\n')
 }
 

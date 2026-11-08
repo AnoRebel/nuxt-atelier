@@ -17,6 +17,7 @@
 //
 // Every field column is nullable: `required` is enforced by validation, so adding a required field
 // later doesn't need a table rewrite. Timestamps are ISO 8601 UTC strings on every engine.
+import type { BlockSchema } from '../../shared/blocks'
 import type { Field } from '../../shared/fields'
 import type { CollectionDefinition, SingletonDefinition } from '../types'
 import type { Dialect } from './driver'
@@ -175,6 +176,8 @@ export interface ContentSchema {
   singletons: Record<string, SingletonDefinition>
   /** Extra tables, e.g. an auth adapter's, by table name (from `server/atelier/tables.ts`). */
   tables?: Record<string, TableSpec>
+  /** Block schemas by name, for validating blocks fields. */
+  blocks?: Record<string, BlockSchema>
 }
 
 /** A column of an extra table. JSON, so it travels through migrations like the content schema. */

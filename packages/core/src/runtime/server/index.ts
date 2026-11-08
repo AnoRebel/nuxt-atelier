@@ -1,6 +1,7 @@
 // `#atelier/server`: the server-side public API
 import type { AtelierDriver } from './db/driver'
 import type { TableSpec } from './db/tables'
+import type { BlockSchema } from '../shared/blocks'
 import type { CollectionName, CollectionQuery, TypedEntry, TypedEntryList } from '../shared/query'
 import type { ListQuery } from './db/query'
 import type { CollectionDefinition, SingletonDefinition } from './types'
@@ -36,6 +37,8 @@ export { QueryError } from './db/query'
 export type { Condition, Filter, ListQuery, Operator } from './db/query'
 export { apiError, readValid, validated } from './errors'
 export { openApiDocument } from './openapi'
+export { contentRepairs, findStaleContent } from '../shared/reconcile'
+export type { StaleContent } from '../shared/reconcile'
 export type { ErrorCode } from './errors'
 export { ConflictError, NotFoundError, ReferencedError, ValidationError, withTransaction } from './db/store'
 export type { ColumnSpec, TableSpec } from './db/tables'
@@ -74,9 +77,10 @@ export async function useAtelierSchema(): Promise<{
   collections: Record<string, CollectionDefinition>
   singletons: Record<string, SingletonDefinition>
   tables: Record<string, TableSpec>
+  blocks: Record<string, BlockSchema>
 }> {
-  const { collections, singletons, tables } = await import('#atelier-schema')
-  return { collections, singletons, tables }
+  const { collections, singletons, tables, blocks } = await import('#atelier-schema')
+  return { collections, singletons, tables, blocks }
 }
 
 /** Every table of the app as Drizzle tables, by table name: content, system and extra tables. */
@@ -94,7 +98,7 @@ let entries: Promise<EntryStore> | undefined
 
 /** Reads and saves entries of the app's collections, on the app's database. */
 export function useAtelierEntries(): Promise<EntryStore> {
-  entries ??= (async () => createEntryStore(await useAtelierDatabase(), await useAtelierSchema()))()
+  entries ??= (async () => createEntryStore(await useAtelierDatabase(), await useAtelierSchema(), { maxNestingDepth: (useAtelierServerConfig() as unknown as { limits: { maxNestingDepth: number } }).limits.maxNestingDepth }))()
     .catch((error) => {
       entries = undefined
       throw error

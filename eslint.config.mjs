@@ -51,13 +51,13 @@ export default createConfigForNuxt({
     },
   },
   {
-    // Nuxt names pages and layouts after their file (index, about, default)
-    files: ['**/app/{pages,layouts}/**/*.vue'],
+    // Nuxt names pages and layouts after their file (index, about, default); blocks are named like Hero
+    files: ['**/app/{pages,layouts,blocks}/**/*.vue'],
     rules: { 'vue/multi-word-component-names': 'off' },
   },
   {
     // tests drive the dialect-generic query builders and adapter data directly
-    files: ['test/storage/**/*.ts', 'test/adapter/**/*.ts', 'test/api/**/*.ts'],
+    files: ['test/storage/**/*.ts', 'test/adapter/**/*.ts', 'test/api/**/*.ts', 'test/blocks/**/*.ts'],
     rules: { '@typescript-eslint/no-explicit-any': 'off' },
   },
   {

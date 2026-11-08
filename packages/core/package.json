@@ -51,7 +51,10 @@
     "valibot": "catalog:",
     "drizzle-orm": "catalog:db",
     "@libsql/client": "catalog:db",
-    "jiti": "catalog:"
+    "jiti": "catalog:",
+    "oxc-parser": "catalog:",
+    "magic-string": "catalog:",
+    "@vue/compiler-sfc": "catalog:"
   },
   "devDependencies": {
     "@nuxt/schema": "catalog:",

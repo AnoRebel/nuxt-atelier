@@ -111,6 +111,14 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
   - Templates regenerate on `builder:watch`, and Nuxt HMR picks up template changes through its public mechanism, with no captured Vite servers.
 - **Layer overrides:** layers come from `getLayerDirectories()`, in priority order. On a same-name block, the highest priority wins and the override is logged in debug mode, never as an error. This fixes blökkli #54.
 - **Defaults:** compiled to factory functions so every block instance gets a fresh copy. This fixes Pruvious #154.
+- **Field helpers in `defineProps`** come from `#atelier`, typed as Vue props: each returns `{ type: PropType<value>, '~field': descriptor }`. So `defineProps({ title: text({ required: true }) })` type-checks and gives a typed `title`. A field descriptor's own `type: 'text'` can't be a Vue prop type, so the server's helpers (`#atelier/server`) stay descriptors.
+- **Rendering:**
+  - A block's fields and options are its props; each nested area is the component's slot of the same name. Areas are stored as block props holding block lists, as the content adapter contract already has them.
+  - The app registry (`#atelier-blocks`) holds only lazy component imports and area names; schemas go to the server in `#atelier-schema`.
+  - `#components` references in `.block.ts` files resolve to the component's file through `components:extend`, since Nuxt rewrites only static `#components` imports.
+- **Reconciliation:** content is never blocked by stale schema data.
+  - Validation keeps props a block no longer declares and blocks of unknown types, treats an area added since as empty, and keeps unknown keys inside objects and repeater items (top-level unknown keys are still refused).
+  - `findStaleContent()` reports these; `contentRepairs` drops or moves them.
 
 ### D4. Validation and forms
 - **Validation:** Valibot 1.5 is the single validation engine. Field helpers compose Valibot schemas, and the server validates every write with them.
