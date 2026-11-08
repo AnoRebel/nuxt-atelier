@@ -2,8 +2,9 @@
 //   GET     /          every role, with its source (builtin, code, database)
 //   PUT     /<name>    creates or replaces a database role
 //   DELETE  /<name>    deletes a database role no user has
-import { createError, defineEventHandler, getRequestURL, readBody } from 'nuxt/server'
+import { defineEventHandler, getRequestURL, readBody } from 'nuxt/server'
 import { assertMigrated, audit, requireUser, useAtelierAuth, useAtelierRoles } from '../index'
+import { apiError } from '../errors'
 
 const PREFIX = '/api/_atelier/roles'
 
@@ -29,5 +30,5 @@ export default defineEventHandler(async (event) => {
     await audit(event, { action: 'role.deleted', actorId: actor.id, target: { type: 'role', id: name }, details: { from: before } })
     return { ok: true }
   }
-  throw createError({ status: 405, message: 'Method not allowed' })
+  throw apiError(405, 'Method not allowed')
 })

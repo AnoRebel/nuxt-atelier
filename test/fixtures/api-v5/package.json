@@ -1,0 +1,11 @@
+{
+  "name": "@nuxt-atelier/fixture-api-v5",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev"
+  },
+  "dependencies": {
+    "nuxt": "catalog:"
+  }
+}

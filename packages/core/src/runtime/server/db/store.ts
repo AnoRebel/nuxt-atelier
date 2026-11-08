@@ -6,10 +6,12 @@ import type { CollectionDefinition } from '../types'
 import type { AtelierDriver } from './driver'
 import type { Db } from './entries'
 import type { ContentSchema } from './tables'
-import { and, asc, eq, sql } from 'drizzle-orm'
+import type { ListQuery } from './query'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { validateEntry } from '../../shared/fields'
 import { UnsupportedOperationError } from './driver'
 import { fromRow, getRow, isUnique, toRow } from './entries'
+import { afterCursor, compileFilter, compileSort, decodeCursor, encodeCursor, orderBy } from './query'
 import { buildTables, collectionTable } from './tables'
 
 /** The entry changed since the client read it. `currentVersion` is the version to reload. */
@@ -59,7 +61,24 @@ export interface Entry {
   version: number
   createdAt: string
   updatedAt: string
+  /** The user who created it, when known. */
+  createdBy: string | null
   data: Record<string, unknown>
+}
+
+export interface ListOptions extends ListQuery {
+  /** Levels of relations to replace with the entries they point to. */
+  depth?: number
+  /** Only entries this user created (own-entries-only permissions). */
+  createdBy?: string
+}
+
+export interface EntryList {
+  items: Entry[]
+  /** Entries matching the filter, on every page. */
+  total: number
+  /** The cursor for the next page, or null on the last one. */
+  next: string | null
 }
 
 export interface SingletonEntry {
@@ -163,54 +182,127 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema) {
     return definition
   }
 
-  async function read(q: Db, name: string, id: string): Promise<Entry | undefined> {
+  const CHUNK = 500 // ids per IN list, well under every engine's parameter limit
+
+  /** Entries by id, with their relations: two queries per 500 ids. Missing ids are absent. */
+  async function readMany(q: Db, name: string, ids: string[]): Promise<Map<string, Entry>> {
     const { definition, table } = collection(name)
-    const row = await getRow(q, table, id)
-    if (!row)
-      return undefined
-    const data = fromRow(definition.fields, row)
-    const links: RelationRow[] = await q.select().from(relations)
-      .where(and(eq(relations.source, name), eq(relations.sourceId, id)))
-      .orderBy(asc(relations.field), asc(relations.position))
-    // top-level relations live only in the relations table; nested ones are also in their JSON column
-    for (const [key, field] of Object.entries(definition.fields)) {
-      if (field.type !== 'relation')
+    const found = new Map<string, Entry>()
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = [...new Set(ids.slice(i, i + CHUNK))]
+      const rows: Record<string, unknown>[] = await q.select().from(table).where(inArray(table._id, chunk))
+      if (!rows.length)
         continue
-      const ids = links.filter(l => l.field === key || l.field === field.renamedFrom).map(l => l.targetId)
-      data[key] = field.many ? ids : ids[0] ?? null
+      const links: (RelationRow & { sourceId: string })[] = await q.select().from(relations)
+        .where(and(eq(relations.source, name), inArray(relations.sourceId, rows.map(r => r._id as string))))
+        .orderBy(asc(relations.sourceId), asc(relations.field), asc(relations.position))
+      for (const row of rows) {
+        const id = row._id as string
+        const data = fromRow(definition.fields, row)
+        // top-level relations live only in the relations table; nested ones are also in their JSON column
+        for (const [key, field] of Object.entries(definition.fields)) {
+          if (field.type !== 'relation')
+            continue
+          const targets = links.filter(l => l.sourceId === id && (l.field === key || l.field === field.renamedFrom)).map(l => l.targetId)
+          data[key] = field.many ? targets : targets[0] ?? null
+        }
+        found.set(id, { id, version: row._version as number, createdAt: row._createdAt as string, updatedAt: row._updatedAt as string, createdBy: (row._createdBy as string | null) ?? null, data })
+      }
     }
-    return { id, version: row._version as number, createdAt: row._createdAt as string, updatedAt: row._updatedAt as string, data }
+    return found
   }
+
+  const read = async (q: Db, name: string, id: string) => (await readMany(q, name, [id])).get(id)
 
   async function readSingleton(q: Db, name: string): Promise<SingletonEntry | undefined> {
     const [row] = await q.select().from(singletons).where(eq(singletons.name, name)).limit(1)
     return row && { name, version: row.version, updatedAt: row.updatedAt, data: renamed(singleton(name).fields, row.data) }
   }
 
-  /** Replaces relation ids with the entries they point to, `depth` levels deep. A missing entry reads as null. */
-  async function populate(q: Db, fields: Record<string, Field>, data: Record<string, unknown>, depth: number): Promise<Record<string, unknown>> {
-    if (depth <= 0)
-      return data
-    const out = { ...data }
+  /** Calls `visit` for every relation value in `data`, nested ones included; `set` replaces it. */
+  function eachRelation(fields: Record<string, Field>, data: Record<string, unknown>, visit: (field: RelationField, value: unknown, set: (value: unknown) => void) => void) {
     for (const [key, field] of Object.entries(fields)) {
       const value = data[key]
-      if (field.type === 'relation') {
-        const load = async (id: unknown) => {
-          const entry = await read(q, field.to, String(id))
-          return entry ? { ...entry, data: await populate(q, collection(field.to).definition.fields, entry.data, depth - 1) } : null
-        }
-        out[key] = Array.isArray(value)
-          ? (await Promise.all(value.map(load))).filter(Boolean)
-          : value ? await load(value) : null
-      }
-      else if (field.type === 'object' && value && typeof value === 'object') {
-        out[key] = await populate(q, field.fields, value as Record<string, unknown>, depth)
-      }
-      else if (field.type === 'repeater' && Array.isArray(value)) {
-        out[key] = await Promise.all(value.map(item => populate(q, field.fields, item, depth)))
-      }
+      if (field.type === 'relation')
+        visit(field, value, (v) => { data[key] = v })
+      else if (field.type === 'object' && value && typeof value === 'object')
+        eachRelation(field.fields, value as Record<string, unknown>, visit)
+      else if (field.type === 'repeater' && Array.isArray(value))
+        value.forEach(item => eachRelation(field.fields, item, visit))
+    }
+  }
+
+  /**
+   * Replaces relation ids with the entries they point to, `depth` levels deep, for many entries at once:
+   * per level, one batched read per target collection. A missing entry reads as null, or is left out of a list.
+   */
+  async function populate(q: Db, fields: Record<string, Field>, datas: Record<string, unknown>[], depth: number): Promise<Record<string, unknown>[]> {
+    if (depth <= 0 || !datas.length)
+      return datas
+    const out = datas.map(d => structuredClone(d))
+    const wanted = new Map<string, Set<string>>()
+    for (const data of out) {
+      eachRelation(fields, data, (field, value) => {
+        const set = wanted.get(field.to) ?? new Set<string>()
+        for (const id of Array.isArray(value) ? value : value ? [value] : [])
+          set.add(String(id))
+        wanted.set(field.to, set)
+      })
+    }
+    const loaded = new Map<string, Entry>()
+    for (const [to, ids] of wanted) {
+      const entries = [...(await readMany(q, to, [...ids])).values()]
+      const populated = await populate(q, collection(to).definition.fields, entries.map(e => e.data), depth - 1)
+      entries.forEach((entry, i) => loaded.set(`${to}:${entry.id}`, { ...entry, data: populated[i]! }))
+    }
+    for (const data of out) {
+      eachRelation(fields, data, (field, value, set) => {
+        const entry = (id: unknown) => loaded.get(`${field.to}:${id}`)
+        set(Array.isArray(value) ? value.map(entry).filter(Boolean) : value ? entry(value) ?? null : null)
+      })
     }
     return out
+  }
+
+  /** A page of entries matching a query, populated to `depth`. */
+  async function list(name: string, options: ListOptions): Promise<EntryList> {
+    const { definition, table } = collection(name)
+    const context = {
+      dialect: driver.dialect,
+      fields: definition.fields,
+      table,
+      relations,
+      source: name,
+      relationsQuery: (where: unknown) => db.select({ one: sql`1` }).from(relations).where(where),
+    }
+    const filters = [
+      ...options.filter ? [compileFilter(context, options.filter)] : [],
+      ...options.createdBy === undefined ? [] : [eq(table._createdBy, options.createdBy)],
+    ]
+    const where = filters.length ? and(...filters) : undefined
+    const keys = compileSort(context, options.sort)
+    const limit = options.limit ?? 20
+    const page = options.cursor
+      ? and(where, afterCursor(keys, decodeCursor(options.cursor, keys)))
+      : where
+    let select = db.select({ id: table._id, ...Object.fromEntries(keys.map((k, i) => [`k${i}`, k.column])) })
+      .from(table).where(page).orderBy(...orderBy(keys)).limit(limit + 1)
+    if (!options.cursor && options.offset)
+      select = select.offset(options.offset)
+    const rows: Record<string, unknown>[] = await select
+    const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(table).where(where)
+
+    const more = rows.length > limit
+    const pageRows = rows.slice(0, limit)
+    const found = await readMany(db, name, pageRows.map(r => r.id as string))
+    const items = pageRows.map(r => found.get(r.id as string)!).filter(Boolean)
+    const populated = await populate(db, definition.fields, items.map(e => e.data), options.depth ?? 0)
+    const last = pageRows.at(-1)
+    return {
+      items: items.map((entry, i) => ({ ...entry, data: populated[i]! })),
+      total: Number(count),
+      next: more && last ? encodeCursor(keys.map((_, i) => last[`k${i}`] ?? null)) : null,
+    }
   }
 
   interface Target<T> {
@@ -242,7 +334,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema) {
       write: (q, data, version, now) => {
         const row = toRow(definition.fields, data)
         return expected === undefined
-          ? q.insert(table).values({ _id: id, _version: version, _createdAt: now, _updatedAt: now, ...row })
+          ? q.insert(table).values({ _id: id, _version: version, _createdAt: now, _updatedAt: now, _createdBy: authorId ?? null, ...row })
           // only the version the client read is updated: a concurrent save makes this match nothing
           : q.update(table).set({ ...row, _version: version, _updatedAt: now }).where(and(eq(table._id, id), eq(table._version, expected)))
       },
@@ -407,8 +499,14 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema) {
     /** An entry with its relations (as ids, or entries up to `depth` levels), or undefined. */
     async get(name: string, id: string, options: GetOptions = {}): Promise<Entry | undefined> {
       const entry = await read(db, name, id)
-      return entry && { ...entry, data: await populate(db, collection(name).definition.fields, entry.data, options.depth ?? 0) }
+      return entry && { ...entry, data: (await populate(db, collection(name).definition.fields, [entry.data], options.depth ?? 0))[0]! }
     },
+
+    /**
+     * A page of entries: filtered, sorted and paginated (see ListQuery), populated to `depth`. Throws
+     * QueryError (400) for a field or operator the collection can't use.
+     */
+    list,
 
     /**
      * Creates or updates an entry atomically. Throws ValidationError (422), ConflictError (409) when
@@ -441,7 +539,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema) {
     /** A singleton's saved data (relations as ids, or entries up to `depth` levels), or undefined before its first save. */
     async getSingleton(name: string, options: GetOptions = {}): Promise<SingletonEntry | undefined> {
       const entry = await readSingleton(db, name)
-      return entry && { ...entry, data: await populate(db, singleton(name).fields, entry.data, options.depth ?? 0) }
+      return entry && { ...entry, data: (await populate(db, singleton(name).fields, [entry.data], options.depth ?? 0))[0]! }
     },
 
     /** Saves a singleton atomically. `version` is the one read, or undefined/null for the first save. */

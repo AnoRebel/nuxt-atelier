@@ -1,12 +1,13 @@
 import * as v from 'valibot'
-import { defineEventHandler, isNuxtError, readValidatedBody } from 'nuxt/server'
+import { defineEventHandler, isNuxtError } from 'nuxt/server'
 import { assertMigrated, audit, signInLimits, useAtelierAuth, useAtelierRateLimiter } from '../../index'
+import { readValid } from '../../errors'
 
 const Credentials = v.object({ email: v.pipe(v.string(), v.maxLength(255)), password: v.pipe(v.string(), v.maxLength(1024)) })
 
 export default defineEventHandler(async (event) => {
   await assertMigrated()
-  const credentials = await readValidatedBody(event, Credentials)
+  const credentials = await readValid(event, Credentials)
   const limiter = await useAtelierRateLimiter()
   const email = credentials.email.trim().toLowerCase()
   const limits = signInLimits(event, email)

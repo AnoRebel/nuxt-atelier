@@ -55,6 +55,7 @@ export const optionsSchema = v.strictObject({
     maxNestingDepth: int(1, 50, 10, 'How deep blocks can be nested.'),
     jobConcurrency: int(1, 64, 4, 'Background jobs run at the same time.'),
     dbPoolSize: int(1, 100, 10, 'Database connection pool size.'),
+    writesPerMinute: int(1, 100_000, 120, 'Content writes (create, update, delete) one user or API token may make per minute; then 429.'),
     cacheSize: int(0, 1_000_000, 1000, 'Entries kept in the in-memory cache.'),
   }), {}),
 })

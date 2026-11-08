@@ -14,9 +14,10 @@ import type { RequestEvent } from 'nuxt/server'
 import { generateAuthenticationOptions, generateRegistrationOptions, verifyAuthenticationResponse, verifyRegistrationResponse } from '@simplewebauthn/server'
 import { isoBase64URL } from '@simplewebauthn/server/helpers'
 import { and, eq } from 'drizzle-orm'
-import { clearSession, createError, defineEventHandler, getRequestURL, readBody, useRuntimeConfig, useSession } from 'nuxt/server'
+import { clearSession, defineEventHandler, getRequestURL, readBody, useRuntimeConfig, useSession } from 'nuxt/server'
 import { buildTables } from '../../db/tables'
 import { assertMigrated, audit, signInLimits, useAtelierAuth, useAtelierDatabase, useAtelierRateLimiter } from '../../index'
+import { apiError } from '../../errors'
 
 const PREFIX = '/api/_atelier/auth/passkeys'
 // the pending challenge lives in its own short-lived sealed cookie, so it works before sign-in too
@@ -38,7 +39,7 @@ async function challenge(event: RequestEvent, set?: { challenge: string, userId?
   const data = { ...session.data }
   await clearSession(event, CHALLENGE) // one use
   if (!data.challenge)
-    throw createError({ status: 400, message: 'No passkey challenge in progress, or it expired: start again' })
+    throw apiError(400, 'No passkey challenge in progress, or it expired: start again')
   return data as { challenge: string, userId?: string }
 }
 
@@ -46,7 +47,7 @@ export default defineEventHandler(async (event) => {
   await assertMigrated()
   const auth = await useAtelierAuth()
   if (!auth.startSession) // passkeys belong to the built-in adapter; other adapters bring their own
-    throw createError({ status: 404, message: 'Not found' })
+    throw apiError(404, 'Not found')
   const startSession = auth.startSession
   const driver = await useAtelierDatabase()
   const db = driver.db as any // eslint-disable-line @typescript-eslint/no-explicit-any -- one code path for the three dialects
@@ -58,7 +59,7 @@ export default defineEventHandler(async (event) => {
   const signedIn = async () => {
     const user = await auth.getUser(event)
     if (!user)
-      throw createError({ status: 401, message: 'Sign in first' })
+      throw apiError(401, 'Sign in first')
     return user
   }
 
@@ -83,11 +84,11 @@ export default defineEventHandler(async (event) => {
     const { response, name } = await readBody<{ response: RegistrationResponseJSON, name?: string }>(event)
     const pending = await challenge(event)
     if (pending.userId !== user.id)
-      throw createError({ status: 400, message: 'The passkey challenge belongs to another user' })
+      throw apiError(400, 'The passkey challenge belongs to another user')
     const result = await verifyRegistrationResponse({ response, expectedChallenge: pending.challenge, expectedOrigin: rp.origin, expectedRPID: rp.id, requireUserVerification: true })
       .catch((error: Error) => ({ verified: false as const, error }))
     if (!result.verified)
-      throw createError({ status: 400, message: `The passkey couldn't be verified${'error' in result ? `: ${result.error.message}` : ''}` })
+      throw apiError(400, `The passkey couldn't be verified${'error' in result ? `: ${result.error.message}` : ''}`)
     const { credential } = result.registrationInfo
     await db.insert(passkeys).values({
       id: credential.id,
@@ -118,7 +119,7 @@ export default defineEventHandler(async (event) => {
     const refused = async () => {
       await limiter.hit(limits)
       await audit(event, { action: 'auth.sign-in-failed', actorId: null, details: { method: 'passkey' } })
-      return createError({ status: 401, message: 'This passkey isn\'t recognised' })
+      return apiError(401, 'This passkey isn\'t recognised')
     }
     if (!passkey)
       throw await refused()
@@ -149,11 +150,11 @@ export default defineEventHandler(async (event) => {
     const id = decodeURIComponent(action)
     const [owned] = await db.select({ id: passkeys.id }).from(passkeys).where(and(eq(passkeys.id, id), eq(passkeys.userId, user.id)))
     if (!owned)
-      throw createError({ status: 404, message: 'No such passkey' })
+      throw apiError(404, 'No such passkey')
     await db.delete(passkeys).where(eq(passkeys.id, id))
     await audit(event, { action: 'auth.passkey-removed', actorId: user.id, target: { type: 'passkey', id } })
     return { ok: true }
   }
 
-  throw createError({ status: 404, message: 'Not found' })
+  throw apiError(404, 'Not found')
 })

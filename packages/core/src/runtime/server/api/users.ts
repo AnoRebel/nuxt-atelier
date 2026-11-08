@@ -8,9 +8,10 @@
 // their own role: otherwise the `users` capability would be a way to become an administrator.
 import type { AuthUser } from '../auth/adapter'
 import * as v from 'valibot'
-import { createError, defineEventHandler, getRequestURL, readValidatedBody } from 'nuxt/server'
+import { defineEventHandler, getRequestURL } from 'nuxt/server'
 import { ADMIN_ROLE } from '../../shared/policy'
 import { assertMigrated, audit, requireUser, useAtelierAuth, useAtelierRoles } from '../index'
+import { apiError, readValid } from '../errors'
 
 const PREFIX = '/api/_atelier/users'
 const email = v.pipe(v.string(), v.trim(), v.email('Enter an email address'), v.maxLength(255))
@@ -32,20 +33,20 @@ export default defineEventHandler(async (event) => {
 
   const knownRole = async (name: string | undefined) => {
     if (name !== undefined && !await (await useAtelierRoles()).exists(name))
-      throw createError({ status: 422, message: `There's no role "${name}"` })
+      throw apiError(422, `There's no role "${name}"`)
   }
-  const adminOnly = () => createError({ status: 403, message: 'Only an administrator can grant the admin role or change an administrator' })
+  const adminOnly = () => apiError(403, 'Only an administrator can grant the admin role or change an administrator')
   const target = async () => {
     const users = await auth.users.list()
     if (!users.some(u => u.id === id))
-      throw createError({ status: 404, message: `No user "${id}"` })
+      throw apiError(404, `No user "${id}"`)
     return users
   }
 
   if (!id && method === 'GET')
     return auth.users.list()
   if (!id && method === 'POST') {
-    const body = await readValidatedBody(event, NewUser)
+    const body = await readValid(event, NewUser)
     if (body.role === ADMIN_ROLE && actor.role !== ADMIN_ROLE)
       throw adminOnly()
     await knownRole(body.role)
@@ -54,15 +55,15 @@ export default defineEventHandler(async (event) => {
     return created
   }
   if (id && method === 'PATCH') {
-    const changes = await readValidatedBody(event, Changes)
+    const changes = await readValid(event, Changes)
     await knownRole(changes.role)
     const users = await target()
     if (actor.role !== ADMIN_ROLE && (changes.role === ADMIN_ROLE || users.find(u => u.id === id)!.role === ADMIN_ROLE))
       throw adminOnly()
     if (changes.role !== undefined && id === actor.id && actor.role !== ADMIN_ROLE)
-      throw createError({ status: 403, message: 'You can\'t change your own role' })
+      throw apiError(403, 'You can\'t change your own role')
     if (changes.role !== undefined && changes.role !== ADMIN_ROLE && isLastAdmin(users, id))
-      throw createError({ status: 409, message: 'This is the last administrator: make another user an administrator first' })
+      throw apiError(409, 'This is the last administrator: make another user an administrator first', {}, 'last_admin')
     const before = users.find(u => u.id === id)!
     const updated = await auth.users.update(id, changes)
     const changed: Record<string, unknown> = Object.fromEntries((['email', 'name', 'role'] as const)
@@ -78,11 +79,11 @@ export default defineEventHandler(async (event) => {
     if (actor.role !== ADMIN_ROLE && users.find(u => u.id === id)!.role === ADMIN_ROLE)
       throw adminOnly()
     if (isLastAdmin(users, id))
-      throw createError({ status: 409, message: 'This is the last administrator: make another user an administrator first' })
+      throw apiError(409, 'This is the last administrator: make another user an administrator first', {}, 'last_admin')
     const deleted = users.find(u => u.id === id)!
     await auth.users.delete(id)
     await audit(event, { action: 'user.deleted', actorId: actor.id, target: { type: 'user', id }, details: { email: deleted.email, role: deleted.role } })
     return { ok: true }
   }
-  throw createError({ status: 405, message: 'Method not allowed' })
+  throw apiError(405, 'Method not allowed')
 })

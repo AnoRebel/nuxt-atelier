@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "6d9db82d-7dc5-45ba-a207-46ba1980d733",
+  "id": "6873c6f9-1807-4e13-932c-424a82eed074",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -12,6 +12,10 @@
     },
     {
       "name": "atelier_relations",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_c_notes",
       "entityType": "tables"
     },
     {
@@ -141,6 +145,66 @@
       "name": "target_id",
       "type": "text",
       "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "_version",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "_updated_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "_created_by",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "title",
+      "type": "text",
+      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
@@ -731,6 +795,15 @@
       "name": "atelier_singletons_pk",
       "columns": [
         "name"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_c_notes",
+      "name": "atelier_c_notes_pk",
+      "columns": [
+        "_id"
       ],
       "nameExplicit": false,
       "entityType": "pks"

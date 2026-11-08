@@ -66,11 +66,11 @@
 
 ## 7. Content API (content-api)
 
-- [ ] 7.1 Implement REST handlers under `/api/_atelier/**` with `nuxt/server` (`defineHandler`, `readValidatedBody`) for collections, singletons, routes, revisions, auth, using `{nitro2, nitro3}` variants where needed; record entry deletions in the audit log (`entry.deleted`); verify integration tests on Nuxt 4 and `compatibilityVersion: 5`
-- [ ] 7.2 Implement query language (filters with and/or, comparisons, contains, in, null; sort; field selection; offset + cursor pagination; locale; populate depth) with bounded page size and depth; verify unit tests and capped page size response
-- [ ] 7.3 Implement published-only default reads and draft access requiring preview permission; verify anonymous draft request returns the published version or 404
-- [ ] 7.4 Enforce permissions per operation, strip unreadable fields, refuse writes to read-only fields, record each entry's creator (`_created_by`) for own-only rules, and rate-limit writes per user or token (configurable, through the `atelier_rate_limits` limiter); verify field-omission, 403, own-entries-only and write 429 tests
-- [ ] 7.5 Implement the structured error shape (code, message, field details; 401/403/404/409/422/429); verify snapshot tests of error bodies
+- [x] 7.1 Implement REST handlers under `/api/_atelier/**` with `nuxt/server` (`defineHandler`, `readValidatedBody`) for collections, singletons, routes, revisions, auth, using `{nitro2, nitro3}` variants where needed; record entry deletions in the audit log (`entry.deleted`); verify integration tests on Nuxt 4 and `compatibilityVersion: 5` (collections, singletons and revisions under `/api/_atelier/collections|singletons/**`, auth since section 6; the same integration suite passes on Nuxt 4 and `compatibilityVersion: 5` (`test/api`). Route endpoints come with site routing (9.x) and media with the media library (12.x); updates are PATCH, merged into the stored data so fields the caller can't see survive)
+- [x] 7.2 Implement query language (filters with and/or, comparisons, contains, in, null; sort; field selection; offset + cursor pagination; locale; populate depth) with bounded page size and depth; verify unit tests and capped page size response (JSON `filter` with and/or groups and eq/ne/gt/gte/lt/lte/contains/in/null on top-level and system fields, relations through the relations table, multi-selects through each engine's JSON functions; nulls last on every engine; keyset cursors and offsets; `fields`; batched population (one read per collection per level); page size capped by `limits.maxPageSize`, depth by `limits.maxRelationDepth`. Verified on all five engines. Locale selection comes with localization (13.x))
+- [ ] 7.3 (after 10.1: needs draft/published pointers) Implement published-only default reads and draft access requiring preview permission; verify anonymous draft request returns the published version or 404
+- [x] 7.4 Enforce permissions per operation, strip unreadable fields, refuse writes to read-only fields, record each entry's creator (`_created_by`) for own-only rules, and rate-limit writes per user or token (configurable, through the `atelier_rate_limits` limiter); verify field-omission, 403, own-entries-only and write 429 tests (`_created_by` on collection tables; populated relations follow the target collection's read rules; writes limited by `limits.writesPerMinute` per user (tokens join in 7.6))
+- [x] 7.5 Implement the structured error shape (code, message, field details; 401/403/404/409/422/429); verify snapshot tests of error bodies (`apiError(status, message, details, code)`: Nuxt's error body with `data.code` and details; `readValid`/`validated` give 422 with field paths. The full body is pinned in the content API suite)
 - [ ] 7.6 Implement scoped API tokens (hashed, expiring, revocable); audited as `token.created` / `token.revoked`; verify revoked token → 401 and scope enforcement tests
 - [ ] 7.7 Implement typed server (`#atelier/server`) and client (`useAtelierQuery`, `useAtelierEntry`) helpers using Nuxt `useAsyncData`/`useFetch` for SSR; verify type tests and an SSR fixture rendering queried content
 - [ ] 7.8 Generate the OpenAPI document endpoint from schemas; verify it validates against the OpenAPI 3.1 schema in tests
@@ -91,7 +91,7 @@
 
 ## 9. Site routing and redirects (site-routing)
 
-- [ ] 9.1 Implement routable content types with URL patterns and per-type page component/layout, plus the lowest-priority catch-all page via `extendPages`; verify publishing `about` serves `/about`
+- [ ] 9.1 Implement routable content types with URL patterns and per-type page component/layout, plus the lowest-priority catch-all page via `extendPages`, and the routes API (`GET /api/_atelier/routes`, path → entry resolution) under the content API's permissions and error shape; verify publishing `about` serves `/about`
 - [ ] 9.2 Verify host route precedence with a fixture where `pages/contact.vue` shadows a CMS entry, and implement the admin shadowing warning data
 - [ ] 9.3 Implement unique per-locale hierarchical paths with descendant updates and optional automatic redirects; verify parent rename test
 - [ ] 9.4 Implement 404 for unpublished/missing paths via the host error page; verify status 404 e2e
@@ -123,7 +123,7 @@
 - [ ] 12.1 Implement the streaming storage driver interface and local driver (`.data/uploads`, immutable cache headers, no `public/` symlinks); verify uploads persist across dev restarts
 - [ ] 12.2 Implement `@nuxt-atelier/storage-s3` (S3-compatible and R2 via `aws4fetch`) and `@nuxt-atelier/storage-vercel-blob`; verify integration tests against MinIO and a Vercel Blob mock
 - [ ] 12.3 Implement uploads with size/type limits and `file-type` content sniffing; verify disguised executable rejection
-- [ ] 12.4 Implement media metadata (localized alt text, caption, credits), folders, tags, search; verify tag search test
+- [ ] 12.4 Implement media metadata (localized alt text, caption, credits), folders, tags, search, with the media API under `/api/_atelier/media` (upload, list with the query language, update, delete) using the content API's permissions, error shape and write limits; verify tag search test
 - [ ] 12.5 Implement image variants via optional `ipx` + `sharp` with focal-point crops, `@nuxt/image` delegation when installed, and external-provider fallback on edge; verify focal-crop test and Workers smoke test serving originals or provider URLs
 - [ ] 12.6 Implement `<AtelierImage>`/`<AtelierPicture>` with responsive markup and intrinsic dimensions; verify no-layout-shift markup snapshot
 - [ ] 12.7 Implement usage tracking and safe delete with usage listing; verify delete-in-use warning test
@@ -132,7 +132,7 @@
 
 ## 13. Localization (localization)
 
-- [ ] 13.1 Implement locale config, localized content types, per-field translated/shared, translation groups, and fallback chains; verify shared-field propagation and fallback-indicator tests
+- [ ] 13.1 Implement locale config, localized content types, per-field translated/shared, translation groups, and fallback chains, including the content API's `locale` query parameter and its use in `entries.list`/`get`; verify shared-field propagation and fallback-indicator tests
 - [ ] 13.2 Implement localized block strategies (independent trees vs shared structure with translated fields); verify shared-structure reorder test
 - [ ] 13.3 Implement the `I18nAdapter` with auto-detection order (nuxt-i18n-micro → @nuxtjs/i18n → none) and adapter packages `@nuxt-atelier/i18n-micro` and `@nuxt-atelier/i18n-nuxtjs`; verify localized routes in fixtures for each and API-only locales without either
 - [ ] 13.4 Add an explicit CI job for the nuxt-i18n-micro adapter under `compatibilityVersion: 5` documenting current status; verify the job reports pass/fail without blocking other jobs

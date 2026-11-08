@@ -3,8 +3,9 @@ import type { RequestEvent } from 'nuxt/server'
 import type { AtelierDriver } from '../db/driver'
 import type { Db } from '../db/entries'
 import { eq, lt } from 'drizzle-orm'
-import { createError, getRequestIP } from 'nuxt/server'
+import { getRequestIP } from 'nuxt/server'
 import { buildTables } from '../db/tables'
+import { apiError } from '../errors'
 
 export interface Limit {
   /** What's counted, e.g. `sign-in:<ip>:<email>`. Hashed before it's stored. */
@@ -38,7 +39,7 @@ export function createRateLimiter(driver: AtelierDriver) {
         if (row && row.count >= limit.max) {
           const seconds = Math.max(1, Math.ceil((Date.parse(row.resetAt) - Date.now()) / 1000))
           event.res.headers.set('retry-after', String(seconds))
-          throw createError({ status: 429, message: `Too many attempts: try again in ${Math.ceil(seconds / 60)} minute${seconds > 60 ? 's' : ''}` })
+          throw apiError(429, `Too many attempts: try again in ${Math.ceil(seconds / 60)} minute${seconds > 60 ? 's' : ''}`)
         }
       }
     },

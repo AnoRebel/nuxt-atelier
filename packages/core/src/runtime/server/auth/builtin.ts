@@ -6,10 +6,11 @@ import type { AtelierDriver } from '../db/driver'
 import type { Db } from '../db/entries'
 import type { AuthAdapter, AuthUser, NewUser } from './adapter'
 import { and, eq, gt, lt } from 'drizzle-orm'
-import { clearSession, createError, deleteCookie, getCookie, getSession, setCookie, updateSession } from 'nuxt/server'
+import { clearSession, deleteCookie, getCookie, getSession, setCookie, updateSession } from 'nuxt/server'
 import { buildTables } from '../db/tables'
 import { defineAuthAdapter } from './adapter'
 import { hashPassword, verifyPassword } from './password'
+import { apiError } from '../errors'
 
 const SESSION_COOKIE = 'atelier-session'
 /** Readable by the admin's scripts, which echo it in the `x-atelier-csrf` header. */
@@ -75,7 +76,7 @@ export function createBuiltinAuth(driver: AtelierDriver, options: BuiltinAuthOpt
   async function emailFree(email: string, exceptId?: string) {
     const existing = await byEmail(email)
     if (existing && existing.id !== exceptId)
-      throw createError({ status: 409, message: `A user with the email ${email} already exists` })
+      throw apiError(409, `A user with the email ${email} already exists`, {}, 'already_exists')
   }
 
   return defineAuthAdapter({
@@ -96,7 +97,7 @@ export function createBuiltinAuth(driver: AtelierDriver, options: BuiltinAuthOpt
       const row = await byEmail(String(email))
       const check = await verifyPassword(String(password), row?.passwordHash ?? await (dummyHash ??= hashPassword(randomId())))
       if (!row?.passwordHash || !check.valid)
-        throw createError({ status: 401, message: 'Wrong email or password' })
+        throw apiError(401, 'Wrong email or password')
       if (check.needsRehash)
         await db.update(users).set({ passwordHash: await hashPassword(String(password)) }).where(eq(users.id, row.id))
       await startSession(event, row.id, 'password')
@@ -138,7 +139,7 @@ export function createBuiltinAuth(driver: AtelierDriver, options: BuiltinAuthOpt
 
       async update(id, changes) {
         if (!await byId(id))
-          throw createError({ status: 404, message: `No user "${id}"` })
+          throw apiError(404, `No user "${id}"`)
         if (changes.email !== undefined)
           await emailFree(changes.email, id)
         await db.update(users).set({

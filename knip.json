@@ -57,6 +57,12 @@
         "{app,server}/type-checks.ts"
       ]
     },
+    "test/fixtures/api": {
+      "entry": [
+        "server/api/**/*.ts",
+        "server/atelier/**/*.ts"
+      ]
+    },
     "test/fixtures/auth": {
       "entry": [
         "server/api/**/*.ts",

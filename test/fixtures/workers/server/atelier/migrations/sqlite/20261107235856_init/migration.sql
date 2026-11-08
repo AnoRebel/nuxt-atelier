@@ -20,6 +20,7 @@ CREATE TABLE `atelier_c_notes` (
 	`_version` integer NOT NULL,
 	`_created_at` text NOT NULL,
 	`_updated_at` text NOT NULL,
+	`_created_by` text,
 	`title` text
 );
 --> statement-breakpoint
