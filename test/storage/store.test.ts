@@ -23,6 +23,11 @@ const schema = {
     authors: { fields: { name: f.text(), mentor: f.relation({ to: 'authors' }) } },
     tags: { fields: { name: f.text() } },
     comments: { fields: { text: f.text(), article: f.relation({ to: 'articles', onDelete: 'cascade' }) } },
+    // two-way relations: many ↔ many, one ↔ many, and a symmetric one on a single collection
+    books: { fields: { title: f.text(), writers: f.relation({ to: 'writers', many: true, inverse: 'books' }), chapters: f.relation({ to: 'chapters', many: true, inverse: 'book' }) } },
+    writers: { fields: { name: f.text(), books: f.relation({ to: 'books', many: true, inverse: 'writers' }) } },
+    chapters: { fields: { title: f.text(), book: f.relation({ to: 'books', inverse: 'chapters' }) } },
+    people: { fields: { name: f.text(), friends: f.relation({ to: 'people', many: true, inverse: 'friends' }) } },
   },
   singletons: {
     settings: { fields: { siteName: f.text({ required: true }), editor: f.relation({ to: 'authors', onDelete: 'nullify' }) } },
@@ -177,6 +182,40 @@ describe.each(engines)('%s entry store', (_, url) => {
     await expect(store.delete('authors', author.id)).rejects.toBeInstanceOf(ReferencedError)
     expect(await store.get('comments', comment.id)).toBeDefined()
     await expect(store.delete('articles', 'missing')).rejects.toBeInstanceOf(NotFoundError)
+  })
+
+  it('keeps both sides of a two-way relation in sync, whichever side is edited', async () => {
+    const [w1, w2] = [await store.save('writers', { data: { name: 'Ann' } }), await store.save('writers', { data: { name: 'Bo' } })]
+    const book = await store.save('books', { data: { title: 'Duet', writers: [w1.id, w2.id] } })
+    expect(await store.get('writers', w1.id)).toMatchObject({ version: 2, data: { books: [book.id] } })
+    expect(await store.get('writers', w2.id)).toMatchObject({ version: 2, data: { books: [book.id] } })
+
+    // from the other side; a stale save of that side is refused
+    await store.save('writers', { id: w1.id, version: 2, data: { name: 'Ann', books: [] } })
+    expect((await store.get('books', book.id))!.data.writers).toEqual([w2.id])
+    await expect(store.save('writers', { id: w2.id, version: 1, data: { name: 'Bo' } })).rejects.toBeInstanceOf(ConflictError)
+  })
+
+  it('moves a link when the inverse side holds one entry', async () => {
+    const [b1, b2] = [await store.save('books', { data: { title: 'One' } }), await store.save('books', { data: { title: 'Two' } })]
+    const chapter = await store.save('chapters', { data: { title: 'Intro', book: b1.id } })
+    expect((await store.get('books', b1.id))!.data.chapters).toEqual([chapter.id])
+
+    await store.save('books', { id: b2.id, version: 1, data: { title: 'Two', chapters: [chapter.id] } })
+    expect((await store.get('chapters', chapter.id))!.data.book).toBe(b2.id)
+    expect((await store.get('books', b1.id))!.data.chapters).toEqual([])
+  })
+
+  it('unlinks the other side when an entry of a two-way relation is deleted, and syncs a symmetric relation', async () => {
+    const writer = await store.save('writers', { data: { name: 'Cy' } })
+    const book = await store.save('books', { data: { title: 'Gone', writers: [writer.id] } })
+    await store.delete('books', book.id) // no onDelete: the inverse side is unlinked, not restricted
+    expect(await store.get('writers', writer.id)).toMatchObject({ version: 3, data: { books: [] } })
+
+    const [p1, p2] = [await store.save('people', { data: { name: 'Di' } }), await store.save('people', { data: { name: 'Ed' } })]
+    await store.save('people', { id: p1.id, version: 1, data: { name: 'Di', friends: [p2.id, p1.id] } })
+    expect((await store.get('people', p2.id))!.data.friends).toEqual([p1.id])
+    expect((await store.get('people', p1.id))!.data.friends).toEqual([p2.id, p1.id]) // a link to itself has no other side
   })
 
   it('populates relations to the depth asked', async () => {

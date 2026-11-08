@@ -12,7 +12,7 @@ import * as v from 'valibot'
 import { defineEventHandler, getQuery } from 'nuxt/server'
 import { apiError, readValid, validated } from '../errors'
 import { audit, toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
-import { allow, assertMigrated, assertWritable, caller, countWrite, limits, present, segments, select } from '../content-access'
+import { allow, assertInversesWritable, assertMigrated, assertWritable, caller, countWrite, limits, present, segments, select } from '../content-access'
 
 const PREFIX = '/api/_atelier/collections'
 const list = (text: string) => text.split(',').map(s => s.trim()).filter(Boolean)
@@ -77,6 +77,7 @@ export default defineEventHandler(async (event) => {
       allow(who, 'create', name)
       const { data } = await readValid(event, Create)
       assertWritable(who, name, data)
+      await assertInversesWritable(who, entries, name, undefined, definition.fields, data)
       await countWrite(event, who)
       return shape(await entries.save(name, { data, authorId: who.principal.id }))
     }
@@ -91,6 +92,7 @@ export default defineEventHandler(async (event) => {
       allow(who, 'update', name, stored)
       const { version, data } = await readValid(event, Update)
       assertWritable(who, name, data, stored.data)
+      await assertInversesWritable(who, entries, name, id, definition.fields, data, stored.data)
       await countWrite(event, who)
       return shape(await entries.save(name, { id, version, data: { ...stored.data, ...data }, authorId: who.principal.id }))
     }

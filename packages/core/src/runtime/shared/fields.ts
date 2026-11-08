@@ -70,6 +70,11 @@ export interface RelationField extends Base, Items {
   to: string
   many?: boolean
   onDelete?: 'restrict' | 'nullify' | 'cascade'
+  /**
+   * The relation field on `to` pointing back, which must name this field as its own inverse: the two are
+   * kept in sync, whichever side is edited. Top-level relations of collections only.
+   */
+  inverse?: string
 }
 export interface ObjectField extends Base { type: 'object', fields: Fields }
 export interface RepeaterField extends Base, Items { type: 'repeater', fields: Fields }

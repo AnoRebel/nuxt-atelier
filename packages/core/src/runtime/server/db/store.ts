@@ -373,6 +373,70 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
   }
 
   /**
+   * Keeps two-way relations in sync with a save of `data`: each entry gaining or losing a link from it
+   * gets the change on its inverse field, as a new version (and revision) of that entry. When the
+   * inverse holds one entry, adding a link moves it: the entry it pointed to loses the link too.
+   * Not validated, like a nullified reference: a required inverse left empty must be fixed on its next save.
+   */
+  async function mirrors(q: Db, target: Target<unknown>, data: Record<string, unknown>, now: string): Promise<unknown[]> {
+    const { source, sourceId } = target
+    const twoWay = Object.entries(target.fields).filter((e): e is [string, RelationField] => e[1].type === 'relation' && !!e[1].inverse)
+    if (!twoWay.length || !(source in schema.collections))
+      return []
+    const ids = (value: unknown): string[] => value == null ? [] : Array.isArray(value) ? value as string[] : [value as string]
+    const before: { field: string, targetId: string }[] = target.expected === undefined
+      ? []
+      : await q.select().from(relations).where(and(eq(relations.source, source), eq(relations.sourceId, sourceId)))
+
+    const changed = new Map<string, { source: string, id: string, version: number, data: Record<string, unknown> }>()
+    const edit = async (name: string, id: string, change: (data: Record<string, unknown>) => void) => {
+      if (name === source && id === sourceId)
+        return // a link to itself has no other side
+      const key = entryKey(name, id)
+      if (!changed.has(key)) {
+        const current = await read(q, name, id)
+        if (!current)
+          return // a dangling id: nothing to mirror
+        changed.set(key, { source: name, id, version: current.version, data: { ...current.data } })
+      }
+      change(changed.get(key)!.data)
+    }
+    const unlink = (data: Record<string, unknown>, key: string, id: string) => {
+      const value = data[key]
+      data[key] = Array.isArray(value) ? value.filter(v => v !== id) : value === id ? null : value
+    }
+
+    for (const [key, field] of twoWay) {
+      const inverseKey = field.inverse!
+      const inverse = collection(field.to).definition.fields[inverseKey] as RelationField
+      const old = new Set(before.filter(r => r.field === key).map(r => r.targetId))
+      const linked = new Set(ids(data[key]))
+      for (const id of old) {
+        if (!linked.has(id))
+          await edit(field.to, id, d => unlink(d, inverseKey, sourceId))
+      }
+      for (const id of linked) {
+        if (old.has(id))
+          continue
+        let previous: unknown
+        await edit(field.to, id, (d) => {
+          if (inverse.many) {
+            d[inverseKey] = [...new Set([...ids(d[inverseKey]), sourceId])]
+          }
+          else {
+            previous = d[inverseKey]
+            d[inverseKey] = sourceId
+          }
+        })
+        // an inverse holding one entry moves: the entry it pointed to loses its link to this one
+        if (typeof previous === 'string' && previous !== sourceId)
+          await edit(source, previous, d => unlink(d, key, id))
+      }
+    }
+    return [...changed.values()].flatMap(e => statements(q, entryTarget(e.source, e.id, e.version, target.authorId), e.data, now))
+  }
+
+  /**
    * Saves validated data, its relation rows and a revision atomically: in a transaction, or on D1 as
    * one batch whose revision insert (unique per source and version) doubles as the version check.
    */
@@ -399,14 +463,16 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       if (!driver.capabilities.transactions) {
         const data = await validate(db)
         await refuseStale(db)
-        await db.batch(statements(db, target, data, now))
+        await db.batch([...statements(db, target, data, now), ...await mirrors(db, target, data, now)])
         return await target.read(db)
       }
       return await db.transaction(async (tx: Db) => {
-        const [write, ...rest] = statements(tx, target, await validate(tx), now)
+        const data = await validate(tx)
+        const others = await mirrors(tx, target, data, now) // reads the links before this save replaces them
+        const [write, ...rest] = statements(tx, target, data, now)
         if (!affected(await write))
           await refuseStale(tx)
-        for (const statement of rest)
+        for (const statement of [...rest, ...others])
           await statement
         return target.read(tx)
       })
@@ -450,7 +516,9 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         .where(and(eq(relations.target, source), eq(relations.targetId, sourceId)))
       for (const ref of refs) {
         const holder = entryKey(ref.source, ref.sourceId)
-        const onDelete = relationAt(ref.source, ref.field)?.onDelete ?? 'restrict'
+        const field = relationAt(ref.source, ref.field)
+        // the other side of a two-way relation is a mirror of this entry's own links: unlinked by default
+        const onDelete = field?.onDelete ?? (field?.inverse ? 'nullify' : 'restrict')
         if (onDelete === 'cascade') {
           if (!deleted.has(holder))
             await visit(ref.source, ref.sourceId)
