@@ -5,7 +5,7 @@ import type { AtelierDriver } from '../db/driver'
 import type { Db } from '../db/entries'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
-import { ADMIN_ROLE } from '../../shared/policy'
+import { ADMIN_ROLE, DEFAULT_PUBLIC_ROLE, PUBLIC_ROLE } from '../../shared/policy'
 import { buildTables } from '../db/tables'
 import { apiError } from '../errors'
 
@@ -66,7 +66,7 @@ export function createRoleStore(driver: AtelierDriver, codeRoles: Roles) {
   return {
     /** Every role but `admin`, as the policy takes them. */
     async roles(): Promise<Roles> {
-      return { ...await stored(), ...codeRoles }
+      return { [PUBLIC_ROLE]: DEFAULT_PUBLIC_ROLE, ...await stored(), ...codeRoles }
     },
 
     async list(): Promise<RoleEntry[]> {
@@ -75,6 +75,8 @@ export function createRoleStore(driver: AtelierDriver, codeRoles: Roles) {
         { name: ADMIN_ROLE, role: { label: 'Administrator' }, source: 'builtin' as const },
         ...Object.entries(codeRoles).map(([name, role]) => ({ name, role, source: 'code' as const })),
         ...Object.entries(fromDb).filter(([name]) => !(name in codeRoles)).map(([name, role]) => ({ name, role, source: 'database' as const })),
+        // visitors' role, until one replaces it
+        ...PUBLIC_ROLE in codeRoles || PUBLIC_ROLE in fromDb ? [] : [{ name: PUBLIC_ROLE, role: DEFAULT_PUBLIC_ROLE, source: 'builtin' as const }],
       ]
     },
 

@@ -11,7 +11,7 @@ export type AuditAction
     | 'user.created' | 'user.updated' | 'user.deleted'
     | 'role.saved' | 'role.deleted'
     | 'token.created' | 'token.revoked'
-    | 'entry.published' | 'entry.deleted'
+    | 'entry.published' | 'entry.unpublished' | 'entry.deleted'
     | 'redirect.created' | 'redirect.updated' | 'redirect.deleted'
 
 export interface AuditInput {

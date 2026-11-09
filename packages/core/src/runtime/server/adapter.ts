@@ -44,12 +44,12 @@ export function createDatabaseAdapter(options: DatabaseAdapterOptions): DefinedC
       await require(ref, 'read', context)
       const fresh = () => ({ ref, version: null, data: defaultsFactory(fieldsOf(ref))() })
       if (ref.kind === 'singleton') {
-        const saved = await store.getSingleton(ref.name)
+        const saved = await store.getSingleton(ref.name, { stage: 'draft' })
         return saved ? { ref, version: saved.version, data: saved.data } : fresh()
       }
       if (ref.id === undefined)
         return fresh()
-      const entry = await store.get(ref.name, ref.id)
+      const entry = await store.get(ref.name, ref.id, { stage: 'draft' })
       if (!entry)
         throw new NotFoundError(`No entry "${ref.id}" in "${ref.name}"`)
       return { ref, version: entry.version, data: entry.data }

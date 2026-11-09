@@ -29,7 +29,10 @@ export interface CollectionDefinition {
   route?: RouteDefinition
   /** Entries have one version per locale. */
   localized?: boolean
-  /** Keep a revision history. */
+  /**
+   * Drafts and publishing: saves change a draft, and the site serves the version last published. Without
+   * it, every save is published at once. Every type keeps a revision history either way.
+   */
   versioned?: boolean
   admin?: { icon?: string, group?: string, columns?: string[] }
 }
@@ -40,5 +43,7 @@ export interface SingletonDefinition {
   /** The singleton gets a URL and is served by the site's catch-all page. */
   route?: RouteDefinition
   localized?: boolean
+  /** Drafts and publishing, as for collections. */
+  versioned?: boolean
   admin?: { icon?: string, group?: string }
 }

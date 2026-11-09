@@ -46,7 +46,7 @@ describe('first-run setup, users and roles', async () => {
 
   it('lists the built-in, code and seeded database roles', async () => {
     const { body } = await api('GET', '/roles', undefined, admin)
-    expect(body.map((r: { name: string, source: string }) => `${r.name}:${r.source}`)).toEqual(['admin:builtin', 'reviewer:code', 'editor:database'])
+    expect(body.map((r: { name: string, source: string }) => `${r.name}:${r.source}`)).toEqual(['admin:builtin', 'reviewer:code', 'editor:database', 'public:builtin'])
     expect((await api('PUT', '/roles/reviewer', { content: {} }, admin)).status).toBe(409) // in code
     expect((await api('PUT', '/roles/admin', {}, admin)).status).toBe(409)
     expect((await api('PUT', '/roles/manager', { label: 'Manager', capabilities: ['users'] }, admin)).status).toBe(200)

@@ -9,7 +9,7 @@
 import type { AuthUser } from '../auth/adapter'
 import * as v from 'valibot'
 import { defineEventHandler, getRequestURL } from 'nuxt/server'
-import { ADMIN_ROLE } from '../../shared/policy'
+import { ADMIN_ROLE, PUBLIC_ROLE } from '../../shared/policy'
 import { assertMigrated, audit, requireUser, useAtelierAuth, useAtelierRoles } from '../index'
 import { apiError, readValid } from '../errors'
 
@@ -32,6 +32,8 @@ export default defineEventHandler(async (event) => {
   const method = event.req.method
 
   const knownRole = async (name: string | undefined) => {
+    if (name === PUBLIC_ROLE)
+      throw apiError(422, `"${PUBLIC_ROLE}" is the role of visitors who aren't signed in; give users another one`)
     if (name !== undefined && !await (await useAtelierRoles()).exists(name))
       throw apiError(422, `There's no role "${name}"`)
   }

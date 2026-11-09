@@ -5,8 +5,12 @@
 //                           repeaters, blocks, multi-selects and JSON are JSON columns.
 //   atelier_singletons      one row per singleton, its data as JSON
 //   atelier_relations       relation values, normalised so references can be found from either side
-//   atelier_revisions       a JSON snapshot per saved version
+//   atelier_revisions       a JSON snapshot per saved version, and whether it was published
 //   atelier_routes          URL paths of routable entries, per locale ('' for every locale)
+//   atelier_p_…             the published copies of the four above (atelier_p_<collection>, atelier_p_singletons,
+//                           atelier_p_relations, atelier_p_routes): what the site serves. The others hold
+//                           drafts; publishing copies an entry's rows across. Same columns, so every query
+//                           runs on either.
 //   atelier_redirects       redirects: entered by administrators, or created when an entry's URL changed
 //   atelier_users           CMS users of the built-in auth adapter
 //   atelier_sessions        their sessions, so signing out or a password reset can revoke them
@@ -106,6 +110,12 @@ const SCALAR_TYPES = new Set<Field['type']>(['text', 'textarea', 'number', 'bool
 
 /** The table name for a collection. */
 export const collectionTable = (name: string) => `atelier_c_${name.replaceAll('-', '_')}`
+/** The table holding a collection's published entries. */
+export const publishedTable = (name: string) => `atelier_p_${name.replaceAll('-', '_')}`
+/** Drafts or what the site serves: which copy of the content tables a query runs on. */
+export type Stage = 'draft' | 'published'
+/** The name of a draft table's published copy. */
+export const published = (table: string) => table.replace(/^atelier_(c_)?/, 'atelier_p_')
 
 /** An index name within the identifier limit: long names keep a readable prefix and get a hash suffix. */
 export function indexName(table: string, column: string, suffix: string): string {
@@ -264,24 +274,40 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       checkRoute(name, definition.route, definition.fields, true)
   }
 
+  const singletonsTable = (name: string) => kit.table(name, {
+    name: kit.key('name', NAME).primaryKey(),
+    data: kit.json('data').notNull(),
+    version: kit.int('_version').notNull(),
+    updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
+  })
+  const relationsTable = (name: string) => kit.table(name, {
+    source: kit.key('source', NAME).notNull(),
+    sourceId: kit.key('source_id', NAME).notNull(),
+    field: kit.key('field', 255).notNull(), // dot path, e.g. `faq.2.author`
+    position: kit.int('position').notNull(),
+    target: kit.key('target', NAME).notNull(),
+    targetId: kit.key('target_id', ID).notNull(),
+  }, t => [
+    kit.primaryKey([t.source, t.sourceId, t.field, t.position]),
+    kit.index(`${name}_target_idx`).on(t.target, t.targetId),
+  ])
+  const routesTable = (name: string) => kit.table(name, {
+    path: kit.key('path', MAX_PATH).notNull(), // canonical: see canonicalPath()
+    locale: kit.key('locale', 35).notNull(), // '' when the pattern is shared by every locale
+    source: kit.key('source', NAME).notNull(),
+    sourceId: kit.key('source_id', NAME).notNull(), // an entry id, or a singleton's name
+  }, t => [
+    kit.primaryKey([t.path, t.locale]),
+    kit.index(`${name}_source_idx`).on(t.source, t.sourceId),
+  ])
+
   const tables: Record<string, Table> = {
-    atelier_singletons: kit.table('atelier_singletons', {
-      name: kit.key('name', NAME).primaryKey(),
-      data: kit.json('data').notNull(),
-      version: kit.int('_version').notNull(),
-      updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
-    }),
-    atelier_relations: kit.table('atelier_relations', {
-      source: kit.key('source', NAME).notNull(),
-      sourceId: kit.key('source_id', NAME).notNull(),
-      field: kit.key('field', 255).notNull(), // dot path, e.g. `faq.2.author`
-      position: kit.int('position').notNull(),
-      target: kit.key('target', NAME).notNull(),
-      targetId: kit.key('target_id', ID).notNull(),
-    }, t => [
-      kit.primaryKey([t.source, t.sourceId, t.field, t.position]),
-      kit.index('atelier_relations_target_idx').on(t.target, t.targetId),
-    ]),
+    atelier_singletons: singletonsTable('atelier_singletons'),
+    atelier_p_singletons: singletonsTable('atelier_p_singletons'),
+    atelier_relations: relationsTable('atelier_relations'),
+    atelier_p_relations: relationsTable('atelier_p_relations'),
+    atelier_routes: routesTable('atelier_routes'),
+    atelier_p_routes: routesTable('atelier_p_routes'),
     atelier_revisions: kit.table('atelier_revisions', {
       id: kit.key('_id', ID).primaryKey(),
       source: kit.key('source', NAME).notNull(),
@@ -290,6 +316,7 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       data: kit.json('data').notNull(),
       createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
       authorId: kit.key('author_id', ID),
+      published: kit.bool('published').notNull(), // this version was published when it was saved
     }, t => [kit.uniqueIndex('atelier_revisions_source_version_idx').on(t.source, t.sourceId, t.version)]),
     atelier_users: kit.table('atelier_users', {
       id: kit.key('_id', ID).primaryKey(),
@@ -356,41 +383,34 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       auto: kit.bool('auto').notNull(), // created when an entry's URL changed
       createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
     }, t => [kit.uniqueIndex('atelier_redirects_source_idx').on(t.source)]),
-    atelier_routes: kit.table('atelier_routes', {
-      path: kit.key('path', MAX_PATH).notNull(), // canonical: see canonicalPath()
-      locale: kit.key('locale', 35).notNull(), // '' when the pattern is shared by every locale
-      source: kit.key('source', NAME).notNull(),
-      sourceId: kit.key('source_id', NAME).notNull(), // an entry id, or a singleton's name
-    }, t => [
-      kit.primaryKey([t.path, t.locale]),
-      kit.index('atelier_routes_source_idx').on(t.source, t.sourceId),
-    ]),
   }
 
   for (const [name, spec] of Object.entries(schema.tables ?? {})) {
-    if (!TABLE_NAME.test(name) || name.length > IDENTIFIER_MAX || name in tables || name.startsWith('atelier_c_'))
-      throw new Error(`[nuxt-atelier] Extra table "${name}": use a name starting with atelier_ (not atelier_c_), in lowercase letters, digits and _, that no other table uses`)
+    if (!TABLE_NAME.test(name) || name.length > IDENTIFIER_MAX || name in tables || /^atelier_[cp]_/.test(name))
+      throw new Error(`[nuxt-atelier] Extra table "${name}": use a name starting with atelier_ (not atelier_c_ or atelier_p_), in lowercase letters, digits and _, that no other table uses`)
     tables[name] = specTable(kit, tables, name, spec)
   }
 
   for (const [name, definition] of Object.entries(schema.collections)) {
-    const table = collectionTable(name)
-    const columns: Record<string, Column> = {
-      _id: kit.key('_id', ID).primaryKey(),
-      _version: kit.int('_version').notNull(),
-      _createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
-      _updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
-      _createdBy: kit.key('_created_by', ID), // the user who created it, for own-entries-only permissions
+    // built per table: a column builder belongs to the table it's built into
+    const columns = (): Record<string, Column> => {
+      const result: Record<string, Column> = {
+        _id: kit.key('_id', ID).primaryKey(),
+        _version: kit.int('_version').notNull(),
+        _createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
+        _updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
+        _createdBy: kit.key('_created_by', ID), // the user who created it, for own-entries-only permissions
+      }
+      for (const [key, field] of Object.entries(definition.fields)) {
+        const column = fieldColumn(kit, key, field)
+        if (column)
+          result[key] = column
+      }
+      return result
     }
-    const unique: string[] = []
-    for (const [key, field] of Object.entries(definition.fields)) {
-      const column = fieldColumn(kit, key, field)
-      if (column)
-        columns[key] = column
-      if (field.unique)
-        unique.push(key)
-    }
-    tables[table] = kit.table(table, columns, t => unique.map(key => kit.uniqueIndex(indexName(table, key, 'unique')).on(t[key])))
+    const unique = Object.entries(definition.fields).filter(([, f]) => f.unique).map(([key]) => key)
+    for (const table of [collectionTable(name), publishedTable(name)])
+      tables[table] = kit.table(table, columns(), t => unique.map(key => kit.uniqueIndex(indexName(table, key, 'unique')).on(t[key])))
   }
   return tables
 }

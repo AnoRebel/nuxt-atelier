@@ -86,8 +86,9 @@ export function contentApiSuite(label: string, rootDir: string) {
       expect((await api('admin', 'GET', `/collections/articles${q({ filter: { title: { eq: 'Hello' } } })}`)).body.items[0].data.internalNotes).toBe('check the facts')
     })
 
-    it('enforces each operation: 401 signed out, 403 without the permission, own entries only', async () => {
-      expect((await api(null, 'GET', '/collections/articles')).status).toBe(401)
+    it('enforces each operation: visitors read but don\'t write, 403 without the permission, own entries only', async () => {
+      expect((await api(null, 'GET', '/collections/articles')).status).toBe(200) // the public role
+      expect((await api(null, 'POST', '/collections/articles', { data: { title: 'Anonymous' } })).status).toBe(401)
       expect((await api('intern', 'GET', '/collections/authors')).status).toBe(403)
 
       const mine = await api('writer', 'POST', '/collections/articles', { data: { title: 'Mine' } })
@@ -129,7 +130,7 @@ export function contentApiSuite(label: string, rootDir: string) {
         data: { code: 'validation_failed', errors: [{ path: 'title', message: 'required' }, { path: 'views', message: 'expected 0 or more' }] },
       })
       const bodies = await Promise.all([
-        api(null, 'GET', '/collections/articles'),
+        api(null, 'DELETE', `/collections/articles/${ids.ada}`),
         api('intern', 'GET', '/collections/authors'),
         api('admin', 'GET', '/collections/nope'),
         api('admin', 'GET', `/collections/articles${q({ filter: { nope: { eq: 1 } } })}`),
