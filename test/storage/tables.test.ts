@@ -61,7 +61,7 @@ describe.each(engines)('%s tables', (_, url) => {
   const check = (id?: string) => ({ isUnique: (field: string, value: unknown) => isUnique(driver.db, posts, field, value, id) })
 
   it('creates the system and collection tables', () => {
-    expect(Object.keys(tables).toSorted()).toEqual(['atelier_audit', 'atelier_c_authors', 'atelier_c_blog_posts', 'atelier_jobs', 'atelier_p_authors', 'atelier_p_blog_posts', 'atelier_p_relations', 'atelier_p_routes', 'atelier_p_singletons', 'atelier_passkeys', 'atelier_rate_limits', 'atelier_redirects', 'atelier_relations', 'atelier_revisions', 'atelier_roles', 'atelier_routes', 'atelier_sessions', 'atelier_singletons', 'atelier_tokens', 'atelier_users', 'atelier_webhook_deliveries', 'atelier_webhooks'])
+    expect(Object.keys(tables).toSorted()).toEqual(['atelier_audit', 'atelier_c_authors', 'atelier_c_blog_posts', 'atelier_jobs', 'atelier_media', 'atelier_p_authors', 'atelier_p_blog_posts', 'atelier_p_relations', 'atelier_p_routes', 'atelier_p_singletons', 'atelier_passkeys', 'atelier_rate_limits', 'atelier_redirects', 'atelier_relations', 'atelier_revisions', 'atelier_roles', 'atelier_routes', 'atelier_sessions', 'atelier_singletons', 'atelier_tokens', 'atelier_users', 'atelier_webhook_deliveries', 'atelier_webhooks'])
   })
 
   it('round-trips every column type unchanged', async () => {

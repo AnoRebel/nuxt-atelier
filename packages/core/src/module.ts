@@ -35,7 +35,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     config.atelier = {
       databaseUrl: resolved.database.url, // NUXT_ATELIER_DATABASE_URL
       dbPoolSize: resolved.limits.dbPoolSize,
-      limits: { maxPageSize: resolved.limits.maxPageSize, maxRelationDepth: resolved.limits.maxRelationDepth, maxNestingDepth: resolved.limits.maxNestingDepth, writesPerMinute: resolved.limits.writesPerMinute, cacheSize: resolved.limits.cacheSize, jobConcurrency: resolved.limits.jobConcurrency },
+      media: { accept: resolved.media.accept },
+      limits: { maxUploadSize: resolved.limits.maxUploadSize, maxPageSize: resolved.limits.maxPageSize, maxRelationDepth: resolved.limits.maxRelationDepth, maxNestingDepth: resolved.limits.maxNestingDepth, writesPerMinute: resolved.limits.writesPerMinute, cacheSize: resolved.limits.cacheSize, jobConcurrency: resolved.limits.jobConcurrency },
       jobs: { secret: '', triggerBudget: resolved.jobs.triggerBudget }, // NUXT_ATELIER_JOBS_SECRET
       revisions: { keep: resolved.revisions.keep, days: resolved.revisions.days },
       webhooks: { allow: resolved.webhooks.allow }, // NUXT_ATELIER_WEBHOOKS_ALLOW
@@ -142,6 +143,9 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ route: '/api/_atelier/preview-links', handler: resolve('./runtime/server/api/preview-links') })
     addServerHandler({ route: '/api/_atelier/jobs', handler: resolve('./runtime/server/api/jobs') })
     addServerHandler({ route: '/api/_atelier/webhooks', handler: resolve('./runtime/server/api/webhooks') })
+    addServerHandler({ route: '/api/_atelier/media', handler: resolve('./runtime/server/api/media') })
+    addServerHandler({ route: '/api/_atelier/media/**', handler: resolve('./runtime/server/api/media') })
+    addServerHandler({ route: '/_atelier/media/**', handler: resolve('./runtime/server/api/media-files') })
     addServerHandler({ route: '/api/_atelier/webhooks/**', handler: resolve('./runtime/server/api/webhooks') })
     addServerHandler({ route: '/api/_atelier/jobs/**', handler: resolve('./runtime/server/api/jobs') })
     // background jobs: one Nitro task drains the queue, on Nitro's scheduler where the platform has one

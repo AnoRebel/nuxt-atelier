@@ -20,6 +20,7 @@
 //   atelier_roles           roles edited in the admin (code-defined ones are in server/atelier/roles.ts)
 //   atelier_passkeys        their passkeys (WebAuthn credentials), when passkey sign-in is enabled
 //   atelier_jobs            the background job queue: due time, attempts, lock, last error
+//   atelier_media           the media library: one row per file, with its metadata and where it's stored
 //   atelier_webhooks        outgoing webhooks: target URL, events, the signing secret (encrypted)
 //   atelier_webhook_deliveries  each delivery attempt: status or error, how long it took
 //
@@ -391,6 +392,26 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       lastError: kit.text('last_error'),
       createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
     }, t => [kit.index('atelier_jobs_due_idx').on(t.status, t.runAt), kit.uniqueIndex('atelier_jobs_key_idx').on(t.key)]),
+    atelier_media: kit.table('atelier_media', {
+      _id: kit.key('_id', ID).primaryKey(),
+      key: kit.key('key', 255).notNull(), // the storage driver's key
+      filename: kit.key('filename', 255).notNull(),
+      mime: kit.key('mime', 127).notNull(), // from the file's content, not its name
+      size: kit.bigint('size').notNull(),
+      width: kit.int('width'),
+      height: kit.int('height'),
+      title: kit.text('title'),
+      alt: kit.json('alt'), // per locale: { en: '…' }, '' for one shared by every locale
+      caption: kit.text('caption'),
+      credits: kit.text('credits'),
+      folder: kit.key('folder', 255).notNull(), // '' for the top level, else like "team/2026"
+      tags: kit.json('tags').notNull(),
+      focal: kit.json('focal'), // { x, y } from 0 to 1
+      private: kit.bool('private').notNull(),
+      _createdBy: kit.key('_created_by', ID),
+      _createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
+      _updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
+    }, t => [kit.index('atelier_media_folder_idx').on(t.folder), kit.index('atelier_media_created_idx').on(t._createdAt)]),
     atelier_webhooks: kit.table('atelier_webhooks', {
       id: kit.key('_id', ID).primaryKey(),
       url: kit.text('url').notNull(),

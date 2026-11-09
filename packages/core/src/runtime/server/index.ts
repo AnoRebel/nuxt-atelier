@@ -7,9 +7,12 @@ import type { ListQuery } from './db/query'
 import type { CollectionDefinition, SingletonDefinition } from './types'
 import { useRuntimeConfig, useServerHooks } from 'nuxt/server'
 import type { JobQueue } from './jobs'
+import type { MediaLibrary } from './media/library'
 import type { WebhookStore } from './webhooks'
 import { contentChanged } from './cache'
 import { createJobQueue } from './jobs'
+import { createMediaLibrary } from './media/library'
+import { createLocalDriver } from './media/storage'
 import { queueWebhooks } from './webhook-jobs'
 import { createWebhookStore } from './webhooks'
 import { connect, UnsupportedOperationError } from './db/driver'
@@ -44,6 +47,8 @@ export type { Condition, Filter, ListQuery, Operator } from './db/query'
 export { apiError, readValid, validated } from './errors'
 export { openApiDocument } from './openapi'
 export type { ContentChange } from './cache'
+export type { MediaChanges, MediaItem, MediaLibrary } from './media/library'
+export type { StorageDriver, StoredFile } from './media/storage'
 export { defineJob } from './jobs'
 export type { EnqueueOptions, Job, JobHandler, JobQueue, JobStatus, RunResult } from './jobs'
 export { diffEntries } from '../shared/diff'
@@ -128,6 +133,21 @@ export function useAtelierEntries(): Promise<EntryStore> {
       throw error
     })
   return entries
+}
+
+let mediaLibrary: Promise<MediaLibrary> | undefined
+
+/** The media library: files in the configured storage, their metadata in the database. */
+export function useAtelierMedia(): Promise<MediaLibrary> {
+  mediaLibrary ??= useAtelierDatabase().then((driver) => {
+    const config = useAtelierServerConfig() as unknown as { storage: { dir: string }, media: { accept: string[] | string }, limits: { maxUploadSize: number } }
+    const accept = typeof config.media.accept === 'string' ? JSON.parse(config.media.accept) as string[] : config.media.accept
+    return createMediaLibrary(driver, createLocalDriver(config.storage.dir), { maxUploadSize: config.limits.maxUploadSize, accept })
+  }).catch((error) => {
+    mediaLibrary = undefined
+    throw error
+  })
+  return mediaLibrary
 }
 
 let webhookStore: Promise<WebhookStore> | undefined
