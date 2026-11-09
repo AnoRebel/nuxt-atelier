@@ -32,8 +32,11 @@ const schema = {
     pages: { route: { pattern: '/{slug}' }, fields: { slug: f.slug({ required: true }) } },
     places: { route: { pattern: { en: '/places/{slug}', et: '/kohad/{slug}' } }, fields: { slug: f.slug({ required: true }), near: f.relation({ to: 'places' }) } },
     sections: { route: { pattern: '/{slug}', parent: 'parent' }, fields: { slug: f.slug({ required: true }), parent: f.relation({ to: 'sections' }) } },
+    // drafts and publishing
+    posts: { versioned: true, route: { pattern: '/posts/{slug}' }, fields: { slug: f.slug({ required: true }), title: f.text({ unique: true }), tag: f.relation({ to: 'tags' }) } },
   },
   singletons: {
+    banner: { versioned: true, fields: { text: f.text() } },
     settings: { fields: { siteName: f.text({ required: true }), editor: f.relation({ to: 'authors', onDelete: 'nullify' }) } },
   },
 }
@@ -91,7 +94,7 @@ describe.each(engines)('%s entry store', (_, url) => {
   it('leaves no partial data when a save fails after writing some rows', async () => {
     const { id } = await store.save('articles', { data: { title: 'Before', tags: ['t1'] } })
     // a revision already holding version 2 makes the save fail on its last write, after the entry and relations
-    await query(driver, sql`insert into atelier_revisions (_id, source, source_id, _version, data, _created_at) values ('blocker', 'articles', ${id}, 2, '{}', 'now')`)
+    await query(driver, sql`insert into atelier_revisions (_id, source, source_id, _version, data, _created_at, published) values ('blocker', 'articles', ${id}, 2, '{}', 'now', ${false})`)
     await expect(store.save('articles', { id, version: 1, data: { title: 'After', tags: ['t9'] } })).rejects.toThrow()
     expect(await store.get('articles', id)).toMatchObject({ version: 1, data: { title: 'Before', tags: ['t1'] } })
     expect(await relationsOf(id)).toEqual(['tags[0] → tags/t1'])
@@ -115,7 +118,7 @@ describe.each(engines)('%s entry store', (_, url) => {
     })
     if (driver.capabilities.transactions) {
       await rename
-      expect((await store.get('articles', id))!.data.title).toBe('Renamed')
+      expect((await store.get('articles', id, { stage: 'draft' }))!.data.title).toBe('Renamed')
     }
     else {
       await expect(rename).rejects.toBeInstanceOf(UnsupportedOperationError)
@@ -306,6 +309,81 @@ describe.each(engines)('%s entry store', (_, url) => {
     expect((await store.redirects.save({ source: '//x', target: '//evil.example', status: 303 }).catch(e => e)).errors.map((e: { path: string }) => e.path)).toEqual(['source', 'status'])
     await store.redirects.delete(manual.id)
     expect(await store.redirects.cached()).toHaveLength(2)
+  })
+
+  it('keeps drafts off the site until published, then serves the published version while the next draft is edited', async () => {
+    const draft = await store.save('posts', { data: { slug: 'first', title: 'First', tag: 't1' } })
+    expect(draft).toMatchObject({ version: 1, publishedVersion: null, path: '/posts/first' })
+    expect(await store.get('posts', draft.id)).toBeUndefined()
+    expect((await store.list('posts', {})).items).toEqual([])
+    expect(await store.resolve('/posts/first')).toBeUndefined()
+    expect(await store.resolve('/posts/first', undefined, 'draft')).toMatchObject({ id: draft.id })
+
+    await expect(store.publish('posts', draft.id, { version: 0 })).rejects.toBeInstanceOf(ConflictError)
+    const live = await store.publish('posts', draft.id, { version: 1 })
+    expect(live).toMatchObject({ version: 2, publishedVersion: 2 })
+    expect(await store.get('posts', draft.id)).toMatchObject({ version: 2, publishedVersion: 2, path: '/posts/first', data: { title: 'First', tag: 't1' } })
+
+    // the next draft: the site keeps the published title, URL and relations
+    const edited = await store.save('posts', { id: draft.id, version: 2, data: { slug: 'renamed', title: 'Renamed', tag: 't2' } })
+    expect(edited).toMatchObject({ version: 3, publishedVersion: 2 })
+    expect(await store.get('posts', draft.id)).toMatchObject({ version: 2, path: '/posts/first', data: { title: 'First', tag: 't1' } })
+    expect((await store.list('posts', { filter: { tag: { eq: 't1' } } })).items.map(e => e.id)).toEqual([draft.id])
+    expect((await store.list('posts', { filter: { tag: { eq: 't2' } }, stage: 'draft' })).items.map(e => e.id)).toEqual([draft.id])
+    expect(await store.resolve('/posts/first')).toMatchObject({ id: draft.id })
+    expect((await store.redirects.list()).filter(r => r.source.startsWith('/posts'))).toEqual([]) // a draft's URL isn't public
+
+    // publishing moves the URL, redirecting the old one
+    await store.publish('posts', draft.id, { version: 3 })
+    expect(await store.resolve('/posts/renamed')).toMatchObject({ id: draft.id })
+    expect(await store.resolve('/posts/first')).toBeUndefined()
+    expect((await store.redirects.list()).filter(r => r.source.startsWith('/posts')).map(r => `${r.source} → ${r.target}`)).toEqual(['/posts/first → /posts/renamed'])
+    expect((await store.revisions('posts', draft.id)).map(r => [r.version, r.published])).toEqual([[4, true], [3, false], [2, true], [1, false]])
+  })
+
+  it('refuses to publish a unique value or URL another published entry still has', async () => {
+    const a = await store.save('posts', { data: { slug: 'a', title: 'Shared' }, publish: true })
+    await store.save('posts', { id: a.id, version: a.version, data: { slug: 'a2', title: 'Moved on' } }) // a draft: the site still has "Shared" at /posts/a
+    const b = await store.save('posts', { data: { slug: 'a', title: 'Shared' } }) // free among drafts
+    const refused = await store.publish('posts', b.id, { version: 1 }).catch(e => e)
+    expect(refused).toBeInstanceOf(ValidationError)
+    expect(refused.errors).toEqual([{ path: 'title', message: 'already used by another entry' }])
+    const titled = await store.save('posts', { id: b.id, version: 1, data: { slug: 'a', title: 'Different' } })
+    expect((await store.publish('posts', b.id, { version: titled.version }).catch(e => e)).errors)
+      .toEqual([{ path: 'slug', message: `The URL /posts/a is already used by entry "${a.id}" in "posts"` }])
+    expect(await store.get('posts', b.id)).toBeUndefined() // nothing published
+  })
+
+  it('unpublishes, keeping the draft, and deletes both', async () => {
+    const post = await store.save('posts', { data: { slug: 'gone', title: 'Gone' }, publish: true })
+    await store.unpublish('posts', post.id)
+    expect(await store.get('posts', post.id)).toBeUndefined()
+    expect(await store.resolve('/posts/gone')).toBeUndefined()
+    expect(await store.get('posts', post.id, { stage: 'draft' })).toMatchObject({ publishedVersion: null, data: { title: 'Gone' } })
+    expect((await store.redirects.list()).some(r => r.source === '/posts/gone')).toBe(false)
+
+    await store.publish('posts', post.id, { version: 1 })
+    await store.delete('posts', post.id)
+    expect(await store.get('posts', post.id)).toBeUndefined()
+    expect(await store.resolve('/posts/gone')).toBeUndefined()
+
+    // a type that isn't versioned publishes every save: there's nothing to publish
+    const tag = await store.save('tags', { data: { name: 'live' } })
+    expect(await store.get('tags', tag.id)).toMatchObject({ publishedVersion: 1 })
+    await expect(store.unpublish('tags', tag.id)).rejects.toBeInstanceOf(ValidationError)
+  })
+
+  it('publishes and unpublishes a versioned singleton', async () => {
+    const saved = await store.saveSingleton('banner', { data: { text: 'Sale' } })
+    expect(saved.publishedVersion).toBeNull()
+    expect(await store.getSingleton('banner')).toBeUndefined()
+    await store.publishSingleton('banner', { version: 1 })
+    expect(await store.getSingleton('banner')).toMatchObject({ version: 2, publishedVersion: 2, data: { text: 'Sale' } })
+    await store.saveSingleton('banner', { version: 2, data: { text: 'Sale ends soon' } })
+    expect((await store.getSingleton('banner'))!.data.text).toBe('Sale')
+    await store.unpublishSingleton('banner')
+    expect(await store.getSingleton('banner')).toBeUndefined()
+    expect((await store.getSingleton('banner', { stage: 'draft' }))!.data.text).toBe('Sale ends soon')
   })
 
   it('reads a singleton field renamed with renamedFrom from its old key', async () => {

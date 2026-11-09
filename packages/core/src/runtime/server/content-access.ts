@@ -4,7 +4,7 @@ import type { Field, RelationField } from '../shared/fields'
 import type { ContentAction, Policy, PolicyUser } from '../shared/policy'
 import type { Entry, EntryStore } from './db/store'
 import { getRequestHeader, getRequestURL } from 'nuxt/server'
-import { createPolicy } from '../shared/policy'
+import { createPolicy, PUBLIC_ROLE } from '../shared/policy'
 import { apiError } from './errors'
 import { assertMigrated, useAtelierAuth, useAtelierPolicy, useAtelierRateLimiter, useAtelierRoles, useAtelierSchema, useAtelierServerConfig, useAtelierTokens } from './index'
 
@@ -18,9 +18,10 @@ export const limits = () => (useAtelierServerConfig() as unknown as { limits: Li
 
 /**
  * Who's asking, with the policy to check them against: an API token (`Authorization: Bearer atk_…`),
- * whose permissions act as its own role, or the signed-in user. 401 when neither.
+ * whose permissions act as its own role, or the signed-in user. Neither is a visitor with the public role
+ * when `visitors` allows it (reads), and a 401 otherwise.
  */
-export async function caller(event: RequestEvent): Promise<Caller> {
+export async function caller(event: RequestEvent, visitors = false): Promise<Caller> {
   const bearer = /^Bearer (.+)$/i.exec(getRequestHeader(event, 'authorization') ?? '')?.[1]
   if (bearer) {
     const token = await (await useAtelierTokens()).verify(bearer.trim())
@@ -31,9 +32,18 @@ export async function caller(event: RequestEvent): Promise<Caller> {
     return { principal: { id: role, role }, policy }
   }
   const user = await (await useAtelierAuth()).getUser(event)
-  if (!user)
+  if (!user && !visitors)
     throw apiError(401, 'Sign in first')
-  return { principal: user, policy: await useAtelierPolicy() }
+  return { principal: user ?? { id: '', role: PUBLIC_ROLE }, policy: await useAtelierPolicy() }
+}
+
+/**
+ * Which copy a read sees: drafts when asked for (`?draft=true`) by someone who can edit this type (the
+ * preview permission), and what the site serves otherwise. Visitors never see drafts.
+ */
+export function stageFor(who: Caller, resource: string, draft: string | undefined): 'draft' | 'published' {
+  const asked = draft === 'true' || draft === '1'
+  return asked && who.principal.role !== PUBLIC_ROLE && who.policy.can(who.principal, 'update', resource) ? 'draft' : 'published'
 }
 
 /** 403 unless the caller may do `action` on `resource` (and this entry, for own-only rules). */
@@ -65,7 +75,7 @@ export async function assertInversesWritable(who: Caller, entries: EntryStore, n
     const changed = [...old.symmetricDifference(now)]
     const inverse = schema.collections[field.to]!.fields[field.inverse] as RelationField
     for (const otherId of changed) {
-      const other = await entries.get(field.to, otherId)
+      const other = await entries.get(field.to, otherId, { stage: 'draft' })
       if (!other)
         continue // validation reports a missing entry
       allow(who, 'update', field.to, other)
@@ -74,7 +84,7 @@ export async function assertInversesWritable(who: Caller, entries: EntryStore, n
         throw apiError(403, `Your role can't change ${field.inverse} in "${field.to}", which this change updates`, { fields: [field.inverse] })
       const previous = other.data[field.inverse]
       if (!inverse.many && now.has(otherId) && typeof previous === 'string' && previous !== id) {
-        const moved = await entries.get(name, previous)
+        const moved = await entries.get(name, previous, { stage: 'draft' })
         if (moved)
           allow(who, 'update', name, moved)
       }
@@ -120,6 +130,19 @@ export async function present(who: Caller, fields: Record<string, Field>, resour
   }
   await walk(fields, visible)
   return visible
+}
+
+/**
+ * A revision's data to restore as the new draft: the caller's hidden and read-only fields keep their
+ * current values, since restoring them would be writing them.
+ */
+export function restorable(who: Caller, resource: string, revision: Record<string, unknown>, current: Record<string, unknown> = {}): Record<string, unknown> {
+  const { hidden, readOnly } = who.policy.fields(who.principal, resource)
+  const kept = new Set([...hidden, ...readOnly])
+  return Object.fromEntries([
+    ...Object.entries(revision).filter(([key]) => !kept.has(key)),
+    ...Object.entries(current).filter(([key]) => kept.has(key)),
+  ])
 }
 
 /** Only the named fields of `data`; all of it without a selection. */

@@ -70,9 +70,9 @@ const param = (name: string, description: string, schema: JsonSchema = { type: '
 
 export function openApiDocument(schema: ContentSchema, info: { title?: string, version?: string } = {}): JsonSchema {
   const schemas: Record<string, JsonSchema> = {
-    RelatedEntry: { type: 'object', description: 'A populated relation', properties: { id: { type: 'string' }, version: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' }, createdBy: { type: ['string', 'null'] }, data: { type: 'object' } }, required: ['id', 'version', 'data'] },
+    RelatedEntry: { type: 'object', description: 'A populated relation', properties: { id: { type: 'string' }, version: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' }, createdBy: { type: ['string', 'null'] }, publishedVersion: { type: ['integer', 'null'], description: 'The version the site serves, or null when unpublished; below `version` when the draft has unpublished changes' }, data: { type: 'object' } }, required: ['id', 'version', 'data'] },
     Block: { type: 'object', properties: { id: { type: 'string' }, type: { type: 'string' }, props: { type: 'object' } }, required: ['id', 'type', 'props'] },
-    Revision: { type: 'object', properties: { version: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' } }, required: ['version', 'createdAt'] },
+    Revision: { type: 'object', properties: { version: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' }, authorId: { type: ['string', 'null'] }, published: { type: 'boolean', description: 'This version was published' } }, required: ['version', 'createdAt', 'authorId', 'published'] },
     Error: {
       type: 'object',
       properties: {
@@ -101,9 +101,11 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
         ...typeof route.pattern === 'string' ? {} : { paths: { type: 'object', additionalProperties: { type: 'string' }, description: 'The entry\'s URL in each locale' } },
         shadowed: { type: 'array', description: 'URLs of the entry that a page of the app serves instead (present only when there are some)', items: { type: 'object', properties: { path: { type: 'string' }, page: { type: 'string', description: 'The app page\'s route path' } }, required: ['path', 'page'] } },
       }
-  const entry = (data: string, route?: RouteDefinition) => ({ type: 'object', properties: { id: { type: 'string' }, version: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' }, createdBy: { type: ['string', 'null'] }, ...urls(route), data: ref(data) }, required: ['id', 'version', 'createdAt', 'updatedAt', 'createdBy', 'data'] })
+  const entry = (data: string, route?: RouteDefinition) => ({ type: 'object', properties: { id: { type: 'string' }, version: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' }, createdBy: { type: ['string', 'null'] }, publishedVersion: { type: ['integer', 'null'], description: 'The version the site serves, or null when unpublished; below `version` when the draft has unpublished changes' }, ...urls(route), data: ref(data) }, required: ['id', 'version', 'createdAt', 'updatedAt', 'createdBy', 'publishedVersion', 'data'] })
   const depth = param('depth', 'Levels of relations to replace with the entries they point to')
   const fields = param('fields', 'Comma-separated fields to return')
+  const draft = param('draft', '`true` for drafts instead of what the site serves (callers who can edit the type)', { enum: ['true', 'false', '1', '0'] })
+  const publishBody = { required: true, content: { 'application/json': { schema: { type: 'object', properties: { version: { type: 'integer', description: 'The draft version you read' } }, required: ['version'] } } } }
 
   for (const [name, definition] of Object.entries(schema.collections)) {
     const type = pascal(name)
@@ -111,7 +113,8 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
     schemas[`${type}Data`] = dataSchema(definition.fields)
     schemas[`${type}Entry`] = entry(`${type}Data`, definition.route)
     schemas[`${type}List`] = { type: 'object', properties: { items: { type: 'array', items: ref(`${type}Entry`) }, total: { type: 'integer' }, limit: { type: 'integer' }, next: { type: ['string', 'null'] } }, required: ['items', 'total', 'limit', 'next'] }
-    const body = (required: boolean) => ({ required: true, content: { 'application/json': { schema: { type: 'object', properties: { ...required ? {} : { version: { type: 'integer' } }, data: required ? ref(`${type}Data`) : { type: 'object' } }, required: required ? ['data'] : ['version', 'data'] } } } })
+    const publish = { publish: { type: 'boolean', description: 'Publish the saved version too' } }
+    const body = (required: boolean) => ({ required: true, content: { 'application/json': { schema: { type: 'object', properties: { ...required ? {} : { version: { type: 'integer' } }, data: required ? ref(`${type}Data`) : { type: 'object' }, ...publish }, required: required ? ['data'] : ['version', 'data'] } } } })
     const id = param('id', 'The entry id', { type: 'string' }, 'path')
     paths[`${BASE}/collections/${name}`] = {
       get: {
@@ -125,6 +128,7 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
           param('offset', 'Entries to skip', { type: 'string', pattern: '^\\d+$' }),
           param('cursor', 'The `next` of the previous page'),
           depth,
+          draft,
         ],
         responses: { 200: json(ref(`${type}List`)), ...errors(400, 401, 403) },
       },
@@ -132,9 +136,19 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
     }
     paths[`${BASE}/collections/${name}/{id}`] = {
       parameters: [id],
-      get: { tags: tag, summary: 'Get an entry', parameters: [depth, fields], responses: { 200: json(ref(`${type}Entry`)), ...errors(401, 403, 404) } },
+      get: { tags: tag, summary: 'Get an entry', parameters: [depth, fields, draft], responses: { 200: json(ref(`${type}Entry`)), ...errors(401, 403, 404) } },
       patch: { tags: tag, summary: 'Update an entry: `data` is merged into the stored data; `version` is the one you read', requestBody: body(false), responses: { 200: json(ref(`${type}Entry`)), ...errors(401, 403, 404, 409, 422, 429) } },
       delete: { tags: tag, summary: 'Delete an entry, applying its relations\' onDelete rules', responses: { 200: json({ type: 'object', properties: { ok: { const: true } } }), ...errors(401, 403, 404, 409, 429) } },
+    }
+    if (definition.versioned) {
+      paths[`${BASE}/collections/${name}/{id}/publish`] = {
+        parameters: [id],
+        post: { tags: tag, summary: 'Publish the draft at the version you read', requestBody: publishBody, responses: { 200: json(ref(`${type}Entry`)), ...errors(401, 403, 404, 409, 422, 429) } },
+      }
+      paths[`${BASE}/collections/${name}/{id}/unpublish`] = {
+        parameters: [id],
+        post: { tags: tag, summary: 'Take the entry off the site; its draft stays', responses: { 200: json(ref(`${type}Entry`)), ...errors(401, 403, 404, 429) } },
+      }
     }
     paths[`${BASE}/collections/${name}/{id}/revisions`] = {
       parameters: [id],
@@ -144,19 +158,35 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
       parameters: [id, param('version', 'A version number', { type: 'string', pattern: '^\\d+$' }, 'path')],
       get: { tags: tag, summary: 'One saved version', responses: { 200: json({ allOf: [ref('Revision'), { type: 'object', properties: { data: ref(`${type}Data`) } }] }), ...errors(401, 403, 404) } },
     }
+    paths[`${BASE}/collections/${name}/{id}/revisions/{version}/restore`] = {
+      parameters: [id, param('version', 'The version to restore', { type: 'string', pattern: '^\\d+$' }, 'path')],
+      post: { tags: tag, summary: 'Save that version\'s data as the next draft; `version` in the body is the draft version you read', requestBody: publishBody, responses: { 200: json(ref(`${type}Entry`)), ...errors(401, 403, 404, 409, 422, 429) } },
+    }
   }
 
   for (const [name, definition] of Object.entries(schema.singletons)) {
     const type = pascal(name)
     const tag = [name]
     schemas[`${type}Data`] = dataSchema(definition.fields)
-    schemas[`${type}Singleton`] = { type: 'object', properties: { name: { const: name }, version: { type: ['integer', 'null'] }, updatedAt: { type: ['string', 'null'] }, ...urls(definition.route), data: ref(`${type}Data`) }, required: ['name', 'version', 'data'] }
+    schemas[`${type}Singleton`] = { type: 'object', properties: { name: { const: name }, version: { type: ['integer', 'null'] }, updatedAt: { type: ['string', 'null'] }, publishedVersion: { type: ['integer', 'null'], description: 'The version the site serves, or null when unpublished; below `version` when the draft has unpublished changes' }, ...urls(definition.route), data: ref(`${type}Data`) }, required: ['name', 'version', 'data'] }
     paths[`${BASE}/singletons/${name}`] = {
-      get: { tags: tag, summary: `Get ${name} (its defaults, with version null, before its first save)`, parameters: [depth, fields], responses: { 200: json(ref(`${type}Singleton`)), ...errors(401, 403) } },
-      patch: { tags: tag, summary: `Save ${name}: \`data\` is merged; \`version\` is the one you read, or null for the first save`, requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { version: { type: ['integer', 'null'] }, data: { type: 'object' } }, required: ['version', 'data'] } } } }, responses: { 200: json(ref(`${type}Singleton`)), ...errors(401, 403, 409, 422, 429) } },
+      get: { tags: tag, summary: `Get ${name} (its defaults, with version null, before its first save)`, parameters: [depth, fields, draft], responses: { 200: json(ref(`${type}Singleton`)), ...errors(401, 403) } },
+      patch: { tags: tag, summary: `Save ${name}: \`data\` is merged; \`version\` is the one you read, or null for the first save`, requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { version: { type: ['integer', 'null'] }, data: { type: 'object' }, publish: { type: 'boolean', description: 'Publish the saved version too' } }, required: ['version', 'data'] } } } }, responses: { 200: json(ref(`${type}Singleton`)), ...errors(401, 403, 409, 422, 429) } },
+    }
+    if (definition.versioned) {
+      paths[`${BASE}/singletons/${name}/publish`] = {
+        post: { tags: tag, summary: 'Publish the draft at the version you read', requestBody: publishBody, responses: { 200: json(ref(`${type}Singleton`)), ...errors(401, 403, 404, 409, 422, 429) } },
+      }
+      paths[`${BASE}/singletons/${name}/unpublish`] = {
+        post: { tags: tag, summary: 'Take it off the site; its draft stays', responses: { 200: json({ type: 'object', properties: { ok: { const: true } } }), ...errors(401, 403, 429) } },
+      }
     }
     paths[`${BASE}/singletons/${name}/revisions`] = {
       get: { tags: tag, summary: 'Saved versions, newest first', responses: { 200: json({ type: 'array', items: ref('Revision') }), ...errors(401, 403) } },
+    }
+    paths[`${BASE}/singletons/${name}/revisions/{version}/restore`] = {
+      parameters: [param('version', 'The version to restore', { type: 'string', pattern: '^\\d+$' }, 'path')],
+      post: { tags: tag, summary: 'Save that version\'s data as the next draft; `version` in the body is the draft version you read', requestBody: publishBody, responses: { 200: json(ref(`${type}Singleton`)), ...errors(401, 403, 404, 409, 422, 429) } },
     }
   }
 
@@ -164,7 +194,7 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
     get: {
       tags: ['routes'],
       summary: 'The entry served at a site path, with how its type renders it',
-      parameters: [{ ...param('path', 'A site path, like /about'), required: true }, param('locale', 'The locale of a per-locale pattern'), depth],
+      parameters: [{ ...param('path', 'A site path, like /about'), required: true }, param('locale', 'The locale of a per-locale pattern'), depth, draft],
       responses: {
         200: json({
           type: 'object',

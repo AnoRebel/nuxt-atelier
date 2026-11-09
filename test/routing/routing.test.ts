@@ -153,13 +153,59 @@ describe('site routing', async () => {
     expect((await raw('/blog/hello')).status).toBe(404)
   })
 
-  it('answers 404 for unknown paths, protocol-relative paths and visitors who can\'t read the entry', async () => {
+  it('serves published posts to everyone, drafts to no one but editors who ask, and 404 once unpublished', async () => {
+    const created = await api('/api/_atelier/collections/posts', 'POST', { data: { title: 'Hello', slug: 'hello', content: [{ id: 'p1', type: 'Hero', props: { title: 'First words' } }] } })
+    expect(created.body).toMatchObject({ version: 1, publishedVersion: null, path: '/blog/hello' })
+    const { id } = created.body
+    const post = `/api/_atelier/collections/posts/${id}`
+    // a draft: not on the site, even for its editor, unless they ask for drafts
+    expect((await page('/blog/hello')).status).toBe(404)
+    expect((await api(post)).status).toBe(404)
+    expect((await api(`${post}?draft=true`)).body.data.title).toBe('Hello')
+    expect((await fetch(`${post}?draft=true`)).status).toBe(404) // a visitor asking for drafts gets what's published: nothing
+
+    const published = await api(`${post}/publish`, 'POST', { version: 1 })
+    expect(published.body).toMatchObject({ version: 2, publishedVersion: 2 })
+    expect((await page('/blog/hello', false)).html).toMatch(/<h1 class="hero">\s*First words/) // visitors see it
+
+    // the next draft stays off the site until it's published
+    await api(post, 'PATCH', { version: 2, data: { content: [{ id: 'p1', type: 'Hero', props: { title: 'Second thoughts' } }] } })
+    const visitor = await page('/blog/hello', false)
+    expect(visitor.html).toContain('First words')
+    expect(visitor.html).not.toContain('Second thoughts')
+    expect((await (await fetch(`${post}?draft=true`)).json()).data.content[0].props.title).toBe('First words')
+    expect((await api('/api/_atelier/routes?path=/blog/hello&draft=true')).body.entry.data.content[0].props.title).toBe('Second thoughts')
+    expect((await api(`${post}`)).body).toMatchObject({ version: 2, publishedVersion: 2 })
+    expect((await api(`${post}?draft=true`)).body).toMatchObject({ version: 3, publishedVersion: 2 })
+    expect((await api(`${post}/revisions`)).body.map((r: { version: number, published: boolean }) => [r.version, r.published])).toEqual([[3, false], [2, true], [1, false]])
+    expect((await api('/api/_atelier/audit?action=entry.published')).body[0]).toMatchObject({ action: 'entry.published', target: { type: 'posts', id }, details: { version: 2 } })
+
+    // restoring the published version: a new draft with its content, the history kept
+    const restored = await api(`${post}/revisions/2/restore`, 'POST', { version: 3 })
+    expect(restored.body).toMatchObject({ version: 4, publishedVersion: 2, data: { content: [{ props: { title: 'First words' } }] } })
+    expect((await api(`${post}/revisions`)).body.map((r: { version: number }) => r.version)).toEqual([4, 3, 2, 1])
+    expect((await api(`${post}/revisions/2/restore`, 'POST', { version: 3 })).status).toBe(409)
+    expect((await api(`${post}/revisions/99/restore`, 'POST', { version: 4 })).status).toBe(404)
+    await api(post, 'PATCH', { version: 4, data: { content: [{ id: 'p1', type: 'Hero', props: { title: 'Second thoughts' } }] } })
+
+    // unpublished: 404 for everyone, the draft stays
+    expect((await api(`${post}/unpublish`, 'POST')).body).toMatchObject({ publishedVersion: null, version: 5 })
+    expect((await page('/blog/hello', false)).status).toBe(404)
+    expect((await page('/blog/hello')).status).toBe(404)
+    expect((await api(`${post}?draft=true`)).body.data.content[0].props.title).toBe('Second thoughts')
+    expect((await api('/api/_atelier/audit?action=entry.unpublished')).body[0]).toMatchObject({ target: { type: 'posts', id } })
+    // a type that isn't versioned has nothing to publish
+    expect((await api(`/api/_atelier/collections/pages/${(await api('/api/_atelier/collections/pages')).body.items[0].id}/unpublish`, 'POST')).status).toBe(422)
+  })
+
+  it('answers 404 for unknown and protocol-relative paths; visitors read what\'s published but can\'t write', async () => {
     expect((await page('/nothing-here')).status).toBe(404)
     expect((await api('/api/_atelier/routes?path=//evil.example')).status).toBe(404)
     const missing = await api('/api/_atelier/routes?path=/nothing-here')
     expect(missing.body).toMatchObject({ statusCode: 404, data: { code: 'not_found' } })
-    // not signed in: the content API's 401, and the site's 404, the same as for a missing page
-    expect((await (await fetch('/api/_atelier/routes?path=/about-us')).json()).data.code).toBe('unauthenticated')
-    expect((await page('/about-us', false)).status).toBe(404)
+    // not signed in: the public role, which reads every type by default
+    expect((await (await fetch('/api/_atelier/routes?path=/about-us')).json()).entry.data.title).toBe('About')
+    expect((await page('/about-us', false)).html).toContain('About us')
+    expect((await fetch('/api/_atelier/collections/pages', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data: { title: 'Spam', slug: 'spam' } }) })).status).toBe(401)
   })
 })

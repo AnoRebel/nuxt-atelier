@@ -13,7 +13,7 @@ import { createJiti } from 'jiti'
 import { resolveOptions } from '../options'
 import { connect, dialectOf } from '../runtime/server/db/driver'
 import { applyMigrations, destructiveChanges, localMigrationNames, migrationsFolder, migrationStatus } from '../runtime/server/db/migrations'
-import { buildTables, collectionTable } from '../runtime/server/db/tables'
+import { buildTables, collectionTable, publishedTable } from '../runtime/server/db/tables'
 import { allDrivers } from '../runtime/server/db/loaders'
 import { discoverSchema, layerFiles } from '../schema/discover'
 import { serialiseFields } from '../runtime/shared/fields'
@@ -60,7 +60,7 @@ export async function loadProject(cwd: string): Promise<Project> {
 /** A schema change that would lose data unless the developer confirms it. */
 export class DataLossError extends Error {
   constructor(readonly changes: string[]) {
-    super(`[nuxt-atelier] The schema change would lose data, so no migration was written:\n${changes.map(suggestion).join('\n')}`)
+    super(`[nuxt-atelier] The schema change would lose data, so no migration was written:\n${[...new Set(changes.map(suggestion))].join('\n')}`)
   }
 }
 
@@ -68,7 +68,7 @@ export class DataLossError extends Error {
 export class MissingKitError extends Error {}
 
 /** Collection-level names for a table change, as the --drop / --rename flags take them. */
-const collectionOf = (table: string) => table.startsWith('atelier_c_') ? table.slice('atelier_c_'.length).replaceAll('_', '-') : undefined
+const collectionOf = (table: string) => /^atelier_[cp]_/.test(table) ? table.slice('atelier_c_'.length).replaceAll('_', '-') : undefined
 
 interface Rename {
   change: string
@@ -79,39 +79,38 @@ interface Rename {
 
 const literal = (value: string) => `'${value}'` // names and keys are [a-z0-9-] only: nothing to escape
 
-function parseRename(flag: string, dialect: Dialect): Rename {
+function parseRename(flag: string, dialect: Dialect): Rename[] {
   const m = /^([a-z][a-z0-9-]*)(?:\.([a-z][a-z0-9]*))?=([a-z][a-z0-9-]*)$/i.exec(flag)
   if (!m)
     throw new Error(`--rename ${flag}: expected <collection>.<old field>=<new field> or <old collection>=<new collection>`)
   const [, collection, field, to] = m as unknown as [string, string, string | undefined, string]
-  const table = collectionTable(collection)
+  // a collection's drafts and its published copy rename together
+  const pairs = [[collectionTable(collection), collectionTable(to)], [publishedTable(collection), publishedTable(to)]] as const
   if (!field) {
     const [from, into] = [literal(collection), literal(to)]
-    return {
-      change: `rename table ${table} to ${collectionTable(to)}`,
-      hint: { kind: 'table', from: [table], to: [collectionTable(to)] },
+    return pairs.map(([table, renamed], i) => ({
+      change: `rename table ${table} to ${renamed}`,
+      hint: { kind: 'table', from: [table], to: [renamed] },
       data: {
-        marker: `rename collection ${collection} to ${to}`,
-        sql: [
-          `UPDATE atelier_relations SET source = ${into} WHERE source = ${from};`,
-          `UPDATE atelier_relations SET target = ${into} WHERE target = ${from};`,
-          `UPDATE atelier_revisions SET source = ${into} WHERE source = ${from};`,
-          `UPDATE atelier_routes SET source = ${into} WHERE source = ${from};`,
-        ],
+        marker: `rename collection ${collection} to ${to}${i ? ' (published)' : ''}`,
+        sql: (i ? ['atelier_p_relations', 'atelier_p_routes'] : ['atelier_relations', 'atelier_revisions', 'atelier_routes']).flatMap(t => [
+          `UPDATE ${t} SET source = ${into} WHERE source = ${from};`,
+          ...t.endsWith('relations') ? [`UPDATE ${t} SET target = ${into} WHERE target = ${from};`] : [],
+        ]),
       },
-    }
+    }))
   }
   // relation values (and nested ones, under `<field>.`) are stored by field path
   const rest = `substr(field, ${field.length + 1})`
   const path = dialect === 'mysql' ? `CONCAT(${literal(to)}, ${rest})` : `${literal(to)} || ${rest}`
-  return {
+  return pairs.map(([table], i) => ({
     change: `rename column ${table}.${field} to ${to}`,
     hint: { kind: 'column', from: [table, field], to: [table, to] },
     data: {
-      marker: `rename field ${collection}.${field} to ${to}`,
-      sql: [`UPDATE atelier_relations SET field = ${path} WHERE source = ${literal(collection)} AND (field = ${literal(field)} OR field LIKE ${literal(`${field}.%`)});`],
+      marker: `rename field ${collection}.${field} to ${to}${i ? ' (published)' : ''}`,
+      sql: [`UPDATE ${i ? 'atelier_p_relations' : 'atelier_relations'} SET field = ${path} WHERE source = ${literal(collection)} AND (field = ${literal(field)} OR field LIKE ${literal(`${field}.%`)});`],
     },
-  }
+  }))
 }
 
 /** Renames the schema declares with `renamedFrom`, as --rename flags. Collection renames come first. */
@@ -138,7 +137,7 @@ function parseDrop(flag: string) {
   const m = /^([a-z][a-z0-9-]*)(?:\.(\w+))?$/.exec(flag)
   if (!m)
     throw new Error(`--drop ${flag}: expected <collection>.<field> or <collection>`)
-  return m[2] ? `drop column ${collectionTable(m[1]!)}.${m[2]}` : `drop table ${collectionTable(m[1]!)}`
+  return [collectionTable(m[1]!), publishedTable(m[1]!)].map(table => m[2] ? `drop column ${table}.${m[2]}` : `drop table ${table}`)
 }
 
 function suggestion(change: string): string {
@@ -176,9 +175,9 @@ export async function generateMigration(project: Project, options: GenerateOptio
   const kit = await importKit()
   const dialect = options.dialect ?? dialectOf(project.databaseUrl)
   const flags = [...new Set([...declaredRenames(project.schema), ...options.rename ?? []])]
-  const renames = flags.map(flag => parseRename(flag, dialect))
+  const renames = flags.flatMap(flag => parseRename(flag, dialect))
     .toSorted((a, b) => Number(a.hint.kind === 'column') - Number(b.hint.kind === 'column'))
-  const confirmed = new Set([...(options.drop ?? []).map(parseDrop), ...renames.map(r => r.change)])
+  const confirmed = new Set([...(options.drop ?? []).flatMap(parseDrop), ...renames.map(r => r.change)])
 
   // drizzle-kit reads tables from a module's top-level exports
   const tables = Object.keys(buildTables(dialect, project.schema))

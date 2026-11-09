@@ -14,5 +14,7 @@ export type { CollectionFilter, CollectionName, CollectionQuery, PopulatedEntry,
 export { useAtelierRouteEntry } from './composables/useAtelierRouteEntry'
 export type { AtelierRoute } from './composables/useAtelierRouteEntry'
 export { useAtelierPreview } from './composables/useAtelierPreview'
+export { diffEntries } from '../shared/diff'
+export type { Change } from '../shared/diff'
 export { contentRepairs, findStaleContent } from '../shared/reconcile'
 export type { StaleContent } from '../shared/reconcile'

@@ -30,6 +30,13 @@ export interface Role {
 /** The built-in role that can do everything. It can't be redefined, and the last one can't be removed. */
 export const ADMIN_ROLE = 'admin'
 
+/**
+ * The role of visitors who aren't signed in: on the content API they may only read, and only what's
+ * published. By default they read everything; define a role with this name to narrow it.
+ */
+export const PUBLIC_ROLE = 'public'
+export const DEFAULT_PUBLIC_ROLE: Role = { label: 'Visitors', content: { '*': { actions: ['read'] } } }
+
 /** What `can()` needs to know about a user. */
 export interface PolicyUser { id: string, role: string }
 

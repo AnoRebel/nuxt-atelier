@@ -59,6 +59,8 @@ export interface RelatedEntry {
   path?: string | null
   /** Per-locale patterns: the entry's URL in each locale. */
   paths?: Record<string, string>
+  /** The version the site serves, or null when unpublished. */
+  publishedVersion: number | null
   data: Record<string, unknown>
 }
 
@@ -86,6 +88,8 @@ export interface TypedEntry<N extends CollectionName, Populated extends boolean 
   paths?: Record<string, string>
   /** URLs of the entry that a page of the app serves instead, with that page's route path. */
   shadowed?: { path: string, page: string }[]
+  /** The version the site serves, or null when unpublished; below `version` when the draft has unpublished changes. */
+  publishedVersion: number | null
   data: Populated extends true ? PopulatedEntry<N> : Data<N>
 }
 
