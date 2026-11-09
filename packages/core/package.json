@@ -54,7 +54,8 @@
     "jiti": "catalog:",
     "oxc-parser": "catalog:",
     "magic-string": "catalog:",
-    "@vue/compiler-sfc": "catalog:"
+    "@vue/compiler-sfc": "catalog:",
+    "vue-router": "catalog:"
   },
   "devDependencies": {
     "@nuxt/schema": "catalog:",

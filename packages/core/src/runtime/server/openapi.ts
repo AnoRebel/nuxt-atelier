@@ -99,6 +99,7 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
     : {
         path: { type: ['string', 'null'], description: 'The entry\'s URL (in the first locale of a per-locale pattern)' },
         ...typeof route.pattern === 'string' ? {} : { paths: { type: 'object', additionalProperties: { type: 'string' }, description: 'The entry\'s URL in each locale' } },
+        shadowed: { type: 'array', description: 'URLs of the entry that a page of the app serves instead (present only when there are some)', items: { type: 'object', properties: { path: { type: 'string' }, page: { type: 'string', description: 'The app page\'s route path' } }, required: ['path', 'page'] } },
       }
   const entry = (data: string, route?: RouteDefinition) => ({ type: 'object', properties: { id: { type: 'string' }, version: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' }, createdBy: { type: ['string', 'null'] }, ...urls(route), data: ref(data) }, required: ['id', 'version', 'createdAt', 'updatedAt', 'createdBy', 'data'] })
   const depth = param('depth', 'Levels of relations to replace with the entries they point to')

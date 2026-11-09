@@ -25,9 +25,6 @@
         "src/runtime/app/components/*.ts",
         "src/runtime/app/pages/*.ts",
         "src/adapter.ts"
-      ],
-      "ignoreUnresolved": [
-        "#components"
       ]
     },
     "packages/auth-better-auth": {
@@ -155,6 +152,8 @@
     "#atelier-migrations",
     "#atelier-drivers",
     "#atelier-better-auth",
-    "#atelier-blocks"
+    "#atelier-blocks",
+    "#components",
+    "#atelier-host-pages"
   ]
 }

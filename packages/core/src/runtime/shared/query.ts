@@ -84,6 +84,8 @@ export interface TypedEntry<N extends CollectionName, Populated extends boolean 
   path?: string | null
   /** Per-locale patterns: the entry's URL in each locale. */
   paths?: Record<string, string>
+  /** URLs of the entry that a page of the app serves instead, with that page's route path. */
+  shadowed?: { path: string, page: string }[]
   data: Populated extends true ? PopulatedEntry<N> : Data<N>
 }
 
