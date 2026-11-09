@@ -1,6 +1,8 @@
 // Workers smoke test: the workers fixture built with the cloudflare-module preset, run in Miniflare
 // (workerd) with a local D1 database. Migrations auto-apply as one batch; saves run as D1 batches.
 import { execFile } from 'node:child_process'
+import { readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { Miniflare } from 'miniflare'
@@ -21,11 +23,16 @@ describe('Cloudflare Workers with D1', () => {
 
   beforeAll(async () => {
     await promisify(execFile)('npx', ['nuxi', 'build'], { cwd: rootDir })
+    // every module listed: discovering them, Miniflare refuses a non-literal dynamic import (file-type has
+    // one, for reading files, which is never called), where Wrangler's bundling leaves it alone
+    const server = `${rootDir}/.output/server`
+    const modules = readdirSync(server, { recursive: true, encoding: 'utf8' })
+      .filter(file => file.endsWith('.mjs'))
+      .toSorted((a, b) => Number(b === 'index.mjs') - Number(a === 'index.mjs')) // the entry first
+      .map(file => ({ type: 'ESModule' as const, path: join(server, file) }))
     mf = new Miniflare({
-      modules: true,
-      modulesRoot: `${rootDir}/.output/server`,
-      scriptPath: `${rootDir}/.output/server/index.mjs`,
-      modulesRules: [{ type: 'ESModule', include: ['**/*.mjs'] }],
+      modulesRoot: server,
+      modules,
       compatibilityDate: '2026-08-01',
       compatibilityFlags: ['nodejs_compat'],
       d1Databases: ['DB'],
