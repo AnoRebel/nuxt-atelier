@@ -22,7 +22,7 @@ export const ContentPermissionsSchema = v.record(v.pipe(v.string(), v.maxLength(
 
 const RoleSchema = v.strictObject({
   label: v.optional(v.pipe(v.string(), v.maxLength(255))),
-  capabilities: v.optional(v.array(v.picklist(['users', 'roles', 'settings', 'media']))),
+  capabilities: v.optional(v.array(v.picklist(['users', 'roles', 'settings', 'media', 'redirects']))),
   content: v.optional(ContentPermissionsSchema),
 })
 
@@ -31,7 +31,7 @@ const ROLE_NAME = /^[a-z][a-z0-9-]{0,63}$/
 /** The role a fresh install gets with its first administrator. */
 export const EDITOR_ROLE: Role = {
   label: 'Editor',
-  capabilities: ['media'],
+  capabilities: ['media', 'redirects'],
   content: { '*': { actions: ['create', 'read', 'update', 'delete', 'publish'] } },
 }
 

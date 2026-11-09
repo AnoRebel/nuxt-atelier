@@ -12,6 +12,8 @@ export interface RouteDefinition {
    * then its parent's URL followed by its own pattern, and moves with it: `/services` → `/services/design`.
    */
   parent?: string
+  /** When an entry's URL changes, redirect its old URL to the new one (301). On by default. */
+  redirects?: boolean
   /** A global component that renders the entry (it gets it as the `entry` prop); by default its blocks fields are rendered. */
   component?: string
   /** The layout its pages use (the app's default layout when omitted). */

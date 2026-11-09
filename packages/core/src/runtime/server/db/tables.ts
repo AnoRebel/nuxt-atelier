@@ -7,6 +7,7 @@
 //   atelier_relations       relation values, normalised so references can be found from either side
 //   atelier_revisions       a JSON snapshot per saved version
 //   atelier_routes          URL paths of routable entries, per locale ('' for every locale)
+//   atelier_redirects       redirects: entered by administrators, or created when an entry's URL changed
 //   atelier_users           CMS users of the built-in auth adapter
 //   atelier_sessions        their sessions, so signing out or a password reset can revoke them
 //   atelier_audit           security-relevant events: who did what to what, when, from where
@@ -347,6 +348,14 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
       lastUsedAt: kit.key('last_used_at', TIMESTAMP),
     }, t => [kit.index('atelier_passkeys_user_idx').on(t.userId)]),
+    atelier_redirects: kit.table('atelier_redirects', {
+      id: kit.key('_id', ID).primaryKey(),
+      source: kit.key('source', MAX_PATH).notNull(), // a canonical path, or a pattern with :name and a final *
+      target: kit.text('target').notNull(), // a site path or an absolute http(s) URL
+      status: kit.int('status').notNull(),
+      auto: kit.bool('auto').notNull(), // created when an entry's URL changed
+      createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
+    }, t => [kit.uniqueIndex('atelier_redirects_source_idx').on(t.source)]),
     atelier_routes: kit.table('atelier_routes', {
       path: kit.key('path', MAX_PATH).notNull(), // canonical: see canonicalPath()
       locale: kit.key('locale', 35).notNull(), // '' when the pattern is shared by every locale
