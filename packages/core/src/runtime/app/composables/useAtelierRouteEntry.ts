@@ -19,10 +19,21 @@ export interface AtelierRoute<N extends CollectionName = CollectionName> {
  * The entry served at the current URL, for the app's own layouts and components: the same request the
  * catch-all page makes (one fetch, shared by key), refetched when the route changes. `data` is null on
  * a URL no entry has, or one the visitor can't read; pass the collection's name for typed data.
+ *
+ * Drafts show with `?_atelier=preview` for editors who can edit the type, and with a shared preview
+ * link's `?_atelier_preview=<token>` for anyone, until it expires.
  */
 export function useAtelierRouteEntry<N extends CollectionName = CollectionName>() {
   const route = useRoute()
   const fetch = useRequestFetch() // forwards the visitor's cookies during SSR
-  return useAsyncData(() => `atelier:route:${route.path}`, () =>
-    fetch<AtelierRoute<N>>('/api/_atelier/routes', { query: { path: route.path } }))
+  const query = () => {
+    const token = route.query._atelier_preview
+    return {
+      path: route.path,
+      ...route.query._atelier === 'preview' ? { draft: 'true' } : {},
+      ...typeof token === 'string' ? { preview: token } : {},
+    }
+  }
+  return useAsyncData(() => `atelier:route:${JSON.stringify(query())}`, () =>
+    fetch<AtelierRoute<N>>('/api/_atelier/routes', { query: query() }))
 }

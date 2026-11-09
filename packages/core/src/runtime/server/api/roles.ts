@@ -4,6 +4,7 @@
 //   DELETE  /<name>    deletes a database role no user has
 import { defineEventHandler, getRequestURL, readBody } from 'nuxt/server'
 import { assertMigrated, audit, requireUser, useAtelierAuth, useAtelierRoles } from '../index'
+import { forgetCached } from '../cache'
 import { apiError } from '../errors'
 
 const PREFIX = '/api/_atelier/roles'
@@ -20,6 +21,7 @@ export default defineEventHandler(async (event) => {
   if (name && method === 'PUT') {
     const before = (await roles.roles())[name] ?? null
     const saved = await roles.save(name, await readBody(event))
+    forgetCached() // what visitors see follows the public role
     await audit(event, { action: 'role.saved', actorId: actor.id, target: { type: 'role', id: name }, details: { from: before, to: saved } })
     return saved
   }
@@ -27,6 +29,7 @@ export default defineEventHandler(async (event) => {
     const inUse = (await (await useAtelierAuth()).users.list()).some(u => u.role === name)
     const before = (await roles.roles())[name] ?? null
     await roles.remove(name, inUse)
+    forgetCached()
     await audit(event, { action: 'role.deleted', actorId: actor.id, target: { type: 'role', id: name }, details: { from: before } })
     return { ok: true }
   }

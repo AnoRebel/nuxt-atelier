@@ -9,7 +9,7 @@ import { createError, readBody } from 'nuxt/server'
 export type ErrorCode
   = | 'bad_request' | 'invalid_query' | 'unauthenticated' | 'forbidden' | 'csrf' | 'not_found' | 'method_not_allowed'
     | 'conflict' | 'referenced' | 'last_admin' | 'setup_done' | 'already_exists' | 'validation_failed'
-    | 'rate_limited' | 'unsupported' | 'migrations_pending'
+    | 'rate_limited' | 'unsupported' | 'migrations_pending' | 'preview_expired'
 
 const DEFAULT_CODES: Record<number, ErrorCode> = {
   400: 'bad_request',
@@ -17,6 +17,7 @@ const DEFAULT_CODES: Record<number, ErrorCode> = {
   403: 'forbidden',
   404: 'not_found',
   405: 'method_not_allowed',
+  410: 'preview_expired',
   409: 'conflict',
   422: 'validation_failed',
   429: 'rate_limited',
