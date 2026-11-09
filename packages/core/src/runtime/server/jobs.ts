@@ -52,10 +52,20 @@ const BACKOFF_MS = 30_000
 const MAX_BACKOFF_MS = 3600_000
 
 const handlers = new Map<string, JobHandler<never>>()
+/** Jobs that run on their own every so often (ms), keyed by name. */
+const recurring = new Map<string, number>()
 
-/** Registers the handler for jobs named `name`, from a server plugin. Registering a name again replaces it. */
-export function defineJob<P = Record<string, unknown>>(name: string, handler: JobHandler<P>): void {
+/**
+ * Registers the handler for jobs named `name`, from a server plugin. Registering a name again replaces it.
+ * With `every` (ms), one such job is kept queued under the name as its key: run when the queue is first
+ * drained, then `every` after each success.
+ */
+export function defineJob<P = Record<string, unknown>>(name: string, handler: JobHandler<P>, options: { every?: number } = {}): void {
   handlers.set(name, handler as JobHandler<never>)
+  if (options.every)
+    recurring.set(name, options.every)
+  else
+    recurring.delete(name)
 }
 
 const iso = (time: Date | string | number) => new Date(time).toISOString()
@@ -130,7 +140,12 @@ export function createJobQueue(driver: AtelierDriver, options: { concurrency?: n
       if (!handler)
         throw new Error(`No handler for jobs named "${job.name}": register one with defineJob()`)
       await handler(job.payload as never, job as never)
-      await db.delete(jobs).where(and(eq(jobs.id, job.id), eq(jobs.attempts, job.attempts)))
+      const mine = and(eq(jobs.id, job.id), eq(jobs.attempts, job.attempts))
+      const every = job.key === job.name ? recurring.get(job.name) : undefined
+      if (every)
+        await db.update(jobs).set({ status: 'queued', attempts: 0, runAt: iso(Date.now() + every), lockedUntil: null, lastError: null }).where(mine)
+      else
+        await db.delete(jobs).where(mine)
       return true
     }
     catch (error) {
@@ -192,11 +207,11 @@ export function createJobQueue(driver: AtelierDriver, options: { concurrency?: n
       return row && toJob(row)
     },
 
-    /** Jobs, newest first, optionally of one status. */
-    async list(options: { status?: JobStatus, limit?: number } = {}): Promise<Job[]> {
+    /** Jobs, newest first, optionally of one status or name. */
+    async list(options: { status?: JobStatus, name?: string, limit?: number } = {}): Promise<Job[]> {
       const rows: Record<string, unknown>[] = await db.select().from(jobs)
-        .where(options.status ? eq(jobs.status, options.status) : undefined)
-        .orderBy(desc(jobs.createdAt)).limit(Math.min(options.limit ?? 50, 200))
+        .where(and(options.status ? eq(jobs.status, options.status) : undefined, options.name ? eq(jobs.name, options.name) : undefined))
+        .orderBy(desc(jobs.createdAt)).limit(options.limit ?? 50)
       return rows.map(toJob)
     },
 
@@ -213,6 +228,10 @@ export function createJobQueue(driver: AtelierDriver, options: { concurrency?: n
     async run(options: { budgetMs?: number } = {}): Promise<RunResult> {
       const deadline = Date.now() + (options.budgetMs ?? 50_000)
       const result: RunResult = { ran: 0, failed: 0, remaining: 0 }
+      for (const name of recurring.keys()) {
+        if (!await this.byKey(name))
+          await this.enqueue(name, {}, { key: name })
+      }
       while (Date.now() < deadline) {
         const batch = await claim(concurrency, iso(Date.now()))
         if (!batch.length)

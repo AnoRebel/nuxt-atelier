@@ -6,6 +6,9 @@
 //   DELETE  /api/_atelier/collections/<name>/<id>
 //   POST    /api/_atelier/collections/<name>/<id>/publish          { version }: the draft at that version goes live
 //   POST    /api/_atelier/collections/<name>/<id>/unpublish
+//   GET     /api/_atelier/collections/<name>/<id>/schedule          the scheduled publish and unpublish
+//   POST    /api/_atelier/collections/<name>/<id>/schedule          { action, at, version }: see schedule.ts
+//   DELETE  /api/_atelier/collections/<name>/<id>/schedule/<action>
 //   GET     /api/_atelier/collections/<name>/<id>/revisions
 //   GET     /api/_atelier/collections/<name>/<id>/revisions/<version>
 //   POST    /api/_atelier/collections/<name>/<id>/revisions/<version>/restore   { version }: that version's data becomes the next draft
@@ -17,6 +20,7 @@ import * as v from 'valibot'
 import { defineEventHandler, getQuery } from 'nuxt/server'
 import { apiError, readValid, validated } from '../errors'
 import { audit, toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
+import { scheduleRequest } from '../scheduling'
 import { shadowed } from '../shadowing'
 import { allow, assertInversesWritable, assertMigrated, assertWritable, caller, countWrite, limits, present, restorable, segments, select, stageFor } from '../content-access'
 
@@ -46,14 +50,14 @@ const publishFlag = v.optional(v.boolean('publish: expected true or false'))
 const Create = v.object({ data: v.record(v.string(), v.unknown()), publish: publishFlag })
 const Update = v.object({ version: v.number('version: expected the version you read'), data: v.record(v.string(), v.unknown()), publish: publishFlag })
 const AtVersion = v.object({ version: v.number('version: expected the version you read') })
-const SUBS = new Set(['revisions', 'publish', 'unpublish'])
+const SUBS = new Set(['revisions', 'publish', 'unpublish', 'schedule'])
 
 export default defineEventHandler(async (event) => {
   const [name, id, sub, version, action, ...rest] = segments(event, PREFIX)
   const method = event.req.method
   const schema = await useAtelierSchema()
   const definition = name ? schema.collections[name] : undefined
-  if (!name || !definition || rest.length || (sub !== undefined && !SUBS.has(sub)) || (sub !== 'revisions' && version !== undefined) || (action !== undefined && action !== 'restore'))
+  if (!name || !definition || rest.length || (sub !== undefined && !SUBS.has(sub)) || (sub !== 'revisions' && sub !== 'schedule' && version !== undefined) || (action !== undefined && (sub !== 'revisions' || action !== 'restore')))
     throw apiError(404, name && !definition ? `No collection "${name}"` : 'Not found')
   if (method !== 'GET')
     await assertMigrated()
@@ -139,6 +143,12 @@ export default defineEventHandler(async (event) => {
       await entries.delete(name, id)
       await audit(event, { action: 'entry.deleted', actorId: who.principal.id, target: { type: name, id } })
       return { ok: true }
+    }
+    if (id && sub === 'schedule') {
+      allow(who, 'read', name, await load())
+      if (method !== 'GET')
+        await countWrite(event, who)
+      return await scheduleRequest(event, who, { type: name, id, singleton: false, versioned: !!definition.versioned }, version)
     }
     if (id && sub === 'revisions' && action === 'restore' && method === 'POST') {
       const stored = await load()

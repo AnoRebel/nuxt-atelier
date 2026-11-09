@@ -106,6 +106,21 @@ describe.each(engines)('%s job queue', (_, url) => {
     expect(await queue.run()).toMatchObject({ ran: result.remaining, remaining: 0 })
   })
 
+  it('keeps a recurring job queued: run on the first drain, then again after its interval', async () => {
+    defineJob('test:every', () => void calls.push('every'), { every: 3600_000 })
+    try {
+      expect(await queue.run()).toMatchObject({ ran: 1 })
+      expect(await queue.run()).toMatchObject({ ran: 0 }) // not due again for an hour
+      const job = (await queue.byKey('test:every'))!
+      expect(job).toMatchObject({ status: 'queued', attempts: 0 })
+      expect(Date.parse(job.runAt) - Date.now()).toBeGreaterThan(3500_000)
+      expect(calls).toEqual(['every'])
+    }
+    finally {
+      defineJob('test:every', () => {}) // no longer recurring
+    }
+  })
+
   it('takes over the jobs of a runner that died once their lock passes, as another attempt', async () => {
     const id = await queue.enqueue('test:ok', { n: 7 })
     await query(driver, sql`update atelier_jobs set status = ${'running'}, attempts = 1, locked_until = ${'2000-01-01T00:00:00.000Z'} where _id = ${id}`)

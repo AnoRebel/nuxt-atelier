@@ -386,6 +386,25 @@ describe.each(engines)('%s entry store', (_, url) => {
     expect((await store.getSingleton('banner', { stage: 'draft' }))!.data.text).toBe('Sale ends soon')
   })
 
+  it('prunes revisions beyond the newest kept, once old enough, keeping those published in versioned types', async () => {
+    const post = await store.save('posts', { data: { slug: 'pruned', title: 'v1' } }) // 1
+    await store.publish('posts', post.id, { version: 1 }) // 2, published
+    for (let v = 2; v <= 5; v++)
+      await store.save('posts', { id: post.id, version: v, data: { slug: 'pruned', title: `v${v + 1}` } }) // 3 … 6
+    const tag = await store.save('tags', { data: { name: 't1' } }) // not versioned: every save is published
+    for (let v = 1; v <= 4; v++)
+      await store.save('tags', { id: tag.id, version: v, data: { name: `t${v + 1}` } })
+    const versions = async (name: string, id: string) => (await store.revisions(name, id)).map(r => r.version)
+
+    // nothing is old enough yet
+    expect(await store.pruneRevisions({ keep: 2, olderThan: new Date(Date.now() - 86_400_000) })).toBe(0)
+    await query(driver, sql`update atelier_revisions set _created_at = ${'2020-01-01T00:00:00.000Z'} where source_id in (${post.id}, ${tag.id})`)
+    await store.pruneRevisions({ keep: 2, olderThan: new Date(Date.now() - 86_400_000) })
+    expect(await versions('posts', post.id)).toEqual([6, 5, 2]) // the newest two, and the published one
+    expect(await versions('tags', tag.id)).toEqual([5, 4])
+    expect(await store.get('posts', post.id)).toMatchObject({ version: 2, data: { title: 'v1' } }) // the site is untouched
+  })
+
   it('reads a singleton field renamed with renamedFrom from its old key', async () => {
     const renamed = { ...schema, singletons: { settings: { fields: { title: f.text({ renamedFrom: 'siteName' }), editor: schema.singletons.settings.fields.editor } } } }
     const saved = (await store.getSingleton('settings'))!

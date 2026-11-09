@@ -44,8 +44,10 @@ export default defineEventHandler(async (event) => {
   if (user.role !== ADMIN_ROLE)
     throw apiError(403, 'Only administrators can see background jobs')
   const jobs = await useAtelierJobs()
-  if (!first && method === 'GET')
-    return jobs.list(validated(Query, getQuery(event)))
+  if (!first && method === 'GET') {
+    const query = validated(Query, getQuery(event))
+    return jobs.list({ ...query, limit: Math.min(query.limit ?? 50, 200) })
+  }
   if (first && action === 'retry' && method === 'POST') {
     await assertMigrated()
     if (!await jobs.retry(first))

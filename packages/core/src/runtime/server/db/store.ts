@@ -9,7 +9,7 @@ import type { AtelierDriver } from './driver'
 import type { Db } from './entries'
 import type { ContentSchema, Stage } from './tables'
 import type { ListQuery } from './query'
-import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, lt, lte, notInArray, sql } from 'drizzle-orm'
 import { validateEntry } from '../../shared/fields'
 import { REDIRECT_STATUSES, redirectLoop, sourceProblem, targetProblem } from '../redirects'
 import { entryPaths, MAX_PATH, patterns, presentPaths } from '../routes'
@@ -692,6 +692,54 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       return [...target.publish(q, true), q.delete(live.relations).where(mine(live.relations)), q.delete(live.routes).where(mine(live.routes))]
     }
 
+    /**
+     * The statements publishing one saved version as it was, leaving the draft alone: for a scheduled publish
+     * of the version chosen when it was scheduled. Validated against the schema as it is now, and 422 for a
+     * URL or unique value another published entry has. Marks that revision published.
+     */
+    async function pinnedPublication(q: Db, source: string, sourceId: string, version: number, data: Record<string, unknown>): Promise<unknown[]> {
+      const live = stages.published
+      const singletonPin = source in schema.singletons
+      const fields = singletonPin ? singleton(source).fields : collection(source).definition.fields
+      const publishedTable = singletonPin ? undefined : tables[published(collectionTable(source))]
+      const result = await validateEntry(fields, data, {
+        isUnique: publishedTable && ((field, value) => isUnique(q, publishedTable, field, value, sourceId)),
+        blocks: schema.blocks,
+        maxNestingDepth: options.maxNestingDepth,
+      })
+      if (!result.success)
+        throw new ValidationError(result.errors)
+      const plan = await live.planPaths(q, source, sourceId, result.value, true)
+      await live.assertPathsFree(q, plan)
+      const now = new Date().toISOString()
+      const links = relationRows(fields, result.value)
+      const mine = (t: Db) => and(eq(t.source, source), eq(t.sourceId, sourceId))
+      let row: unknown[]
+      if (publishedTable) {
+        const draft = await read(q, source, sourceId)
+        if (!draft)
+          throw new NotFoundError(`No entry "${sourceId}" in "${source}"`)
+        row = [
+          q.delete(publishedTable).where(eq(publishedTable._id, sourceId)),
+          q.insert(publishedTable).values({ _id: sourceId, _version: version, _createdAt: draft.createdAt, _updatedAt: now, _createdBy: draft.createdBy, ...toRow(fields, result.value) }),
+        ]
+      }
+      else {
+        const liveSingletons = tables.atelier_p_singletons
+        row = [
+          q.delete(liveSingletons).where(eq(liveSingletons.name, source)),
+          q.insert(liveSingletons).values({ name: source, data: result.value, version, updatedAt: now }),
+        ]
+      }
+      return [
+        ...row,
+        q.delete(live.relations).where(mine(live.relations)),
+        ...links.length ? [q.insert(live.relations).values(links.map(l => ({ source, sourceId, ...l })))] : [],
+        ...live.pathStatements(q, plan),
+        q.update(revisions).set({ published: true }).where(and(eq(revisions.source, source), eq(revisions.sourceId, sourceId), eq(revisions.version, version))),
+      ]
+    }
+
     /** A save of an entry changed as a side effect: published too when its type publishes every save. */
     async function sideSave(q: Db, target: Target<unknown>, data: Record<string, unknown>, now: string): Promise<unknown[]> {
       const publishing = !versioned(target.source)
@@ -902,10 +950,10 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       return result
     }
 
-    return { relations, routes, collection, singleton, readMany, read, readSingleton, linked, populate, list, planPaths, assertPathsFree, pathStatements, entryTarget, singletonTarget, persist, deletion, unpublication }
+    return { relations, routes, collection, singleton, readMany, read, readSingleton, linked, populate, list, planPaths, assertPathsFree, pathStatements, entryTarget, singletonTarget, persist, deletion, unpublication, pinnedPublication }
   }
 
-  const { collection, singleton, entryTarget, singletonTarget, persist, deletion, unpublication } = stages.draft
+  const { collection, singleton, entryTarget, singletonTarget, persist, deletion, unpublication, pinnedPublication } = stages.draft
   /** Tells `onChange` about a committed write, after the redirect cache is reset. */
   const committed = <T>(change: StoreChange) => (result: T) => {
     void options.onChange?.(change)
@@ -972,6 +1020,30 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         throw new NotFoundError(`No entry "${id}" in "${name}"`)
       return persist(entryTarget(name, id, input.version, input.authorId), draft.data, true).finally(forgetRedirects)
         .then(committed({ type: name, id, action: 'published', live: true }))
+    },
+
+    /**
+     * Publishes one saved version of an entry (or a singleton: `id` is its name) as it was saved, leaving the
+     * draft alone: what a scheduled publish runs, for the version chosen when it was scheduled. 404 for a
+     * version that isn't in the history (pruned, or never saved), 422 as for publishing.
+     */
+    async publishVersion(name: string, id: string, version: number): Promise<void> {
+      assertVersioned(name)
+      const [revision] = await db.select({ data: revisions.data }).from(revisions)
+        .where(and(eq(revisions.source, name), eq(revisions.sourceId, id), eq(revisions.version, version))).limit(1)
+      if (!revision)
+        throw new NotFoundError(`No version ${version} of ${name in schema.singletons ? `"${name}"` : `entry "${id}" in "${name}"`}`)
+      if (!driver.capabilities.transactions) {
+        await db.batch(await pinnedPublication(db, name, id, version, revision.data))
+      }
+      else {
+        await db.transaction(async (tx: Db) => {
+          for (const statement of await pinnedPublication(tx, name, id, version, revision.data))
+            await statement
+        })
+      }
+      forgetRedirects()
+      committed({ type: name, id, action: 'published', live: true })(undefined)
     },
 
     /** Takes an entry off the site; its draft stays. Its URLs answer 404 and don't redirect. */
@@ -1103,6 +1175,35 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         await db.delete(redirectsTable).where(eq(redirectsTable.id, id))
         forgetRedirects()
       },
+    },
+
+    /**
+     * Deletes old revisions: each entry keeps its newest `keep`, every revision since `olderThan`, in
+     * versioned types every revision that was published, and the versions in `pinned` (scheduled to be
+     * published). Returns how many were deleted.
+     */
+    async pruneRevisions(policy: { keep: number, olderThan: Date, pinned?: { source: string, sourceId: string, version: number }[] }): Promise<number> {
+      const cutoff = policy.olderThan.toISOString()
+      // the entries with more than `keep`; then, per entry, its versions below its newest `keep`
+      const crowded: { source: string, sourceId: string, newest: number }[] = await db
+        .select({ source: revisions.source, sourceId: revisions.sourceId, newest: sql<number>`max(${revisions.version})` })
+        .from(revisions)
+        .groupBy(revisions.source, revisions.sourceId)
+        .having(sql`count(*) > ${policy.keep}`)
+      let deleted = 0
+      for (const { source, sourceId, newest } of crowded) {
+        const kept = versioned(source) ? eq(revisions.published, false) : undefined
+        const pinned = (policy.pinned ?? []).filter(p => p.source === source && p.sourceId === sourceId).map(p => p.version)
+        deleted += affected(await db.delete(revisions).where(and(
+          pinned.length ? notInArray(revisions.version, pinned) : undefined,
+          eq(revisions.source, source),
+          eq(revisions.sourceId, sourceId),
+          lte(revisions.version, Number(newest) - policy.keep),
+          lt(revisions.createdAt, cutoff),
+          kept,
+        )))
+      }
+      return deleted
     },
 
     /** One saved version of an entry (or a singleton, by its name), or undefined. */
