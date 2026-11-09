@@ -300,6 +300,25 @@ describe('site routing', async () => {
     expect((await fetch('/api/_atelier/jobs')).status).toBe(401) // the job list is for administrators
   })
 
+  it('schedules publishing through the API, and the scheduler publishes on time', async () => {
+    const { body: post } = await api('/api/_atelier/collections/posts', 'POST', { data: { title: 'Timed', slug: 'timed' } })
+    const schedule = `/api/_atelier/collections/posts/${post.id}/schedule`
+    const soon = new Date(Date.now() + 3000).toISOString()
+    expect((await api(schedule, 'POST', { action: 'publish', at: '2020-01-01T00:00:00Z', version: 1 })).body.data.errors).toEqual([{ path: 'at', message: 'in the past' }])
+    expect((await api(schedule, 'POST', { action: 'publish', at: soon })).body.data.errors).toEqual([{ path: 'version', message: 'required' }])
+    expect((await api(schedule, 'POST', { action: 'publish', at: '2026-11-10T09:00', version: 1 })).status).toBe(422) // no offset: ambiguous
+    expect((await api(`/api/_atelier/collections/pages/${(await api('/api/_atelier/collections/pages')).body.items[0].id}/schedule`, 'POST', { action: 'publish', at: soon, version: 1 })).status).toBe(422) // not versioned
+    expect((await fetch(schedule)).status).toBe(403) // visitors can't see schedules
+
+    const scheduled = await api(schedule, 'POST', { action: 'publish', at: soon, version: 1 })
+    expect(scheduled.body).toEqual([{ action: 'publish', at: soon, version: 1, by: expect.any(String), status: 'queued', lastError: null }])
+    expect((await api(schedule)).body).toEqual(scheduled.body)
+    expect((await page('/blog/timed', false)).status).toBe(404)
+    await expect.poll(async () => (await page('/blog/timed', false)).status, { timeout: 20_000, interval: 500 }).toBe(200)
+    expect((await api(schedule)).body).toEqual([])
+    expect((await api(`${schedule}/unpublish`, 'DELETE')).status).toBe(404)
+  })
+
   it('answers 404 for unknown and protocol-relative paths; visitors read what\'s published but can\'t write', async () => {
     expect((await page('/nothing-here')).status).toBe(404)
     expect((await api('/api/_atelier/routes?path=//evil.example')).status).toBe(404)

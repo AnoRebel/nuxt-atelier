@@ -53,6 +53,7 @@
         "@nuxt/test-utils": "4.3.4",
         "miniflare": "4.20260730.0",
         "playwright-core": "1.65.0",
+        "@date-fns/tz": "1.5.0",
         "@seriousme/openapi-schema-validator": "2.11.0"
       },
       "ui": {
@@ -117,6 +118,7 @@
     "drizzle-orm": "catalog:db",
     "miniflare": "catalog:test",
     "playwright-core": "catalog:test",
+    "@date-fns/tz": "catalog:test",
     "@seriousme/openapi-schema-validator": "catalog:test",
     "better-auth": "catalog:auth"
   },

@@ -3,6 +3,9 @@
 //   PATCH  /api/_atelier/singletons/<name>                         { version, data, publish? }: merged into the draft; version null for the first save
 //   POST   /api/_atelier/singletons/<name>/publish                 { version }
 //   POST   /api/_atelier/singletons/<name>/unpublish
+//   GET    /api/_atelier/singletons/<name>/schedule                   the scheduled publish and unpublish
+//   POST   /api/_atelier/singletons/<name>/schedule                   { action, at, version }: see schedule.ts
+//   DELETE /api/_atelier/singletons/<name>/schedule/<action>
 //   GET    /api/_atelier/singletons/<name>/revisions
 //   GET    /api/_atelier/singletons/<name>/revisions/<version>
 //   POST   /api/_atelier/singletons/<name>/revisions/<version>/restore   { version }: that version's data becomes the next draft
@@ -12,6 +15,7 @@ import { defineEventHandler, getQuery } from 'nuxt/server'
 import { defaultsFactory } from '../../shared/fields'
 import { apiError, readValid, validated } from '../errors'
 import { audit, toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
+import { scheduleRequest } from '../scheduling'
 import { shadowed } from '../shadowing'
 import { allow, assertMigrated, assertWritable, caller, countWrite, limits, present, restorable, segments, select, stageFor } from '../content-access'
 
@@ -27,13 +31,13 @@ const Update = v.object({
   publish: v.optional(v.boolean('publish: expected true or false')),
 })
 const AtVersion = v.object({ version: v.number('version: expected the version you read') })
-const SUBS = new Set(['revisions', 'publish', 'unpublish'])
+const SUBS = new Set(['revisions', 'publish', 'unpublish', 'schedule'])
 
 export default defineEventHandler(async (event) => {
   const [name, sub, version, action, ...rest] = segments(event, PREFIX)
   const method = event.req.method
   const definition = name ? (await useAtelierSchema()).singletons[name] : undefined
-  if (!name || !definition || rest.length || (sub !== undefined && !SUBS.has(sub)) || (sub !== 'revisions' && version !== undefined) || (action !== undefined && action !== 'restore'))
+  if (!name || !definition || rest.length || (sub !== undefined && !SUBS.has(sub)) || (sub !== 'revisions' && sub !== 'schedule' && version !== undefined) || (action !== undefined && (sub !== 'revisions' || action !== 'restore')))
     throw apiError(404, name && !definition ? `No singleton "${name}"` : 'Not found')
   if (method !== 'GET')
     await assertMigrated()
@@ -76,6 +80,11 @@ export default defineEventHandler(async (event) => {
       await entries.unpublishSingleton(name)
       await audit(event, { action: 'entry.unpublished', actorId: who.principal.id, target: { type: name, id: name } })
       return { ok: true }
+    }
+    if (sub === 'schedule') {
+      if (method !== 'GET')
+        await countWrite(event, who)
+      return await scheduleRequest(event, who, { type: name, id: name, singleton: true, versioned: !!definition.versioned }, version)
     }
     if (sub === 'revisions' && action === 'restore' && method === 'POST') {
       allow(who, 'update', name)

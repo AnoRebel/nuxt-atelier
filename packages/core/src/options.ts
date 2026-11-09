@@ -47,6 +47,10 @@ export const optionsSchema = v.strictObject({
       v.description('Path the admin is served under: a leading slash, no trailing slash, not under `/api`.'),
     ), '/admin'),
   }), {}),
+  revisions: v.optional(v.strictObject({
+    keep: int(1, 100_000, 50, 'Revisions each entry keeps at least: its newest ones. Older ones are deleted once they\'re also older than `revisions.days`, except, in versioned types, those that were published. Checked daily, as a background job.'),
+    days: int(0, 36_500, 30, 'Days every revision is kept, however many there are.'),
+  }), {}),
   jobs: v.optional(v.strictObject({
     schedule: v.optional(v.pipe(
       v.union([v.pipe(v.string(), v.regex(/^\S+(?:\s+\S+){4,5}$/, 'expected a cron expression of 5 fields, or 6 with seconds first')), v.literal(false)], 'expected a cron expression like "* * * * *", or false'),
