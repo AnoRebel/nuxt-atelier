@@ -1,6 +1,7 @@
 // Entry reads and saves. A save writes the entry row, its relation rows and a revision snapshot in one
 // transaction: all of it persists or none does. Writes carry the version the client last read; a write
 // against an older version is refused with a 409 rather than overwriting someone else's save.
+import type { BlockSchema } from '../../shared/blocks'
 import type { Field, FieldError, RelationField } from '../../shared/fields'
 import type { Redirect } from '../redirects'
 import type { EntryPath } from '../routes'
@@ -131,6 +132,41 @@ export interface SaveInput {
 }
 
 interface RelationRow { field: string, position: number, target: string, targetId: string }
+
+/** The relations-table target of media usage rows: where each media item is used. */
+export const MEDIA_TARGET = 'atelier:media'
+
+/**
+ * Media ids anywhere in the entry, under their dot path (`content.0.props.image`): media fields, in objects,
+ * repeaters and blocks (by each block type's fields and options, and in its areas).
+ */
+function mediaRows(fields: Record<string, Field>, data: Record<string, unknown> | undefined, blocks: Record<string, BlockSchema> | undefined, prefix = ''): RelationRow[] {
+  const rows: RelationRow[] = []
+  const inBlocks = (list: unknown, path: string) => {
+    if (!Array.isArray(list))
+      return
+    list.forEach((block: { type?: string, props?: Record<string, unknown> }, i) => {
+      const schema = block?.type ? blocks?.[block.type] : undefined
+      if (!schema || !block.props)
+        return
+      rows.push(...mediaRows({ ...schema.fields, ...schema.options }, block.props, blocks, `${path}.${i}.props.`))
+      for (const area of Object.keys(schema.areas))
+        inBlocks(block.props[area], `${path}.${i}.props.${area}`)
+    })
+  }
+  for (const [key, field] of Object.entries(fields)) {
+    const value = data?.[key]
+    if (field.type === 'media' && typeof value === 'string' && value)
+      rows.push({ field: `${prefix}${key}`, position: 0, target: MEDIA_TARGET, targetId: value })
+    else if (field.type === 'object' && value && typeof value === 'object')
+      rows.push(...mediaRows(field.fields, value as Record<string, unknown>, blocks, `${prefix}${key}.`))
+    else if (field.type === 'repeater' && Array.isArray(value))
+      value.forEach((item, i) => rows.push(...mediaRows(field.fields, item, blocks, `${prefix}${key}.${i}.`)))
+    else if (field.type === 'blocks')
+      inBlocks(value, `${prefix}${key}`)
+  }
+  return rows
+}
 
 /** Relation values anywhere in the entry, nested ones under their dot path (`faq.2.author`). */
 function relationRows(fields: Record<string, Field>, data: Record<string, unknown> | undefined, prefix = ''): RelationRow[] {
@@ -692,7 +728,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     function statements(q: Db, target: Target<unknown>, data: Record<string, unknown>, now: string, plan?: PathPlan, publishing = false) {
       const { source, sourceId, expected } = target
       const version = expected === undefined ? 1 : expected + 1
-      const links = relationRows(target.fields, data)
+      const links = [...relationRows(target.fields, data), ...mediaRows(target.fields, data, schema.blocks)]
       return [
         target.write(q, data, version, now),
         ...expected === undefined ? [] : [q.delete(relations).where(and(eq(relations.source, source), eq(relations.sourceId, sourceId)))],
@@ -749,7 +785,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const plan = await live.planPaths(q, source, sourceId, result.value, true)
       await live.assertPathsFree(q, plan)
       const now = new Date().toISOString()
-      const links = relationRows(fields, result.value)
+      const links = [...relationRows(fields, result.value), ...mediaRows(fields, result.value, schema.blocks)]
       const mine = (t: Db) => and(eq(t.source, source), eq(t.sourceId, sourceId))
       let row: unknown[]
       if (publishedTable) {
