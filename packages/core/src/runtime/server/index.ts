@@ -6,6 +6,7 @@ import type { CollectionName, CollectionQuery, TypedEntry, TypedEntryList } from
 import type { ListQuery } from './db/query'
 import type { CollectionDefinition, SingletonDefinition } from './types'
 import { useRuntimeConfig } from 'nuxt/server'
+import { contentChanged } from './cache'
 import { connect, UnsupportedOperationError } from './db/driver'
 import { QueryError } from './db/query'
 import { buildTables } from './db/tables'
@@ -37,6 +38,7 @@ export { QueryError } from './db/query'
 export type { Condition, Filter, ListQuery, Operator } from './db/query'
 export { apiError, readValid, validated } from './errors'
 export { openApiDocument } from './openapi'
+export type { ContentChange } from './cache'
 export { diffEntries } from '../shared/diff'
 export type { Change } from '../shared/diff'
 export { contentRepairs, findStaleContent } from '../shared/reconcile'
@@ -100,7 +102,10 @@ let entries: Promise<EntryStore> | undefined
 
 /** Reads and saves entries of the app's collections, on the app's database. */
 export function useAtelierEntries(): Promise<EntryStore> {
-  entries ??= (async () => createEntryStore(await useAtelierDatabase(), await useAtelierSchema(), { maxNestingDepth: (useAtelierServerConfig() as unknown as { limits: { maxNestingDepth: number } }).limits.maxNestingDepth }))()
+  entries ??= (async () => createEntryStore(await useAtelierDatabase(), await useAtelierSchema(), {
+    maxNestingDepth: (useAtelierServerConfig() as unknown as { limits: { maxNestingDepth: number } }).limits.maxNestingDepth,
+    onChange: contentChanged,
+  }))()
     .catch((error) => {
       entries = undefined
       throw error

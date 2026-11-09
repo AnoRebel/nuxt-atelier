@@ -129,6 +129,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       addServerHandler({ route: `/api/_atelier/${resource}/**`, handler: resolve(`./runtime/server/api/${resource}`) })
     }
     addServerHandler({ route: '/api/_atelier/routes', handler: resolve('./runtime/server/api/routes') })
+    addServerHandler({ route: '/api/_atelier/preview-links', handler: resolve('./runtime/server/api/preview-links') })
     addServerHandler({ route: '/api/_atelier/**', handler: resolve('./runtime/server/api/not-found') })
     if (nuxt.options.dev)
       setupDevMigrations(nuxt)

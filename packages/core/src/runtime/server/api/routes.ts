@@ -1,12 +1,18 @@
 // Site routing:
-//   GET  /api/_atelier/routes?path=/about&locale=et&depth&draft   the entry served at a path, with how to render it
+//   GET  /api/_atelier/routes?path=/about&locale=et&depth&draft&preview   the entry served at a path, with how to render it
 // Under the content API's permissions: the caller must be able to read the entry. Published URLs and
-// entries, unless `draft=true` comes from someone who can edit the type (then a draft's URL works too).
+// entries, unless `draft=true` comes from someone who can edit the type (then a draft's URL works too), or
+// `preview` is a shared preview link's token for the entry at that path: its draft, for anyone, until it
+// expires (410 after).
 import * as v from 'valibot'
 import { defineEventHandler, getQuery } from 'nuxt/server'
 import { apiError, validated } from '../errors'
 import { toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
+import type { PreviewToken } from '../secrets'
+import { PUBLIC_ROLE } from '../../shared/policy'
+import { cached, remember } from '../cache'
 import { allow, caller, limits, present, stageFor } from '../content-access'
+import { PREVIEW_PURPOSE, verifyToken } from '../secrets'
 import { canonicalPath } from '../routes'
 
 const Query = v.object({
@@ -14,6 +20,7 @@ const Query = v.object({
   locale: v.optional(v.string()),
   depth: v.optional(v.pipe(v.string(), v.regex(/^\d+$/, 'depth: expected a whole number'), v.transform(Number))),
   draft: v.optional(v.string()),
+  preview: v.optional(v.string()),
 })
 
 export default defineEventHandler(async (event) => {
@@ -27,11 +34,24 @@ export default defineEventHandler(async (event) => {
     throw notFound()
   const who = await caller(event, true) // first: whether a path exists isn't told to anyone who can't read it
   const entries = await useAtelierEntries()
+  // what visitors see is cached until content changes; anything else is private to who asked
+  const shared = who.principal.role === PUBLIC_ROLE && query.draft === undefined && query.preview === undefined
+  if (!shared)
+    event.res.headers.set('cache-control', 'private, no-store')
   try {
     const path = canonicalPath(query.path)
+    const key = `route:${path}|${query.locale ?? ''}|${query.depth ?? 0}`
+    const hit = shared ? cached<object>(key) : undefined
+    if (hit)
+      return hit
+    // a shared preview link: valid only for the entry it names, at that entry's draft URL
+    const link = query.preview === undefined ? undefined : await verifyToken<PreviewToken>(PREVIEW_PURPOSE, query.preview)
+    if (link && link.e < Date.now())
+      throw apiError(410, 'This preview link has expired. Ask for a new one.')
     // drafts for whoever may preview them: the draft's own URL first, then the published one
-    const draftRoute = path === undefined || query.draft === undefined ? undefined : await entries.resolve(path, query.locale, 'draft')
-    const drafting = !!draftRoute && stageFor(who, draftRoute.name, query.draft) === 'draft'
+    const draftRoute = path === undefined || (query.draft === undefined && !link) ? undefined : await entries.resolve(path, query.locale, 'draft')
+    const linked = !!link && !!draftRoute && draftRoute.name === link.t && draftRoute.id === link.i
+    const drafting = !!draftRoute && (linked || stageFor(who, draftRoute.name, query.draft) === 'draft')
     const route = drafting ? draftRoute : path === undefined ? undefined : await entries.resolve(path, query.locale)
     if (!route)
       throw notFound()
@@ -43,9 +63,10 @@ export default defineEventHandler(async (event) => {
       : await entries.get(route.name, route.id, { depth, stage })
     if (!entry)
       throw notFound()
-    allow(who, 'read', route.name, route.kind === 'singleton' ? undefined : entry as { createdBy: string | null })
+    if (!linked) // the link's signer could edit the entry, and shared it
+      allow(who, 'read', route.name, route.kind === 'singleton' ? undefined : entry as { createdBy: string | null })
     const { component, layout } = definition.route!
-    return {
+    const answer = {
       ...route,
       component: component ?? null,
       layout: layout ?? null,
@@ -53,6 +74,9 @@ export default defineEventHandler(async (event) => {
       blocks: Object.entries(definition.fields).filter(([, f]) => f.type === 'blocks').map(([key]) => key),
       entry: { ...entry, path: route.path, data: await present(who, definition.fields, route.name, entry.data) },
     }
+    if (shared && path !== undefined)
+      remember(key, answer)
+    return answer
   }
   catch (error) {
     throw toHttpError(error)

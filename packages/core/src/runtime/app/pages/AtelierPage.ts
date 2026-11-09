@@ -13,8 +13,11 @@ export default defineComponent({
     const { data, error } = await useAtelierRouteEntry()
     const page = data.value
     if (error.value || !page) {
-      // not found, or not readable by this visitor: the same 404, so it doesn't tell which
+      // not found, or not readable by this visitor: the same 404, so it doesn't tell which.
+      // An expired preview link says so (410), without the draft.
       const status = error.value?.statusCode ?? 404
+      if (status === 410)
+        throw createError({ statusCode: 410, statusMessage: 'Preview link expired', message: 'This preview link has expired. Ask for a new one.', fatal: true })
       throw createError({ statusCode: status >= 500 ? status : 404, statusMessage: status >= 500 ? 'Server error' : 'Page not found', fatal: true })
     }
     return () => h(NuxtLayout, { name: page.layout ?? 'default' }, {

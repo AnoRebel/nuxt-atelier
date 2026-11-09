@@ -214,7 +214,10 @@ interface Target<T> {
   read: (q: Db) => Promise<T>
 }
 
-export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, options: { maxNestingDepth?: number } = {}) {
+/** A committed write: `live` when what the site serves changed. */
+export interface StoreChange { type: string, id: string, action: 'saved' | 'published' | 'unpublished' | 'deleted', live: boolean }
+
+export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, options: { maxNestingDepth?: number, onChange?: (change: StoreChange) => unknown } = {}) {
   const tables = buildTables(driver.dialect, schema)
   const db = driver.db as Db
   const { atelier_redirects: redirectsTable, atelier_revisions: revisions } = tables
@@ -903,6 +906,12 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
   }
 
   const { collection, singleton, entryTarget, singletonTarget, persist, deletion, unpublication } = stages.draft
+  /** Tells `onChange` about a committed write, after the redirect cache is reset. */
+  const committed = <T>(change: StoreChange) => (result: T) => {
+    void options.onChange?.(change)
+    return result
+  }
+
   /** 422 for a type that publishes every save: it has nothing to publish or unpublish. */
   const assertVersioned = (name: string) => {
     if (!versioned(name))
@@ -920,6 +929,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       })
     }
     forgetRedirects()
+    committed({ type: target.source, id: target.sourceId, action: 'unpublished', live: true })(undefined)
   }
 
   return {
@@ -946,7 +956,9 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       if (input.id !== undefined && input.version === undefined)
         throw new Error('Updating an entry needs the version it was read at')
       const target = entryTarget(name, input.id ?? crypto.randomUUID(), input.id === undefined ? undefined : input.version, input.authorId)
+      const live = !!input.publish || !versioned(name)
       return persist(target, input.data, input.publish).finally(forgetRedirects)
+        .then(committed({ type: name, id: target.sourceId, action: live ? 'published' : 'saved', live }))
     },
 
     /**
@@ -959,6 +971,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       if (!draft)
         throw new NotFoundError(`No entry "${id}" in "${name}"`)
       return persist(entryTarget(name, id, input.version, input.authorId), draft.data, true).finally(forgetRedirects)
+        .then(committed({ type: name, id, action: 'published', live: true }))
     },
 
     /** Takes an entry off the site; its draft stays. Its URLs answer 404 and don't redirect. */
@@ -976,14 +989,15 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       if (!driver.capabilities.transactions) {
         // ponytail: on D1 the references are read before the batch runs; one added in between is left dangling (it reads as null)
         await db.batch(await deletion(db, name, id))
-        forgetRedirects()
-        return
       }
-      await db.transaction(async (tx: Db) => {
-        for (const statement of await deletion(tx, name, id))
-          await statement
-      })
+      else {
+        await db.transaction(async (tx: Db) => {
+          for (const statement of await deletion(tx, name, id))
+            await statement
+        })
+      }
       forgetRedirects()
+      committed({ type: name, id, action: 'deleted', live: true })(undefined)
     },
 
     /** A singleton (relations as ids, or entries up to `depth` levels), or undefined before its first save or publish. */
@@ -995,7 +1009,9 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
 
     /** Saves a singleton's draft atomically, as `save`. `version` is the one read, or undefined/null for the first save. */
     saveSingleton(name: string, input: { data: Record<string, unknown>, version?: number | null, authorId?: string, publish?: boolean }): Promise<SingletonEntry> {
+      const live = !!input.publish || !versioned(name)
       return persist(singletonTarget(name, input.version ?? undefined, input.authorId), input.data, input.publish).finally(forgetRedirects)
+        .then(committed({ type: name, id: name, action: live ? 'published' : 'saved', live }))
     },
 
     /** Publishes a singleton's draft, as `publish`. */
@@ -1005,6 +1021,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       if (!draft)
         throw new NotFoundError(`Singleton "${name}" has no saved draft`)
       return persist(singletonTarget(name, input.version, input.authorId), draft.data, true).finally(forgetRedirects)
+        .then(committed({ type: name, id: name, action: 'published', live: true }))
     },
 
     /** Takes a singleton off the site, as `unpublish`. */

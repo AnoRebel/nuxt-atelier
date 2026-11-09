@@ -3,9 +3,20 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { $fetch, fetch, setup, startServer } from '@nuxt/test-utils/e2e'
+import { sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
+import { PREVIEW_PURPOSE, signToken } from '../../packages/core/src/runtime/server/secrets'
+import { connectEngine, query } from '../storage/env'
 
 const rootDir = fileURLToPath(new URL('../fixtures/routing', import.meta.url))
+const SECRET = 'a-test-secret-that-is-long-enough-123456'
+const DATABASE = join(mkdtempSync(join(tmpdir(), 'atelier-routing-')), 'db.sqlite')
+/** What Nuxt's deriveSecret gives the server for `purpose` with this app secret (HKDF-SHA256, salt "nuxt"). */
+async function derived(purpose: string, secret = SECRET) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), 'HKDF', false, ['deriveBits'])
+  const bits = await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new TextEncoder().encode('nuxt'), info: new TextEncoder().encode(purpose) }, key, 256)
+  return [...new Uint8Array(bits)].map(b => b.toString(16).padStart(2, '0')).join('')
+}
 
 describe('site routing', async () => {
   await setup({ setupTimeout: 300_000, rootDir })
@@ -27,8 +38,8 @@ describe('site routing', async () => {
 
   beforeAll(async () => {
     await startServer({ env: {
-      NUXT_ATELIER_DATABASE_URL: `file:${join(mkdtempSync(join(tmpdir(), 'atelier-routing-')), 'db.sqlite')}`,
-      NUXT_APP_SECRET: 'a-test-secret-that-is-long-enough-123456',
+      NUXT_ATELIER_DATABASE_URL: `file:${DATABASE}`,
+      NUXT_APP_SECRET: SECRET,
     } })
     await $fetch('/api/test/users', { method: 'POST', body: { email: 'admin@example.com', role: 'admin', password: 'password 123' } })
     const signedIn = await fetch('/api/_atelier/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'admin@example.com', password: 'password 123' }) })
@@ -196,6 +207,67 @@ describe('site routing', async () => {
     expect((await api('/api/_atelier/audit?action=entry.unpublished')).body[0]).toMatchObject({ target: { type: 'posts', id } })
     // a type that isn't versioned has nothing to publish
     expect((await api(`/api/_atelier/collections/pages/${(await api('/api/_atelier/collections/pages')).body.items[0].id}/unpublish`, 'POST')).status).toBe(422)
+  })
+
+  it('previews drafts on their real URL: for editors who ask, and for anyone with a shared link until it expires', async () => {
+    const { body: draft } = await api('/api/_atelier/collections/posts', 'POST', { data: { title: 'Soon', slug: 'soon', content: [{ id: 's1', type: 'Hero', props: { title: 'Not yet public' } }] } })
+    expect((await page('/blog/soon?_atelier=preview')).html).toContain('Not yet public') // an editor
+    expect((await page('/blog/soon?_atelier=preview', false)).status).toBe(404) // a visitor asking
+
+    const link = await api('/api/_atelier/preview-links', 'POST', { type: 'posts', id: draft.id, hours: 24 })
+    expect(link.body).toMatchObject({ url: expect.stringMatching(/^\/blog\/soon\?_atelier_preview=[\w-]+\.[\w-]+$/), expiresAt: expect.any(String) })
+    expect(Date.parse(link.body.expiresAt) - Date.now()).toBeGreaterThan(23.9 * 3600_000)
+    const shared = await page(link.body.url, false)
+    expect(shared.status).toBe(200)
+    expect(shared.html).toContain('Not yet public')
+
+    // the link shows that entry only, and only as signed
+    const { body: other } = await api('/api/_atelier/collections/posts', 'POST', { data: { title: 'Other', slug: 'other' } })
+    expect((await page(`/blog/other?_atelier_preview=${link.body.token}`, false)).status).toBe(404)
+    expect((await page(`/blog/soon?_atelier_preview=${link.body.token.slice(0, -2)}xx`, false)).status).toBe(404)
+    const forged = await signToken(PREVIEW_PURPOSE, { t: 'posts', i: draft.id, e: Date.now() + 3600_000 }, await derived(PREVIEW_PURPOSE, 'another-secret-that-is-long-enough-1234'))
+    expect((await page(`/blog/soon?_atelier_preview=${forged}`, false)).status).toBe(404)
+
+    // a 24-hour link opened after 25 hours: the expiry message, no draft content
+    const expired = await signToken(PREVIEW_PURPOSE, { t: 'posts', i: draft.id, e: Date.now() - 3600_000 }, await derived(PREVIEW_PURPOSE))
+    const late = await page(`/blog/soon?_atelier_preview=${expired}`, false)
+    expect(late.status).toBe(410)
+    expect(late.html).toContain('Preview link expired')
+    expect(late.html).not.toContain('Not yet public')
+    expect((await (await fetch(`/api/_atelier/routes?path=/blog/soon&preview=${expired}`)).json()).data.code).toBe('preview_expired')
+
+    // who may make one
+    expect((await api('/api/_atelier/preview-links', 'POST', { type: 'posts', id: other.id, hours: 721 })).status).toBe(422)
+    expect((await fetch('/api/_atelier/preview-links', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'posts', id: draft.id }) })).status).toBe(401)
+  })
+
+  it('caches what visitors see until content changes, never drafts or signed-in answers, and tells the app\'s hooks', async () => {
+    const { body: post } = await api('/api/_atelier/collections/posts', 'POST', { data: { title: 'Cached', slug: 'cached', content: [{ id: 'k1', type: 'Hero', props: { title: 'Version one' } }] }, publish: true })
+    const visitor = () => fetch('/api/_atelier/routes?path=/blog/cached')
+    expect((await (await visitor()).json()).entry.data.content[0].props.title).toBe('Version one')
+
+    // a change behind the store's back isn't seen by visitors: they're served from the cache
+    const db = await connectEngine(`file:${DATABASE}`)
+    await query(db, sql`update atelier_p_posts set title = ${'Changed behind its back'} where _id = ${post.id}`)
+    expect((await (await visitor()).json()).entry.data.title).toBe('Cached')
+    const signedIn = await fetch('/api/_atelier/routes?path=/blog/cached', { headers: { cookie } })
+    expect(signedIn.headers.get('cache-control')).toBe('private, no-store')
+    expect((await signedIn.json()).entry.data.title).toBe('Changed behind its back')
+    await db.close()
+
+    // republishing clears it
+    const draft = await api(`/api/_atelier/collections/posts/${post.id}`, 'PATCH', { version: 1, data: { content: [{ id: 'k1', type: 'Hero', props: { title: 'Version two' } }] }, publish: true })
+    expect(draft.body).toMatchObject({ version: 2, publishedVersion: 2 })
+    expect((await page('/blog/cached', false)).html).toContain('Version two')
+    expect((await (await fetch('/api/_atelier/routes?path=/blog/cached&draft=true', { headers: { cookie } })).headers.get('cache-control'))).toBe('private, no-store')
+
+    const changes = await (await fetch('/api/test/changes')).json()
+    expect(changes.filter((c: { id: string }) => c.id === post.id)).toEqual([
+      { type: 'posts', id: post.id, action: 'published', live: true },
+      { type: 'posts', id: post.id, action: 'published', live: true },
+    ])
+    await api(`/api/_atelier/collections/posts/${post.id}`, 'PATCH', { version: 2, data: { title: 'Draft only' } })
+    expect((await (await fetch('/api/test/changes')).json()).at(-1)).toEqual({ type: 'posts', id: post.id, action: 'saved', live: false })
   })
 
   it('answers 404 for unknown and protocol-relative paths; visitors read what\'s published but can\'t write', async () => {
