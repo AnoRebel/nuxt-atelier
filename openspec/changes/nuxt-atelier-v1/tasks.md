@@ -39,6 +39,7 @@
 - [x] 4.6 Implement custom field type registration (model, validators, admin input component reference); verify a `geo-point` fixture field validates and stores (done after section 5: its verification needs the storage layer. `defineFieldType` returns a helper whose descriptor carries its storage, Standard Schema and input component name: no global registry; the admin rendering the input is verified with the admin forms)
 - [x] 4.7 Generate types for collections/singletons/fields for app and server code with HMR refresh on schema change; verify a type test fails on an unknown field and passes after adding it during dev
 - [x] 4.9 (added from Pruvious #124, see parent-issues.md; tested on every engine in test/storage/store.test.ts, permissions in the content API suite) Implement two-way relations: `inverse` on a relation names the relation field pointing back; both sides kept in sync in one transaction (including on delete), checked at schema load (target field exists, points back, is a relation), and documented; verify editing either side updates the other on every engine
+- [ ] 4.10 (added from ohne, see parent-issues.md) Implement conditional fields (`when` on a field: a condition on sibling or top-level field values; while false the field is hidden, not required and not stored), enforced by `validateEntry` and exposed for the admin forms; verify the save rules for both branches, nested in objects and repeaters, and the docs
 - [x] 4.8 Write docs: schema concepts, every field type with options and examples, validation, relations, custom fields
 
 ## 5. Storage engine and migrations (content-storage)
@@ -53,6 +54,7 @@
 - [x] 5.8 Implement a minimal in-memory reference adapter (used by docs demos and tests) implementing only required operations; verify the contract suite's required tests pass and optional features are reported disabled (`createMemoryAdapter` from `nuxt-atelier/adapter`; one instance per demo session keeps sessions apart; no validation)
 - [x] 5.9 Implement streaming `atelier export`/`import` (content, revisions, relations, media metadata, settings) portable across engines; verify SQLite → Postgres round-trip equality test (NDJSON archive, gzipped for `.gz`; import into an empty migrated database in one transaction; verified SQLite → Postgres, MySQL and MariaDB; media metadata joins when section 12 adds its table)
 - [x] 5.10 Write docs: database setup per engine, migrations workflow, D1 limitations page, adapter contract guide with a worked external-backend example, backup/export
+- [ ] 5.11 (added from ohne, see parent-issues.md) Implement `atelier migrate apply --dry-run`: pending migrations in a transaction that is always rolled back, each migration's result reported, non-zero exit on failure, refused on D1; verify a failing unique index is reported with the database unchanged on every transactional engine
 
 ## 6. Access control (access-control)
 
@@ -131,6 +133,7 @@
 - [ ] 12.7 Implement usage tracking and safe delete with usage listing; verify delete-in-use warning test
 - [ ] 12.8 Implement ephemeral-filesystem warning for local driver on known ephemeral targets; verify warning emitted in a Vercel preset build
 - [ ] 12.9 Write docs: media guide (editors), storage drivers setup, image processing and providers, edge limitations
+- [ ] 12.10 (added from ohne, see parent-issues.md) Implement resumable chunked uploads (within `limits.maxUploadSize`, abandoned chunks cleaned up by a job) and private media (served only to signed-in readers, `Cache-Control: private, no-store`, 404 for others); verify a resumed upload is byte-identical and an anonymous request for a private file is 404
 
 ## 13. Localization (localization)
 
@@ -226,6 +229,7 @@
 - [ ] 22.2 Implement admin actions (alt text, translate field/block, SEO suggestions, rewrite/shorten/expand) as lazy-loaded suggestion UI with accept/edit/discard and undo; verify disabled-by-default bundle check and discard test
 - [ ] 22.3 Implement AI usage audit and reporting view; verify usage report test
 - [ ] 22.4 Write docs: enabling AI assist, choosing a provider, privacy controls and exclusions, usage limits
+- [ ] 22.5 (added from ohne, see parent-issues.md) Implement the assistant in the command palette: plain-language request → proposed content API requests shown for approval → approved ones sent by the user's browser with their session; verify a writer's approved delete of another author's entry is refused with 403 and nothing changes, and that nothing is sent without approval
 
 ## 23. Performance, safety, operations (runtime-performance)
 
@@ -254,6 +258,8 @@
 - [ ] 25.3 Enable machine-readable docs indexes (`llms.txt`) and verify the deployed path returns the index
 - [ ] 25.4 Audit docs completeness: every admin-visible feature has an editor guide and every public API has reference docs; verify the completeness check script passes
 - [ ] 25.5 Confirm the GitHub repository owner/name and deploy branch with the maintainer, then create the Dokploy project "Nuxt Atelier" and application "Nuxt Atelier Docs" via the existing GitHub App (Dockerfile build `docs/Dockerfile`, context `.`, watch paths `docs/**`, `packages/**`, `package.json`, `bun.lock`, auto-deploy on push) with HTTPS domain `nuxt-atelier.anorebel.net` on port 3000; verify the deployment succeeds and `https://nuxt-atelier.anorebel.net` serves the docs and a working live demo
+- [ ] 25.6 (requested by the maintainer, 2026-11-09; needs sections 10, 12, 14, 15 and 20) Port Pruvious's Rayleigh portfolio template (github.com/pruvious/rayleigh, MIT, © Muris Ceman: keep its copyright notice in the example's LICENSE and credit it in the README) to `examples/rayleigh`: pages, posts and settings, its blocks (PageIntro, Portfolio, Posts, Prose, Image), header, footer, dark mode and seeded demo content with its images (resized to web sizes); verify it builds, renders the seeded pages with no hydration warnings, and passes the e2e smoke test
+- [ ] 25.7 Write the tutorial that builds Rayleigh step by step in our own words, completing the chapters Pruvious left unfinished: setup, the portfolio block, header and footer, the about page, the blog, the contact form (forms, spam protection, email), and deployment (Docker and Dokploy, Cloudflare D1); verify every chapter's code is the example's code at that step (a CI check builds each step)
 
 ## 26. Release readiness (integration checks)
 

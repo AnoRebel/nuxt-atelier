@@ -55,3 +55,17 @@ Media fields SHALL open a picker that supports browsing, searching, uploading, a
 #### Scenario: Drop upload
 - **WHEN** an editor drops an image file onto an image block in the preview
 - **THEN** the file is uploaded and assigned to that block's media field
+
+### Requirement: Resumable uploads
+Large uploads SHALL be sent in chunks that a client can resume after a dropped connection, within the configured maximum size.
+
+#### Scenario: Connection drops mid-upload
+- **WHEN** a 200 MB upload loses its connection after 120 MB and the client retries
+- **THEN** it continues from the last stored chunk and the finished file is identical to the original
+
+### Requirement: Private media
+Media items SHALL be markable as private: served only to signed-in users who may read media, never cached publicly, and never linked from public pages.
+
+#### Scenario: Anonymous request for a private file
+- **WHEN** a visitor who isn't signed in requests a private file's URL
+- **THEN** the response is 404

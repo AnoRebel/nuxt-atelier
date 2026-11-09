@@ -72,3 +72,10 @@ Fields SHALL have stable keys so renames can be declared explicitly, preserving 
 #### Scenario: Declared rename
 - **WHEN** a field is renamed with an explicit rename declaration
 - **THEN** the generated migration renames the stored data and no content is lost
+
+### Requirement: Conditional fields
+A field SHALL be able to declare a condition on other fields' values; while the condition is false the field is hidden in the admin, not required, and not stored, and the server applies the same rule when validating.
+
+#### Scenario: External link only when chosen
+- **WHEN** `url` is declared to apply only when `linkType` equals `external`, and an entry is saved with `linkType: internal`, no `url` and `url` marked required
+- **THEN** the save succeeds and stores no `url`; with `linkType: external` and no `url`, it is refused with a required error on `url`

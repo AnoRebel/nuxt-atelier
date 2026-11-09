@@ -72,3 +72,10 @@ The system SHALL provide a CLI command to export all content, media metadata, an
 #### Scenario: SQLite to PostgreSQL
 - **WHEN** content exported from a SQLite instance is imported into an empty PostgreSQL instance
 - **THEN** all entries, revisions, relations, and media references are present and identical
+
+### Requirement: Migration rehearsal
+The CLI SHALL rehearse pending migrations against a live database without keeping any change, and report each migration's result.
+
+#### Scenario: A migration that would fail
+- **WHEN** `atelier migrate apply --dry-run` runs a pending migration that adds a unique index over duplicate values
+- **THEN** it reports that migration's error, the database is unchanged, and the exit code is non-zero; on Cloudflare D1, which has no transactions, the command refuses with that reason

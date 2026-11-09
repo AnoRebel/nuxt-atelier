@@ -49,6 +49,13 @@ The docs SHALL include a hosting guide with a complete, copyable example for eac
 - **WHEN** a feature isn't available on a platform (e.g. local file uploads on an ephemeral filesystem, multi-statement transactions on D1)
 - **THEN** that platform's guide says so and names the alternative (e.g. an S3-compatible storage adapter)
 
+### Requirement: Tutorial with a complete example site
+The documentation SHALL include a tutorial that builds a complete example site step by step, from setup to deployment, with the finished site in the repository.
+
+#### Scenario: Following the tutorial
+- **WHEN** a developer follows every chapter of the tutorial, including the contact form and deployment chapters
+- **THEN** they end with the same site as the repository's example, and each chapter's code builds
+
 ### Requirement: API reference
 The docs SHALL include a generated reference for public composables, components, server utilities, REST endpoints, and CLI commands.
 

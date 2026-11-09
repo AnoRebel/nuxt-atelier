@@ -47,3 +47,10 @@ AI requests SHALL be recorded with user, action, time, and token or cost usage w
 #### Scenario: Usage report
 - **WHEN** an administrator views AI usage
 - **THEN** they see requests per user and action for a chosen period
+
+### Requirement: Assistant acting as the user
+When enabled, the admin SHALL offer an assistant (from the command palette) that turns a plain-language request into proposed content API requests; each proposal is shown to the user, and only approved requests are sent, by the user's own browser with the user's own session, so the assistant can never do more than the user may.
+
+#### Scenario: Request beyond the user's permissions
+- **WHEN** a writer asks the assistant to delete another author's entries and approves the proposed requests
+- **THEN** the requests are refused with 403 exactly as if the writer had sent them, and nothing is deleted

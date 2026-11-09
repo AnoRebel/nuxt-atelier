@@ -52,3 +52,24 @@ Added to v1 by the maintainer (2026-11-08):
 - two-way relations (P#124): 4.9
 - creating a related entry from inside a relation field (P#32): 15.11
 - a placeholder in previews for blocks that render nothing (B#24), and inline editing of the entry's own fields (B#23): 14.12
+
+## ohne (2026-11-09)
+
+[ohne](https://ohne.dev) ([ohnejs/ohnejs](https://github.com/ohnejs/ohnejs), MIT) is Muris Ceman's framework after
+Pruvious: a zero-dependency TypeScript content backend. Most of what it offers is already planned here: layers,
+per-locale data, blocks, webhooks, locks, health and readiness, an AI layer. Added to v1 by the maintainer:
+
+- conditional fields: 4.10
+- rehearsing migrations against a live database (`--dry-run`): 5.11
+- resumable uploads and private media: 12.10
+- an assistant that proposes API requests the user approves and sends with their own session: 22.5
+
+Ideas only, as with Pruvious: no code is taken.
+
+## Rayleigh (2026-11-09)
+
+Pruvious's tutorial builds [Rayleigh](https://github.com/pruvious/rayleigh) (MIT, © Muris Ceman), a portfolio
+template, and stops before its contact form and deployment chapters. The maintainer asked to port it and finish the
+tutorial: 25.6 (the template, keeping its copyright notice) and 25.7 (the tutorial, in our own words). This is
+the one place where code from a parent project is used, under its license.
+
