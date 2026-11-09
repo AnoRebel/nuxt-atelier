@@ -3,7 +3,8 @@
 //   POST    /api/_atelier/media?filename=photo.jpg&folder=&private=true   the request body is the file
 //   GET     /api/_atelier/media/<id>
 //   PATCH   /api/_atelier/media/<id>              { title, alt, caption, credits, folder, tags, focal, private }
-//   DELETE  /api/_atelier/media/<id>
+//   GET     /api/_atelier/media/<id>/usage        the entries using it, and in which field
+//   DELETE  /api/_atelier/media/<id>              409 `referenced` with `usages` while it's used, unless ?force=true
 // Signed-in users browse it; changing it takes the `media` capability. Files are served at /_atelier/media/<id>/<name>.
 import type { Filter } from '../db/query'
 import type { MediaItem } from '../media/library'
@@ -51,9 +52,9 @@ const Changes = v.strictObject({
 const shown = (item: MediaItem) => ({ ...item, key: undefined, url: `/_atelier/media/${item.id}/${encodeURIComponent(item.filename)}` })
 
 export default defineEventHandler(async (event) => {
-  const [id, ...rest] = segments(event, '/api/_atelier/media')
+  const [id, sub, ...rest] = segments(event, '/api/_atelier/media')
   const method = event.req.method
-  if (rest.length)
+  if (rest.length || (sub !== undefined && sub !== 'usage'))
     throw apiError(404, 'Not found')
   if (method !== 'GET')
     await assertMigrated()
@@ -84,6 +85,10 @@ export default defineEventHandler(async (event) => {
     const item = id ? await library.get(id) : undefined
     if (!item)
       throw apiError(404, `No media item "${id}"`)
+    if (sub === 'usage' && method === 'GET')
+      return library.usage(item.id)
+    if (sub)
+      throw apiError(405, `${method} isn't allowed here`)
     if (method === 'GET')
       return shown(item)
     if (method === 'PATCH') {
@@ -94,6 +99,10 @@ export default defineEventHandler(async (event) => {
     }
     if (method === 'DELETE') {
       manage()
+      // deleting a file in use leaves those entries without it: say where, and go ahead only when told to
+      const usages = await library.usage(item.id)
+      if (usages.length && getQuery(event).force !== 'true')
+        throw apiError(409, `${item.filename} is used in ${usages.length} place${usages.length === 1 ? '' : 's'}; delete it anyway with ?force=true`, { usages }, 'referenced')
       await countWrite(event, who)
       await library.delete(item.id)
       return { ok: true }

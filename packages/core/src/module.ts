@@ -14,6 +14,9 @@ import { migrationsTemplate } from './schema/migrations'
 export type { ModuleOptions, ResolvedOptions } from './options'
 export type { ColumnSpec, TableSpec } from './runtime/server/db/tables'
 
+/** Deploy presets whose disk doesn't outlast a deploy or an instance. */
+const EPHEMERAL = /^(?:vercel|netlify|aws[-_]lambda|aws[-_]amplify|azure|cloudflare|deno[-_]deploy|firebase|edgio|zeabur|stormkit)/
+
 const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-atelier',
@@ -166,6 +169,12 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     // Nitro 2 runs scheduled tasks on servers, and on Cloudflare for its cron events, but writes no platform
     // schedule: a Vercel cron calls the trigger endpoint (authorized by CRON_SECRET), and Cloudflare gets the
     // cron trigger in the wrangler.json it generates (`cloudflare.deployConfig`)
+    nuxt.hook('nitro:init', (instance) => {
+      // serverless and edge hosts don't keep files written at runtime: uploads would vanish
+      const preset = String((instance.options as { preset?: string }).preset ?? '')
+      if (resolved.storage.driver === 'local' && EPHEMERAL.test(preset))
+        console.warn(`[nuxt-atelier] Media uploads are stored on the server's disk (storage.driver "local"), which "${preset}" doesn't keep between deploys or share between instances: uploaded files will be lost. Store them in object storage instead (S3, R2, Vercel Blob).`)
+    })
     nuxt.hook('nitro:init', (instance) => {
       const schedule = resolved.jobs.schedule
       const options = instance.options as unknown as {

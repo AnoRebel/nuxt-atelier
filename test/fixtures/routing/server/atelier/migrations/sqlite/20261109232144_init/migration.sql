@@ -154,6 +154,7 @@ CREATE TABLE `atelier_c_posts` (
 	`_created_by` text,
 	`title` text,
 	`slug` text,
+	`cover` text,
 	`content` text
 );
 --> statement-breakpoint
@@ -165,6 +166,7 @@ CREATE TABLE `atelier_p_posts` (
 	`_created_by` text,
 	`title` text,
 	`slug` text,
+	`cover` text,
 	`content` text
 );
 --> statement-breakpoint

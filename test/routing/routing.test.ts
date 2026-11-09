@@ -411,7 +411,13 @@ describe('site routing', async () => {
     const signedIn = await fetch(secret.body.url, { headers: { cookie } })
     expect([signedIn.status, signedIn.headers.get('cache-control')]).toEqual([200, 'private, no-store'])
 
-    expect((await api(`/api/_atelier/media/${photo.body.id}`, 'DELETE')).body).toEqual({ ok: true })
+    // in use: deleting it lists where, and needs ?force=true
+    const { body: post } = await api('/api/_atelier/collections/posts', 'POST', { data: { title: 'With a cover', slug: 'with-cover', cover: photo.body.id } })
+    expect((await api(`/api/_atelier/media/${photo.body.id}/usage`)).body).toEqual([{ type: 'posts', id: post.id, field: 'cover' }])
+    const refused = await api(`/api/_atelier/media/${photo.body.id}`, 'DELETE')
+    expect(refused.body).toMatchObject({ statusCode: 409, data: { code: 'referenced', usages: [{ type: 'posts', id: post.id, field: 'cover' }] } })
+    expect((await fetch(photo.body.url)).status).toBe(200)
+    expect((await api(`/api/_atelier/media/${photo.body.id}?force=true`, 'DELETE')).body).toEqual({ ok: true })
     expect((await fetch(photo.body.url)).status).toBe(404)
   })
 

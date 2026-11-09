@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "1a208930-7338-4acd-b092-0cf5a1a0aa2b",
+  "id": "abedcaed-df93-4c34-88e7-9360dd866907",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1228,6 +1228,16 @@
     },
     {
       "table": "atelier_c_posts",
+      "name": "cover",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_posts",
       "name": "content",
       "type": "text",
       "notNull": false,
@@ -1299,6 +1309,16 @@
     {
       "table": "atelier_p_posts",
       "name": "slug",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_posts",
+      "name": "cover",
       "type": "text",
       "notNull": false,
       "autoincrement": false,

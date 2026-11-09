@@ -15,8 +15,9 @@ describe('the job schedule on serverless platforms', () => {
       rmSync(join(rootDir, dir), { recursive: true, force: true })
   })
 
-  it('becomes a Vercel cron calling the job trigger', async () => {
-    await build('vercel')
+  it('becomes a Vercel cron calling the job trigger, and warns that local media storage won\'t last there', async () => {
+    const { stdout, stderr } = await build('vercel')
+    expect(stdout + stderr).toContain('Media uploads are stored on the server\'s disk (storage.driver "local"), which "vercel" doesn\'t keep between deploys')
     expect(json('.vercel/output/config.json').crons).toEqual([{ path: '/api/_atelier/jobs/run', schedule: '*/5 * * * *' }])
   }, 300_000)
 

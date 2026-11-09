@@ -6,11 +6,18 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createMediaLibrary, UploadError } from '../../packages/core/src/runtime/server/media/library'
+import { createEntryStore } from '../../packages/core/src/runtime/server/db/store'
 import { createLocalDriver } from '../../packages/core/src/runtime/server/media/storage'
+import * as f from '../../packages/core/src/runtime/shared/fields'
 import { connectEngine, createTables, engines, resetDatabase } from './env'
 
 const schemaFile = join(mkdtempSync(join(tmpdir(), 'atelier-media-')), 'schema.json')
-writeFileSync(schemaFile, JSON.stringify({ collections: {}, singletons: {} }))
+const schema = {
+  collections: { posts: { versioned: true, fields: { title: f.text(), cover: f.media(), gallery: f.repeater({ fields: { photo: f.media() } }), content: f.blocks() } } },
+  singletons: {},
+  blocks: { Hero: { name: 'Hero', fields: { image: f.media() }, options: {}, areas: { items: {} } } },
+}
+writeFileSync(schemaFile, JSON.stringify(schema))
 
 const PNG = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='), c => c.charCodeAt(0))
 // a Windows executable's header, whatever the file is called
@@ -65,6 +72,28 @@ describe.each(engines)('%s media library', (_, url) => {
     await expect(library.upload({ body: stream(big), filename: 'big.png', createdBy: null })).rejects.toBeInstanceOf(UploadError)
     expect(readdirSync(dir).length).toBe(before)
     expect(readdirSync(dir).some(name => name.endsWith('.part'))).toBe(false)
+  })
+
+  it('knows where each file is used: fields, repeaters, blocks and their areas, drafts and published', async () => {
+    const store = createEntryStore(driver, schema)
+    const [a, b] = await Promise.all([1, 2].map(() => library.upload({ body: stream(PNG), filename: 'used.png', createdBy: null })))
+    const post = await store.save('posts', { data: {
+      title: 'Using media',
+      cover: a!.id,
+      gallery: [{ photo: b!.id }],
+      content: [{ id: 'h1', type: 'Hero', props: { image: a!.id, items: [{ id: 'h2', type: 'Hero', props: { image: b!.id } }] } }],
+    }, publish: true })
+    expect(await library.usage(a!.id)).toEqual([
+      { type: 'posts', id: post.id, field: 'content.0.props.image' },
+      { type: 'posts', id: post.id, field: 'cover' },
+    ])
+    expect((await library.usage(b!.id)).map(u => u.field)).toEqual(['content.0.props.items.0.props.image', 'gallery.0.photo'])
+
+    // a draft without it: still used by what's published
+    await store.save('posts', { id: post.id, version: post.version, data: { title: 'Using media', cover: null, gallery: [], content: [] } })
+    expect((await library.usage(a!.id)).map(u => u.field)).toEqual(['content.0.props.image', 'cover'])
+    await store.delete('posts', post.id)
+    expect(await library.usage(a!.id)).toEqual([])
   })
 
   it('searches by tag, text and type with the query language, and deletes file and row', async () => {

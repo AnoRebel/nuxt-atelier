@@ -9,6 +9,7 @@ import type { StorageDriver } from './storage'
 import { fileTypeFromBuffer } from 'file-type'
 import { and, eq, sql } from 'drizzle-orm'
 import { afterCursor, compileFilter, compileSort, decodeCursor, encodeCursor, orderBy } from '../db/query'
+import { MEDIA_TARGET } from '../db/store'
 import { buildTables } from '../db/tables'
 import { storageKey } from './storage'
 
@@ -120,7 +121,7 @@ function limited(max: number, seen: { bytes: number }) {
 }
 
 export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver, options: { maxUploadSize: number, accept?: readonly string[] }) {
-  const { atelier_media: media, atelier_relations: relations } = buildTables(driver.dialect, { collections: {}, singletons: {} })
+  const { atelier_media: media, atelier_relations: relations, atelier_p_relations: publishedRelations } = buildTables(driver.dialect, { collections: {}, singletons: {} })
   const db = driver.db as Db
   const accept = options.accept ?? DEFAULT_ACCEPT
 
@@ -233,6 +234,21 @@ export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver
     async update(id: string, changes: MediaChanges): Promise<MediaItem | undefined> {
       await db.update(media).set({ ...changes, _updatedAt: new Date().toISOString() }).where(eq(media._id, id))
       return this.get(id)
+    },
+
+    /**
+     * Where an item is used: each entry (or singleton: `id` is its name) and the field holding it, in drafts
+     * and in what the site serves.
+     */
+    async usage(id: string): Promise<{ type: string, id: string, field: string }[]> {
+      const found = new Map<string, { type: string, id: string, field: string }>()
+      for (const table of [relations, publishedRelations]) {
+        const rows: { source: string, sourceId: string, field: string }[] = await db.select({ source: table.source, sourceId: table.sourceId, field: table.field }).from(table)
+          .where(and(eq(table.target, MEDIA_TARGET), eq(table.targetId, id)))
+        for (const row of rows)
+          found.set(`${row.source}\0${row.sourceId}\0${row.field}`, { type: row.source, id: row.sourceId, field: row.field })
+      }
+      return [...found.values()].toSorted((a, b) => `${a.type}${a.id}${a.field}`.localeCompare(`${b.type}${b.id}${b.field}`))
     },
 
     /** Removes the file and its row. */
