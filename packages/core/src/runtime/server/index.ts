@@ -6,7 +6,9 @@ import type { CollectionName, CollectionQuery, TypedEntry, TypedEntryList } from
 import type { ListQuery } from './db/query'
 import type { CollectionDefinition, SingletonDefinition } from './types'
 import { useRuntimeConfig } from 'nuxt/server'
+import type { JobQueue } from './jobs'
 import { contentChanged } from './cache'
+import { createJobQueue } from './jobs'
 import { connect, UnsupportedOperationError } from './db/driver'
 import { QueryError } from './db/query'
 import { buildTables } from './db/tables'
@@ -39,6 +41,8 @@ export type { Condition, Filter, ListQuery, Operator } from './db/query'
 export { apiError, readValid, validated } from './errors'
 export { openApiDocument } from './openapi'
 export type { ContentChange } from './cache'
+export { defineJob } from './jobs'
+export type { EnqueueOptions, Job, JobHandler, JobQueue, JobStatus, RunResult } from './jobs'
 export { diffEntries } from '../shared/diff'
 export type { Change } from '../shared/diff'
 export { contentRepairs, findStaleContent } from '../shared/reconcile'
@@ -111,6 +115,19 @@ export function useAtelierEntries(): Promise<EntryStore> {
       throw error
     })
   return entries
+}
+
+let jobQueue: Promise<JobQueue> | undefined
+
+/** The background job queue on the app's database: enqueue jobs, run due ones. Handlers come from `defineJob()`. */
+export function useAtelierJobs(): Promise<JobQueue> {
+  jobQueue ??= useAtelierDatabase()
+    .then(driver => createJobQueue(driver, { concurrency: (useAtelierServerConfig() as unknown as { limits: { jobConcurrency: number } }).limits.jobConcurrency }))
+    .catch((error) => {
+      jobQueue = undefined
+      throw error
+    })
+  return jobQueue
 }
 
 /**

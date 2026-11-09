@@ -47,6 +47,13 @@ export const optionsSchema = v.strictObject({
       v.description('Path the admin is served under: a leading slash, no trailing slash, not under `/api`.'),
     ), '/admin'),
   }), {}),
+  jobs: v.optional(v.strictObject({
+    schedule: v.optional(v.pipe(
+      v.union([v.pipe(v.string(), v.regex(/^\S+(?:\s+\S+){4,5}$/, 'expected a cron expression of 5 fields, or 6 with seconds first')), v.literal(false)], 'expected a cron expression like "* * * * *", or false'),
+      v.description('When the server runs due background jobs, as a cron expression, with Nitro\'s scheduled tasks (Node, Bun, Deno; Vercel Cron and Cloudflare Cron Triggers at build, which take 5 fields). `false` leaves it to the trigger endpoint, for platforms without scheduled tasks.'),
+    ), '* * * * *'),
+    triggerBudget: int(1, 900, 25, 'Seconds the job trigger endpoint (`POST /api/_atelier/jobs/run`) keeps starting jobs; the rest stay queued for the next call. Its secret is `NUXT_ATELIER_JOBS_SECRET`.'),
+  }), {}),
   limits: v.optional(v.strictObject({
     maxBodySize: int(1024, 100 * MB, MB, 'Largest accepted JSON request body, in bytes.'),
     maxUploadSize: int(1024, 5 * 1024 * MB, 50 * MB, 'Largest accepted upload, in bytes.'),

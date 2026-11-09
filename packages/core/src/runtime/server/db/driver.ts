@@ -96,14 +96,93 @@ export async function connect(url: string, options: ConnectOptions): Promise<Ate
   return driver
 }
 
+type LibsqlClient = ReturnType<typeof import('@libsql/client').createClient>
+
+/**
+ * A libSQL client whose statements, batches and transactions take turns on its one connection: a
+ * transaction keeps its turn until it commits, rolls back or closes. (libSQL refuses a statement while a
+ * transaction holds the connection, rather than waiting.)
+ */
+function inTurn(client: LibsqlClient): LibsqlClient {
+  let last: Promise<unknown> = Promise.resolve()
+  /** Waits for the turn before; resolves to the function ending this one. */
+  const turn = () => {
+    let end!: () => void
+    const previous = last
+    last = new Promise<void>((resolve) => {
+      end = resolve
+    })
+    return previous.then(() => end)
+  }
+  const queued = <A extends unknown[], R>(fn: (...args: A) => Promise<R>) => async (...args: A) => {
+    const end = await turn()
+    try {
+      return await fn(...args)
+    }
+    finally {
+      end()
+    }
+  }
+  return new Proxy(client, {
+    get(target, prop) {
+      if (prop === 'execute' || prop === 'batch' || prop === 'executeMultiple' || prop === 'migrate')
+        return queued((...args: unknown[]) => (target[prop] as (...a: unknown[]) => Promise<unknown>)(...args))
+      if (prop === 'transaction') {
+        return async (...args: Parameters<LibsqlClient['transaction']>) => {
+          const end = await turn()
+          let tx: Awaited<ReturnType<LibsqlClient['transaction']>>
+          try {
+            tx = await target.transaction(...args)
+          }
+          catch (error) {
+            end()
+            throw error
+          }
+          const settle = <F extends (...a: never[]) => unknown>(fn: F) => async (...a: Parameters<F>) => {
+            try {
+              return await fn(...a)
+            }
+            finally {
+              end() // idempotent: resolving twice does nothing
+            }
+          }
+          return new Proxy(tx, {
+            get(t, p) {
+              const value = Reflect.get(t, p, t)
+              if (p === 'commit' || p === 'rollback')
+                return settle(value.bind(t))
+              if (p === 'close') {
+                return () => {
+                  try {
+                    return value.call(t)
+                  }
+                  finally {
+                    end()
+                  }
+                }
+              }
+              return typeof value === 'function' ? value.bind(t) : value
+            },
+          })
+        }
+      }
+      const value = Reflect.get(target, prop, target)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  })
+}
+
 async function open(dialect: Dialect, url: string, { loaders, poolSize = 10 }: ConnectOptions): Promise<AtelierDriver> {
   if (dialect === 'sqlite') {
     const [{ createClient }, { drizzle }] = await load<NonNullable<Awaited<ReturnType<NonNullable<DriverLoaders['libsql']>>>>>(loaders, 'libsql', '@libsql/client')
     if (url.startsWith('file:'))
       await ensureDir(url.slice('file:'.length))
-    const client = createClient({ url })
-    if (url.startsWith('file:')) // a second writer (nuxt dev and the CLI, two saves) waits instead of failing
-      await client.execute('PRAGMA busy_timeout = 5000')
+    // A local file gets one connection: SQLite has one writer, and libSQL waits for a lock synchronously, so
+    // two connections in one process would block each other (a transaction can't commit while the thread
+    // waits). The pool then queues statements and transactions in order. Another process (the CLI) is
+    // waited for, up to 5 s.
+    const opened = createClient({ url, ...url.startsWith('file:') ? { concurrency: 1, timeout: 5000 } : {} })
+    const client = url.startsWith('file:') ? inTurn(opened) : opened
     return { dialect, capabilities, db: drizzle({ client }), ping: async () => void await client.execute('select 1'), close: async () => client.close() }
   }
   if (dialect === 'postgres') {
