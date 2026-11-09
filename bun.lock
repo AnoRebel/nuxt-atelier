@@ -300,6 +300,22 @@
         "nuxt": "catalog:",
       },
     },
+    "test/fixtures/plugin-events": {
+      "name": "@nuxt-atelier/fixture-plugin-events",
+      "dependencies": {
+        "@nuxt/kit": "catalog:",
+      },
+      "peerDependencies": {
+        "nuxt": "catalog:",
+      },
+    },
+    "test/fixtures/plugin-host": {
+      "name": "@nuxt-atelier/fixture-plugin-host",
+      "dependencies": {
+        "@nuxt-atelier/fixture-plugin-events": "workspace:*",
+        "nuxt": "catalog:",
+      },
+    },
     "test/fixtures/routing": {
       "name": "@nuxt-atelier/fixture-routing",
       "dependencies": {
@@ -932,6 +948,10 @@
     "@nuxt-atelier/fixture-passkeys": ["@nuxt-atelier/fixture-passkeys@workspace:test/fixtures/passkeys"],
 
     "@nuxt-atelier/fixture-pending": ["@nuxt-atelier/fixture-pending@workspace:test/fixtures/pending"],
+
+    "@nuxt-atelier/fixture-plugin-events": ["@nuxt-atelier/fixture-plugin-events@workspace:test/fixtures/plugin-events"],
+
+    "@nuxt-atelier/fixture-plugin-host": ["@nuxt-atelier/fixture-plugin-host@workspace:test/fixtures/plugin-host"],
 
     "@nuxt-atelier/fixture-routing": ["@nuxt-atelier/fixture-routing@workspace:test/fixtures/routing"],
 

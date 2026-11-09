@@ -5,11 +5,12 @@ import type { BlockSchema } from '../runtime/shared/blocks'
 import type { ParsedBlock } from './parse'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
-import { getLayerDirectories, useLogger } from '@nuxt/kit'
+import { useLogger } from '@nuxt/kit'
+import { contentDirectories } from '../sources'
 import { BlockDefinitionError, parseBlockFile, parseBlockSfc } from './parse'
 
 /** Block directories, highest priority (the app) first. */
-export const blockDirectories = (nuxt?: Nuxt) => getLayerDirectories(nuxt).map(layer => join(layer.app, 'blocks'))
+export const blockDirectories = (nuxt?: Nuxt) => contentDirectories(nuxt).map(layer => join(layer.app, 'blocks'))
 
 const BLOCK_FILE = /\.block\.[mc]?[jt]s$/
 

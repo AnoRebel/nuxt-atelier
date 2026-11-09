@@ -1,0 +1,14 @@
+{
+  "name": "@nuxt-atelier/fixture-plugin-events",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./module.ts"
+  },
+  "dependencies": {
+    "@nuxt/kit": "catalog:"
+  },
+  "peerDependencies": {
+    "nuxt": "catalog:"
+  }
+}

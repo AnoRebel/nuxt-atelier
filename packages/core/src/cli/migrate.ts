@@ -46,9 +46,12 @@ export async function projectFromNuxt(nuxt: Nuxt): Promise<Project> {
   return { rootDir, buildDir, databaseUrl, schema: { collections: await load('collections'), singletons: await load('singletons'), tables } }
 }
 
-/** Reads the app's config, layers and content schema without building it. */
+/**
+ * Reads the app's config, layers and content schema without building it. Modules are set up (`ready`), so
+ * definitions that plugin modules add (`atelier:dirs`) are read too.
+ */
 export async function loadProject(cwd: string): Promise<Project> {
-  const nuxt = await loadNuxt({ cwd, ready: false, overrides: { logLevel: 'silent' } })
+  const nuxt = await loadNuxt({ cwd, ready: true, overrides: { logLevel: 'silent' } })
   try {
     return await projectFromNuxt(nuxt)
   }

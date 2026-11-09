@@ -147,10 +147,17 @@
     },
     "test/fixtures/jobs-presets": {
       "ignoreDependencies": ["nuxt"]
+    },
+    "test/fixtures/plugin-events": {
+      "entry": ["runtime/*.ts", "content/**/*.{ts,vue}"]
+    },
+    "test/fixtures/plugin-host": {
+      "entry": ["server/**/*.ts", "app/**/*.vue"]
     }
   },
   "ignoreUnresolved": [
     "#imports",
+    "#atelier",
     "#atelier-schema",
     "#atelier/server",
     "#atelier-migrations",
