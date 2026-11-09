@@ -8,6 +8,7 @@ import { defineEventHandler, getQuery } from 'nuxt/server'
 import { defaultsFactory } from '../../shared/fields'
 import { apiError, readValid, validated } from '../errors'
 import { toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
+import { shadowed } from '../shadowing'
 import { allow, assertMigrated, assertWritable, caller, countWrite, limits, present, segments, select } from '../content-access'
 
 const PREFIX = '/api/_atelier/singletons'
@@ -35,7 +36,7 @@ export default defineEventHandler(async (event) => {
       const query = validated(Query, getQuery(event))
       const saved = await entries.getSingleton(name, { depth: Math.min(query.depth ?? 0, limits().maxRelationDepth) })
       const entry = saved ?? { name, version: null, updatedAt: null, data: defaultsFactory(definition.fields)() }
-      return { ...entry, data: select(await present(who, definition.fields, name, entry.data), query.fields) }
+      return { ...entry, ...saved && shadowed(saved), data: select(await present(who, definition.fields, name, entry.data), query.fields) }
     }
     if (!sub && method === 'PATCH') {
       allow(who, 'update', name)
@@ -44,7 +45,7 @@ export default defineEventHandler(async (event) => {
       assertWritable(who, name, data, stored)
       await countWrite(event, who)
       const saved = await entries.saveSingleton(name, { version, data: { ...defaultsFactory(definition.fields)(), ...stored, ...data }, authorId: who.principal.id })
-      return { ...saved, data: await present(who, definition.fields, name, saved.data) }
+      return { ...saved, ...shadowed(saved), data: await present(who, definition.fields, name, saved.data) }
     }
     if (sub && method === 'GET') {
       allow(who, 'read', name)

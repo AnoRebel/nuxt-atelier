@@ -90,8 +90,21 @@ describe('site routing', async () => {
   })
 
   it('leaves the app\'s own pages in front of entries with the same URL', async () => {
-    expect((await api('/api/_atelier/collections/pages', 'POST', { data: { title: 'Contact', slug: 'contact' } })).status).toBe(200)
+    const contact = await api('/api/_atelier/collections/pages', 'POST', { data: { title: 'Contact', slug: 'contact' } })
+    expect(contact.status).toBe(200)
     expect((await page('/contact')).html).toContain('<main class="host-contact">')
+    // the admin's warning: which URLs an app page hides, and which page
+    expect(contact.body.shadowed).toEqual([{ path: '/contact', page: '/contact' }])
+    expect((await api(`/api/_atelier/collections/pages/${contact.body.id}`)).body.shadowed).toEqual([{ path: '/contact', page: '/contact' }])
+
+    // a dynamic page hides a URL in every locale it matches
+    const old = await api('/api/_atelier/collections/projects', 'POST', { data: { name: 'Old', slug: 'old' } })
+    expect(old.body.shadowed).toEqual([{ path: '/projects/old', page: '/:section()/old' }, { path: '/projektid/old', page: '/:section()/old' }])
+    expect((await page('/projektid/old')).html).toMatch(/<main class="host-old">\s*Archived \(projektid\)/)
+
+    // entries no page hides carry no warning
+    const list = await api('/api/_atelier/collections/pages')
+    expect(list.body.items.filter((e: { shadowed?: unknown }) => e.shadowed).map((e: { path: string }) => e.path)).toEqual(['/contact'])
   })
 
   it('answers 404 for unknown paths, protocol-relative paths and visitors who can\'t read the entry', async () => {

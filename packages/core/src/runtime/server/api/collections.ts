@@ -12,6 +12,7 @@ import * as v from 'valibot'
 import { defineEventHandler, getQuery } from 'nuxt/server'
 import { apiError, readValid, validated } from '../errors'
 import { audit, toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
+import { shadowed } from '../shadowing'
 import { allow, assertInversesWritable, assertMigrated, assertWritable, caller, countWrite, limits, present, segments, select } from '../content-access'
 
 const PREFIX = '/api/_atelier/collections'
@@ -52,7 +53,7 @@ export default defineEventHandler(async (event) => {
   const entries = await useAtelierEntries()
   const depthOf = (depth: number | undefined) => Math.min(depth ?? 0, limits().maxRelationDepth)
   const shape = async (entry: Entry, fields?: string[]) =>
-    ({ ...entry, data: select(await present(who, definition.fields, name, entry.data), fields) })
+    ({ ...entry, ...shadowed(entry), data: select(await present(who, definition.fields, name, entry.data), fields) })
   const load = async (depth = 0) => {
     const entry = await entries.get(name, id!, { depth })
     if (!entry)

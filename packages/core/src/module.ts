@@ -1,4 +1,4 @@
-import type { NuxtModule } from '@nuxt/schema'
+import type { NuxtModule, NuxtPage } from '@nuxt/schema'
 import { resolve as resolvePath } from 'node:path'
 import type { ModuleOptions } from './options'
 import { addComponentsDir, addImports, extendPages, addServerHandler, addServerPlugin, addServerTemplate, addTemplate, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, updateTemplates } from '@nuxt/kit'
@@ -56,6 +56,19 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     // the catch-all serving routable entries: ranked below every page of the app, so the app's own pages win.
     // Only in apps that route: Nuxt turns its router on when this hook adds a page, and an app with just an
     // app.vue (no <NuxtPage>) would then 404 everywhere. Those apps render entries themselves.
+    // the app's own routes (without the catch-all), for the server to tell which entries they hide
+    let hostPages: { path: string, children?: unknown[] }[] | undefined
+    const routeTree = (pages: NuxtPage[]): { path: string, children?: unknown[] }[] => pages
+      .filter(page => page.name !== 'atelier-page')
+      .map(page => ({ path: page.path, ...page.name ? { name: page.name } : {}, ...page.children?.length ? { children: routeTree(page.children) } : {} }))
+    nuxt.hook('pages:resolved', async (pages) => {
+      const next = routeTree(pages)
+      const changed = hostPages !== undefined && JSON.stringify(next) !== JSON.stringify(hostPages)
+      hostPages = next
+      if (changed && nuxt.options.dev)
+        await nitro?.hooks.callHook('rollup:reload') // a page added or removed
+    })
+    addServerTemplate({ filename: '#atelier-host-pages', getContents: () => `export const pages = ${JSON.stringify(hostPages ?? [])}\n` })
     const pagesOption = nuxt.options.pages as boolean | { enabled?: boolean } | undefined
     const pagesForced = pagesOption === true || (typeof pagesOption === 'object' && pagesOption.enabled === true)
     extendPages((pages) => {
@@ -130,6 +143,9 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
 }
 declare module '#atelier-blocks' {
   export const blocks: Record<string, { component: () => Promise<import('vue').Component>, areas: string[] }>
+}
+declare module '#atelier-host-pages' {
+  export const pages: { path: string, name?: string, children?: unknown[] }[]
 }
 declare module '#atelier-drivers' {
   export const drivers: import(${JSON.stringify(resolve('./runtime/server/db/driver'))}).DriverLoaders
