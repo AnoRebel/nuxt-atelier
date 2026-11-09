@@ -43,6 +43,7 @@ describe('site routing', async () => {
       NUXT_ATELIER_DATABASE_URL: `file:${DATABASE}`,
       NUXT_APP_SECRET: SECRET,
       NUXT_ATELIER_JOBS_SECRET: 'a-jobs-secret',
+      NUXT_ATELIER_STORAGE_DIR: mkdtempSync(join(tmpdir(), 'atelier-routing-uploads-')),
       // Nitro skips its scheduler in a test environment (std-env's isTest): run this server as production
       NODE_ENV: 'production',
       TEST: '',
@@ -377,6 +378,41 @@ describe('site routing', async () => {
     finally {
       receiver.close()
     }
+  })
+
+  it('uploads media, judged by content, serves it with immutable caching, and keeps private files from visitors', async () => {
+    const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='), c => c.charCodeAt(0))
+    const upload = async (body: Uint8Array<ArrayBuffer>, query: string) => {
+      const response = await fetch(`/api/_atelier/media?${query}`, { method: 'POST', headers: { cookie, 'x-atelier-csrf': csrf }, body: new Blob([body]) })
+      return { status: response.status, body: await response.json() }
+    }
+    expect((await fetch('/api/_atelier/media')).status).toBe(401)
+
+    const photo = await upload(png, 'filename=team.png&folder=people')
+    expect(photo.body).toMatchObject({ mime: 'image/png', size: png.length, folder: 'people', private: false, url: `/_atelier/media/${photo.body.id}/team.png` })
+    expect(photo.body).not.toHaveProperty('key')
+    const served = await fetch(photo.body.url)
+    expect([served.status, served.headers.get('content-type'), served.headers.get('cache-control')]).toEqual([200, 'image/png', 'public, max-age=31536000, immutable'])
+    expect(new Uint8Array(await served.arrayBuffer())).toEqual(png)
+    expect((await fetch(`/_atelier/media/${photo.body.id}/other-name.png`)).status).toBe(404)
+
+    const exe = new Uint8Array(512)
+    exe.set([0x4D, 0x5A])
+    exe.set([0x80, 0, 0, 0], 0x3C)
+    exe.set([0x50, 0x45, 0, 0], 0x80)
+    expect((await upload(exe, 'filename=photo.jpg')).body).toMatchObject({ statusCode: 415, data: { code: 'unsupported_type' } })
+
+    expect((await api(`/api/_atelier/media/${photo.body.id}`, 'PATCH', { tags: ['team', 'team'], alt: { en: 'The team' } })).body).toMatchObject({ tags: ['team'], alt: { en: 'The team' } })
+    const tagged = await api(`/api/_atelier/media?filter=${encodeURIComponent(JSON.stringify({ tags: { contains: 'team' } }))}`)
+    expect(tagged.body.items.map((i: { id: string }) => i.id)).toEqual([photo.body.id])
+
+    const secret = await upload(png, 'filename=contract.png&private=true')
+    expect((await fetch(secret.body.url)).status).toBe(404) // a visitor: as if it didn't exist
+    const signedIn = await fetch(secret.body.url, { headers: { cookie } })
+    expect([signedIn.status, signedIn.headers.get('cache-control')]).toEqual([200, 'private, no-store'])
+
+    expect((await api(`/api/_atelier/media/${photo.body.id}`, 'DELETE')).body).toEqual({ ok: true })
+    expect((await fetch(photo.body.url)).status).toBe(404)
   })
 
   it('answers 404 for unknown and protocol-relative paths; visitors read what\'s published but can\'t write', async () => {

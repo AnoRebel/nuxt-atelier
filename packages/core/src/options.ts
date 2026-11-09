@@ -28,6 +28,12 @@ export const optionsSchema = v.strictObject({
   migrations: v.optional(v.strictObject({
     autoApply: v.optional(v.pipe(v.boolean('expected true or false'), v.description('Apply pending migrations when the production server starts. When off, run `atelier migrate apply`; until then CMS writes are refused. Override at runtime with `NUXT_ATELIER_MIGRATIONS_AUTO_APPLY`.')), false),
   }), {}),
+  media: v.optional(v.strictObject({
+    accept: v.optional(v.pipe(
+      v.array(v.pipe(v.string(), v.regex(/^[a-z]+\/(?:\*|[\w.+-]+)$/, 'expected MIME types like "image/*" or "application/pdf"')), 'expected a list of MIME types'),
+      v.description('File types that may be uploaded, judged by their content: MIME types, with `type/*` for a whole family. Types only recognisable by name (SVG, plain text) can\'t be checked, so aren\'t accepted.'),
+    ), ['image/*', 'video/*', 'audio/*', 'application/pdf']),
+  }), {}),
   storage: v.optional(v.strictObject({
     driver: v.optional(v.pipe(v.picklist(['local'], 'accepted: "local"'), v.description('Media storage driver.')), 'local'),
     dir: v.optional(v.pipe(v.string('expected a directory path'), v.nonEmpty('expected a directory path'), v.description('Upload directory, relative to the app root. Override at runtime with `NUXT_ATELIER_STORAGE_DIR`.')), '.data/uploads'),

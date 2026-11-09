@@ -55,7 +55,8 @@
     "oxc-parser": "catalog:",
     "magic-string": "catalog:",
     "@vue/compiler-sfc": "catalog:",
-    "vue-router": "catalog:"
+    "vue-router": "catalog:",
+    "file-type": "catalog:media"
   },
   "devDependencies": {
     "@nuxt/schema": "catalog:",
