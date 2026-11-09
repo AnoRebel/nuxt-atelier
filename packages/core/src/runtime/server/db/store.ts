@@ -217,7 +217,44 @@ interface Target<T> {
 /** A committed write: `live` when what the site serves changed. */
 export interface StoreChange { type: string, id: string, action: 'saved' | 'published' | 'unpublished' | 'deleted', live: boolean }
 
-export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, options: { maxNestingDepth?: number, onChange?: (change: StoreChange) => unknown } = {}) {
+/** Who did it: a user or API token id, when known. */
+interface Acting { type: string, id: string, actorId: string | null }
+
+/**
+ * What each lifecycle hook gets. Before-hooks run first and may change `data` (create, update) or throw to
+ * stop the operation; the error reaches the caller. After-hooks run once it's committed; a failing one is
+ * reported, never undoing the write. `type` is a collection or singleton, `id` an entry id or a
+ * singleton's name.
+ */
+export interface LifecycleHooks {
+  beforeCreate: Acting & { data: Record<string, unknown>, publish: boolean }
+  afterCreate: Acting & { entry: Entry | SingletonEntry }
+  beforeUpdate: Acting & { data: Record<string, unknown>, version: number, publish: boolean }
+  afterUpdate: Acting & { entry: Entry | SingletonEntry }
+  beforeDelete: Acting
+  afterDelete: Acting
+  /** `version`: the version being published (for a scheduled publish, the pinned one). */
+  beforePublish: Acting & { version: number }
+  afterPublish: Acting & { version: number }
+  beforeUnpublish: Acting
+  afterUnpublish: Acting
+  /** `id` for a single entry, `query` for a list. */
+  beforeRead: { type: string, id?: string, query?: ListOptions, stage: Stage }
+  /** The entries read: change them in place (e.g. add or hide values). */
+  afterRead: { type: string, stage: Stage, entries: (Entry | SingletonEntry)[] }
+}
+export type LifecycleHook = keyof LifecycleHooks
+
+export interface StoreOptions {
+  maxNestingDepth?: number
+  onChange?: (change: StoreChange) => unknown
+  /** Runs a lifecycle hook: `atelier:<hook>` in a Nuxt app. */
+  hooks?: <H extends LifecycleHook>(hook: H, context: LifecycleHooks[H]) => unknown
+  /** An after-hook failed: the write stands. Logged when not given. */
+  onHookError?: (hook: LifecycleHook, context: unknown, error: unknown) => unknown
+}
+
+export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, options: StoreOptions = {}) {
   const tables = buildTables(driver.dialect, schema)
   const db = driver.db as Db
   const { atelier_redirects: redirectsTable, atelier_revisions: revisions } = tables
@@ -960,13 +997,60 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     return result
   }
 
+  /** A before-hook: its error stops the operation. */
+  const before = async <H extends LifecycleHook>(hook: H, context: LifecycleHooks[H]) => {
+    await options.hooks?.(hook, context)
+  }
+  /** An after-hook: its error is reported, the write stands. */
+  const after = async <H extends LifecycleHook>(hook: H, context: LifecycleHooks[H]) => {
+    try {
+      await options.hooks?.(hook, context)
+    }
+    catch (error) {
+      if (options.onHookError)
+        await Promise.resolve(options.onHookError(hook, context, error)).catch(() => {})
+      else
+        console.error(`[nuxt-atelier] The ${hook} hook failed for ${context && 'type' in context ? context.type : ''}:`, error)
+    }
+  }
+  /** Read hooks around a read: abort before, adjust the entries after. */
+  const reading = async <T extends Entry | SingletonEntry>(context: LifecycleHooks['beforeRead'], read: () => Promise<T[]>): Promise<T[]> => {
+    await before('beforeRead', context)
+    const entries = await read()
+    if (entries.length)
+      await options.hooks?.('afterRead', { type: context.type, stage: context.stage, entries })
+    return entries
+  }
+  /**
+   * A save with its hooks: before-create or -update (and -publish), which may change the data, the write,
+   * then the after-hooks.
+   */
+  const hooked = async <T extends Entry | SingletonEntry>(target: Target<T>, data: Record<string, unknown>, publish: boolean | undefined, write: (data: Record<string, unknown>) => Promise<T>): Promise<T> => {
+    const creating = target.expected === undefined
+    const acting = { type: target.source, id: target.sourceId, actorId: target.authorId ?? null }
+    const publishing = !!publish && versioned(target.source)
+    const context = creating
+      ? { ...acting, data: { ...data }, publish: !!publish }
+      : { ...acting, data: { ...data }, version: target.expected!, publish: !!publish }
+    await (creating ? before('beforeCreate', context) : before('beforeUpdate', context as LifecycleHooks['beforeUpdate']))
+    if (publishing)
+      await before('beforePublish', { ...acting, version: (target.expected ?? 0) + 1 })
+    const entry = await write(context.data)
+    await after(creating ? 'afterCreate' : 'afterUpdate', { ...acting, entry })
+    if (publishing)
+      await after('afterPublish', { ...acting, version: entry.version })
+    return entry
+  }
+
   /** 422 for a type that publishes every save: it has nothing to publish or unpublish. */
   const assertVersioned = (name: string) => {
     if (!versioned(name))
       throw new ValidationError([{ path: '', message: `"${name}" isn't versioned: every save is published` }])
   }
-  const unpublish = async (target: Target<unknown>) => {
+  const unpublish = async (target: Target<unknown>, actorId: string | null = null) => {
     assertVersioned(target.source)
+    const acting = { type: target.source, id: target.sourceId, actorId }
+    await before('beforeUnpublish', acting)
     if (!driver.capabilities.transactions) {
       await db.batch(unpublication(db, target))
     }
@@ -978,21 +1062,34 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     }
     forgetRedirects()
     committed({ type: target.source, id: target.sourceId, action: 'unpublished', live: true })(undefined)
+    await after('afterUnpublish', acting)
   }
 
   return {
     /** An entry with its relations (as ids, or entries up to `depth` levels): the published one by default. */
     async get(name: string, id: string, options: GetOptions = {}): Promise<Entry | undefined> {
-      const stage = stages[options.stage ?? 'published']
-      const entry = await stage.read(db, name, id)
-      return entry && { ...entry, data: (await stage.linked(await stage.populate(db, collection(name).definition.fields, [entry.data], options.depth ?? 0)))[0]! }
+      const stageName = options.stage ?? 'published'
+      const stage = stages[stageName]
+      const [found] = await reading<Entry>({ type: name, id, stage: stageName }, async () => {
+        const entry = await stage.read(db, name, id)
+        return entry ? [{ ...entry, data: (await stage.linked(await stage.populate(db, collection(name).definition.fields, [entry.data], options.depth ?? 0)))[0]! }] : []
+      })
+      return found
     },
 
     /**
      * A page of entries: filtered, sorted and paginated (see ListQuery), populated to `depth`; published
      * ones by default. Throws QueryError (400) for a field or operator the collection can't use.
      */
-    list: (name: string, options: ListOptions) => stages[options.stage ?? 'published'].list(name, options),
+    async list(name: string, options: ListOptions): Promise<EntryList> {
+      const stage = options.stage ?? 'published'
+      let page: EntryList | undefined
+      await reading({ type: name, query: options, stage }, async () => {
+        page = await stages[stage].list(name, options)
+        return page.items
+      })
+      return page!
+    },
 
     /**
      * Creates or updates an entry's draft atomically, publishing it with `publish` (and always, for a type
@@ -1005,8 +1102,8 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         throw new Error('Updating an entry needs the version it was read at')
       const target = entryTarget(name, input.id ?? crypto.randomUUID(), input.id === undefined ? undefined : input.version, input.authorId)
       const live = !!input.publish || !versioned(name)
-      return persist(target, input.data, input.publish).finally(forgetRedirects)
-        .then(committed({ type: name, id: target.sourceId, action: live ? 'published' : 'saved', live }))
+      return hooked(target, input.data, input.publish, data => persist(target, data, input.publish).finally(forgetRedirects)
+        .then(committed({ type: name, id: target.sourceId, action: live ? 'published' : 'saved', live })))
     },
 
     /**
@@ -1018,8 +1115,12 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const draft = await stages.draft.read(db, name, id)
       if (!draft)
         throw new NotFoundError(`No entry "${id}" in "${name}"`)
-      return persist(entryTarget(name, id, input.version, input.authorId), draft.data, true).finally(forgetRedirects)
+      const acting = { type: name, id, actorId: input.authorId ?? null }
+      await before('beforePublish', { ...acting, version: input.version + 1 })
+      const entry = await persist(entryTarget(name, id, input.version, input.authorId), draft.data, true).finally(forgetRedirects)
         .then(committed({ type: name, id, action: 'published', live: true }))
+      await after('afterPublish', { ...acting, version: entry.version })
+      return entry
     },
 
     /**
@@ -1027,12 +1128,14 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
      * draft alone: what a scheduled publish runs, for the version chosen when it was scheduled. 404 for a
      * version that isn't in the history (pruned, or never saved), 422 as for publishing.
      */
-    async publishVersion(name: string, id: string, version: number): Promise<void> {
+    async publishVersion(name: string, id: string, version: number, actorId: string | null = null): Promise<void> {
       assertVersioned(name)
+      const acting = { type: name, id, actorId, version }
       const [revision] = await db.select({ data: revisions.data }).from(revisions)
         .where(and(eq(revisions.source, name), eq(revisions.sourceId, id), eq(revisions.version, version))).limit(1)
       if (!revision)
         throw new NotFoundError(`No version ${version} of ${name in schema.singletons ? `"${name}"` : `entry "${id}" in "${name}"`}`)
+      await before('beforePublish', acting)
       if (!driver.capabilities.transactions) {
         await db.batch(await pinnedPublication(db, name, id, version, revision.data))
       }
@@ -1044,20 +1147,23 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       }
       forgetRedirects()
       committed({ type: name, id, action: 'published', live: true })(undefined)
+      await after('afterPublish', acting)
     },
 
     /** Takes an entry off the site; its draft stays. Its URLs answer 404 and don't redirect. */
-    async unpublish(name: string, id: string): Promise<void> {
+    async unpublish(name: string, id: string, actorId: string | null = null): Promise<void> {
       if (!await stages.draft.read(db, name, id))
         throw new NotFoundError(`No entry "${id}" in "${name}"`)
-      await unpublish(entryTarget(name, id, undefined))
+      await unpublish(entryTarget(name, id, undefined), actorId)
     },
 
     /**
      * Deletes an entry, applying the onDelete of every relation that references it, atomically.
      * Throws ReferencedError (409) listing the entries that restrict it, or NotFoundError (404).
      */
-    async delete(name: string, id: string): Promise<void> {
+    async delete(name: string, id: string, actorId: string | null = null): Promise<void> {
+      const acting = { type: name, id, actorId }
+      await before('beforeDelete', acting)
       if (!driver.capabilities.transactions) {
         // ponytail: on D1 the references are read before the batch runs; one added in between is left dangling (it reads as null)
         await db.batch(await deletion(db, name, id))
@@ -1070,20 +1176,26 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       }
       forgetRedirects()
       committed({ type: name, id, action: 'deleted', live: true })(undefined)
+      await after('afterDelete', acting)
     },
 
     /** A singleton (relations as ids, or entries up to `depth` levels), or undefined before its first save or publish. */
     async getSingleton(name: string, options: GetOptions = {}): Promise<SingletonEntry | undefined> {
-      const stage = stages[options.stage ?? 'published']
-      const entry = await stage.readSingleton(db, name)
-      return entry && { ...entry, data: (await stage.linked(await stage.populate(db, singleton(name).fields, [entry.data], options.depth ?? 0)))[0]! }
+      const stageName = options.stage ?? 'published'
+      const stage = stages[stageName]
+      const [found] = await reading<SingletonEntry>({ type: name, id: name, stage: stageName }, async () => {
+        const entry = await stage.readSingleton(db, name)
+        return entry ? [{ ...entry, data: (await stage.linked(await stage.populate(db, singleton(name).fields, [entry.data], options.depth ?? 0)))[0]! }] : []
+      })
+      return found
     },
 
     /** Saves a singleton's draft atomically, as `save`. `version` is the one read, or undefined/null for the first save. */
     saveSingleton(name: string, input: { data: Record<string, unknown>, version?: number | null, authorId?: string, publish?: boolean }): Promise<SingletonEntry> {
       const live = !!input.publish || !versioned(name)
-      return persist(singletonTarget(name, input.version ?? undefined, input.authorId), input.data, input.publish).finally(forgetRedirects)
-        .then(committed({ type: name, id: name, action: live ? 'published' : 'saved', live }))
+      const target = singletonTarget(name, input.version ?? undefined, input.authorId)
+      return hooked(target, input.data, input.publish, data => persist(target, data, input.publish).finally(forgetRedirects)
+        .then(committed({ type: name, id: name, action: live ? 'published' : 'saved', live })))
     },
 
     /** Publishes a singleton's draft, as `publish`. */
@@ -1092,12 +1204,16 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const draft = await stages.draft.readSingleton(db, name)
       if (!draft)
         throw new NotFoundError(`Singleton "${name}" has no saved draft`)
-      return persist(singletonTarget(name, input.version, input.authorId), draft.data, true).finally(forgetRedirects)
+      const acting = { type: name, id: name, actorId: input.authorId ?? null }
+      await before('beforePublish', { ...acting, version: input.version + 1 })
+      const entry = await persist(singletonTarget(name, input.version, input.authorId), draft.data, true).finally(forgetRedirects)
         .then(committed({ type: name, id: name, action: 'published', live: true }))
+      await after('afterPublish', { ...acting, version: entry.version })
+      return entry
     },
 
     /** Takes a singleton off the site, as `unpublish`. */
-    unpublishSingleton: (name: string) => unpublish(singletonTarget(name, undefined)),
+    unpublishSingleton: (name: string, actorId: string | null = null) => unpublish(singletonTarget(name, undefined), actorId),
 
     /**
      * The entry a site path belongs to: a canonical path (see canonicalPath), in `locale` when given, among

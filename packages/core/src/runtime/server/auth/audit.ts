@@ -13,6 +13,7 @@ export type AuditAction
     | 'token.created' | 'token.revoked'
     | 'entry.published' | 'entry.unpublished' | 'entry.deleted'
     | 'redirect.created' | 'redirect.updated' | 'redirect.deleted'
+    | 'hook.failed'
 
 export interface AuditInput {
   action: AuditAction

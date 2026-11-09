@@ -132,7 +132,7 @@ export default defineEventHandler(async (event) => {
     if (id && sub === 'unpublish' && method === 'POST') {
       allow(who, 'publish', name, await load())
       await countWrite(event, who)
-      await entries.unpublish(name, id)
+      await entries.unpublish(name, id, who.principal.id)
       await audit(event, { action: 'entry.unpublished', actorId: who.principal.id, target: { type: name, id } })
       return shape(await load())
     }
@@ -140,7 +140,7 @@ export default defineEventHandler(async (event) => {
       const stored = await load()
       allow(who, 'delete', name, stored)
       await countWrite(event, who)
-      await entries.delete(name, id)
+      await entries.delete(name, id, who.principal.id)
       await audit(event, { action: 'entry.deleted', actorId: who.principal.id, target: { type: name, id } })
       return { ok: true }
     }

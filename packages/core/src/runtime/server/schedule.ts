@@ -38,10 +38,10 @@ export async function schedulesOf(queue: JobQueue, type: string, id: string) {
 /** Runs a scheduled publish or unpublish, recording it in the audit log as the person who scheduled it. */
 export async function runScheduled(store: EntryStore, audit: AuditLog, job: Scheduled): Promise<void> {
   if (job.action === 'publish') {
-    await store.publishVersion(job.type, job.id, job.version!)
+    await store.publishVersion(job.type, job.id, job.version!, job.by)
     await audit.record({ action: 'entry.published', actorId: job.by, target: { type: job.type, id: job.id }, details: { version: job.version, scheduled: true } })
     return
   }
-  await (job.singleton ? store.unpublishSingleton(job.type) : store.unpublish(job.type, job.id))
+  await (job.singleton ? store.unpublishSingleton(job.type, job.by) : store.unpublish(job.type, job.id, job.by))
   await audit.record({ action: 'entry.unpublished', actorId: job.by, target: { type: job.type, id: job.id }, details: { scheduled: true } })
 }
