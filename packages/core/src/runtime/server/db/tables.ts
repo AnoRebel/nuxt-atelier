@@ -260,7 +260,7 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
   for (const [name, definition] of Object.entries(schema.singletons)) {
     checkFields({ name, singleton: true, collections: schema.collections }, definition.fields)
     if (definition.route)
-      checkRoute(name, definition.route, definition.fields)
+      checkRoute(name, definition.route, definition.fields, true)
   }
 
   const tables: Record<string, Table> = {

@@ -7,6 +7,11 @@ export interface RouteDefinition {
    * pattern per locale, the default locale first: `{ en: '/projects/{slug}', et: '/projektid/{slug}' }`.
    */
   pattern: string | Record<string, string>
+  /**
+   * Nested URLs: the key of a relation to the same collection holding the entry's parent. An entry's URL is
+   * then its parent's URL followed by its own pattern, and moves with it: `/services` → `/services/design`.
+   */
+  parent?: string
   /** A global component that renders the entry (it gets it as the `entry` prop); by default its blocks fields are rendered. */
   component?: string
   /** The layout its pages use (the app's default layout when omitted). */

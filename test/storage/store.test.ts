@@ -31,6 +31,7 @@ const schema = {
     // routable: a shared pattern and one per locale
     pages: { route: { pattern: '/{slug}' }, fields: { slug: f.slug({ required: true }) } },
     places: { route: { pattern: { en: '/places/{slug}', et: '/kohad/{slug}' } }, fields: { slug: f.slug({ required: true }), near: f.relation({ to: 'places' }) } },
+    sections: { route: { pattern: '/{slug}', parent: 'parent' }, fields: { slug: f.slug({ required: true }), parent: f.relation({ to: 'sections' }) } },
   },
   singletons: {
     settings: { fields: { siteName: f.text({ required: true }), editor: f.relation({ to: 'authors', onDelete: 'nullify' }) } },
@@ -255,6 +256,33 @@ describe.each(engines)('%s entry store', (_, url) => {
 
     await store.delete('pages', page.id)
     expect(await store.resolve('/about-us')).toBeUndefined()
+  })
+
+  it('nests URLs under the parent\'s and moves every entry below when a parent\'s URL changes', async () => {
+    const services = await store.save('sections', { data: { slug: 'services' } })
+    const design = await store.save('sections', { data: { slug: 'design', parent: services.id } })
+    const ux = await store.save('sections', { data: { slug: 'ux', parent: design.id } })
+    expect([design.path, ux.path]).toEqual(['/services/design', '/services/design/ux'])
+
+    await store.save('sections', { id: services.id, version: 1, data: { slug: 'what-we-do' } })
+    expect((await store.get('sections', design.id))!.path).toBe('/what-we-do/design')
+    expect((await store.get('sections', ux.id))!).toMatchObject({ path: '/what-we-do/design/ux', version: 1 }) // a path change isn't a new version
+    expect(await store.resolve('/services/design/ux')).toBeUndefined()
+    expect((await store.resolve('/what-we-do/design/ux'))!.id).toBe(ux.id)
+
+    // moving a branch: refused when an entry below it would land on a taken URL
+    const place = await store.save('places', { data: { slug: 'ux' } }) // /places/ux in English
+    const refused = await store.save('sections', { id: design.id, version: 1, data: { slug: 'places' } }).catch(e => e)
+    expect(refused).toBeInstanceOf(ValidationError)
+    expect(refused.errors).toEqual([{ path: 'slug', message: `The URL of entry "${ux.id}", below this one, /places/ux is already used by entry "${place.id}" in "places"` }])
+    const moved = await store.save('sections', { id: design.id, version: 1, data: { slug: 'studio' } }) // to the top level
+    expect(moved.path).toBe('/studio')
+    expect((await store.get('sections', ux.id))!.path).toBe('/studio/ux')
+
+    // an entry can't sit under itself or anything below it
+    await store.save('sections', { id: design.id, version: 2, data: { slug: 'design', parent: services.id } })
+    const cycle = await store.save('sections', { id: services.id, version: 2, data: { slug: 'what-we-do', parent: ux.id } }).catch(e => e)
+    expect(cycle.errors).toEqual([{ path: 'parent', message: 'An entry can\'t be placed under itself or an entry below it' }])
   })
 
   it('reads a singleton field renamed with renamedFrom from its old key', async () => {

@@ -23,7 +23,7 @@ export function patterns(route: RouteDefinition): [locale: string, pattern: stri
 }
 
 /** Throws a schema error unless every pattern is valid and its placeholders are required top-level fields. */
-export function checkRoute(owner: string, route: RouteDefinition, fields: Record<string, Field>): void {
+export function checkRoute(owner: string, route: RouteDefinition, fields: Record<string, Field>, singleton = false): void {
   const fail = (message: string) => {
     throw new Error(`[nuxt-atelier] ${owner}: ${message}`)
   }
@@ -47,6 +47,13 @@ export function checkRoute(owner: string, route: RouteDefinition, fields: Record
       if (!field || !PATH_FIELD_TYPES.has(field.type) || !field.required || (field.type === 'date' && field.mode && field.mode !== 'date'))
         fail(`${where} "${pattern}": {${key}} must be a required top-level ${[...PATH_FIELD_TYPES].join(', ')} field (dates in "date" mode)`)
     }
+  }
+  if (route.parent !== undefined) {
+    const field = fields[route.parent]
+    if (singleton)
+      fail('route.parent: a singleton has no parent; only collections can nest URLs')
+    if (field?.type !== 'relation' || field.to !== owner || field.many)
+      fail(`route.parent "${route.parent}" must be a top-level relation to "${owner}" holding one entry`)
   }
 }
 
