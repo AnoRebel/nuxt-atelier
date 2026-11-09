@@ -17,3 +17,12 @@ export function queryChecks() {
   const status: 'draft' | 'published' | undefined = one.value?.data.status
   return [title, status] as const
 }
+
+export function routeEntryChecks() {
+  const { data } = useAtelierRouteEntry<'articles'>()
+  const title: string | undefined = data.value?.entry.data.title
+  const path: string | undefined = data.value?.path
+  // @ts-expect-error not a field of articles
+  void data.value?.entry.data.summary
+  return [title, path] as const
+}

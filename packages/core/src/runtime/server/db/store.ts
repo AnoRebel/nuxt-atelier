@@ -267,6 +267,40 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     return { name, version: row.version, updatedAt: row.updatedAt, ...route && presentPaths(route, urls), data: renamed(fields, row.data) }
   }
 
+  /**
+   * Fills the `href` of rich-text links to entries (a `link` mark with `attrs: { to, id }`, `id` left out for a
+   * singleton) with the entry's current URL, anywhere in `datas`: links survive renames. A link to an entry
+   * without a URL, or one that's gone, gets `href: null`. One query per linked type.
+   */
+  async function linked<T>(datas: T): Promise<T> {
+    const marks: { to: string, id?: string, href?: string | null }[] = []
+    const walk = (value: unknown): void => {
+      if (Array.isArray(value))
+        return value.forEach(walk)
+      if (!value || typeof value !== 'object')
+        return
+      const node = value as { type?: unknown, attrs?: { to?: unknown, id?: unknown } }
+      if (node.type === 'link' && node.attrs && typeof node.attrs.to === 'string' && (node.attrs.id === undefined || typeof node.attrs.id === 'string'))
+        marks.push(node.attrs as { to: string, id?: string })
+      Object.values(value).forEach(walk)
+    }
+    walk(datas)
+    const bySource = new Map<string, typeof marks>()
+    for (const mark of marks)
+      bySource.set(mark.to, [...bySource.get(mark.to) ?? [], mark])
+    for (const [source, list] of bySource) {
+      const route = routeOf(source)
+      const singletonLink = !!schema.singletons[source]
+      const ids = [...new Set(list.map(m => singletonLink ? source : m.id).filter((id): id is string => !!id))]
+      const stored = await storedPaths(db, source, route, ids)
+      for (const mark of list) {
+        const urls = stored.get(singletonLink ? source : mark.id ?? '')
+        mark.href = route && urls ? presentPaths(route, urls).path : null
+      }
+    }
+    return datas
+  }
+
   const routeOf = (source: string): RouteDefinition | undefined => (schema.collections[source] ?? schema.singletons[source])?.route
 
   interface RouteRow extends EntryPath { source: string, sourceId: string }
@@ -501,7 +535,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     const pageRows = rows.slice(0, limit)
     const found = await readMany(db, name, pageRows.map(r => r.id as string))
     const items = pageRows.map(r => found.get(r.id as string)!).filter(Boolean)
-    const populated = await populate(db, definition.fields, items.map(e => e.data), options.depth ?? 0)
+    const populated = await linked(await populate(db, definition.fields, items.map(e => e.data), options.depth ?? 0))
     const last = pageRows.at(-1)
     return {
       items: items.map((entry, i) => ({ ...entry, data: populated[i]! })),
@@ -779,7 +813,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     /** An entry with its relations (as ids, or entries up to `depth` levels), or undefined. */
     async get(name: string, id: string, options: GetOptions = {}): Promise<Entry | undefined> {
       const entry = await read(db, name, id)
-      return entry && { ...entry, data: (await populate(db, collection(name).definition.fields, [entry.data], options.depth ?? 0))[0]! }
+      return entry && { ...entry, data: (await linked(await populate(db, collection(name).definition.fields, [entry.data], options.depth ?? 0)))[0]! }
     },
 
     /**
@@ -821,7 +855,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     /** A singleton's saved data (relations as ids, or entries up to `depth` levels), or undefined before its first save. */
     async getSingleton(name: string, options: GetOptions = {}): Promise<SingletonEntry | undefined> {
       const entry = await readSingleton(db, name)
-      return entry && { ...entry, data: (await populate(db, singleton(name).fields, [entry.data], options.depth ?? 0))[0]! }
+      return entry && { ...entry, data: (await linked(await populate(db, singleton(name).fields, [entry.data], options.depth ?? 0)))[0]! }
     },
 
     /** Saves a singleton atomically. `version` is the one read, or undefined/null for the first save. */

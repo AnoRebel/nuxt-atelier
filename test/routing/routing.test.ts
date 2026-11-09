@@ -69,7 +69,7 @@ describe('site routing', async () => {
     for (const path of ['/projects/harbour', '/projektid/harbour']) {
       const { status, html } = await page(path)
       expect(status).toBe(200)
-      expect(html).toMatch(new RegExp(`<div class="layout-wide"><article class="project"><h1>Harbour</h1><p class="path">\\s*${path}\\s*</p></article></div>`))
+      expect(html).toMatch(new RegExp(`<div class="layout-wide" data-entry="Harbour"><article class="project"><h1>Harbour</h1><p class="path">\\s*${path}\\s*</p></article></div>`))
     }
     const resolved = await api('/api/_atelier/routes?path=/projektid/harbour')
     expect(resolved.body).toMatchObject({ path: '/projektid/harbour', locale: 'et', kind: 'collection', name: 'projects', id: body.id, component: 'ProjectPage', layout: 'wide' })
@@ -79,6 +79,26 @@ describe('site routing', async () => {
     const saved = await api('/api/_atelier/singletons/home', 'PATCH', { version: null, data: { headline: 'Welcome', content: [{ id: 'h1', type: 'Hero', props: { title: 'Home' } }] } })
     expect(saved.body.path).toBe('/')
     expect((await page('/')).html).toMatch(/<h1 class="hero">\s*Home\s*<\/h1>/)
+  })
+
+  it('resolves rich-text links to entries by id, so they follow a rename', async () => {
+    const team = await api('/api/_atelier/collections/pages', 'POST', { data: { title: 'Team', slug: 'team' } })
+    const link = (text: string, attrs: object) => ({ type: 'text', text, marks: [{ type: 'link', attrs }] })
+    const body = { type: 'doc', content: [{ type: 'paragraph', content: [
+      link('our team', { to: 'pages', id: team.body.id }),
+      link('home', { to: 'home' }),
+      link('gone', { to: 'pages', id: 'no-such-entry', href: 'javascript:alert(1)' }),
+    ] }] }
+    const links = await api('/api/_atelier/collections/pages', 'POST', { data: { title: 'Links', slug: 'links', content: [{ id: 't1', type: 'Text', props: { body } }] } })
+    expect(links.status).toBe(200)
+    const hrefs = async () => (await api(`/api/_atelier/collections/pages/${links.body.id}`)).body.data.content[0].props.body.content[0].content.map((n: { marks: { attrs: { href: unknown } }[] }) => n.marks[0]!.attrs.href)
+    expect(await hrefs()).toEqual(['/team', '/', null]) // a link to nothing is no link, whatever href it was saved with
+    expect((await page('/links')).html).toMatch(/<a href="\/team">our team<\/a><a href="\/">home<\/a>\s*gone/)
+
+    // renaming the linked page changes the link, without saving the linking page again
+    await api(`/api/_atelier/collections/pages/${team.body.id}`, 'PATCH', { version: 1, data: { slug: 'crew' } })
+    expect(await hrefs()).toEqual(['/crew', '/', null])
+    expect((await page('/links')).html).toContain('<a href="/crew">our team</a>')
   })
 
   it('refuses a URL another entry already has, per locale', async () => {
