@@ -2,6 +2,7 @@
 // transaction: all of it persists or none does. Writes carry the version the client last read; a write
 // against an older version is refused with a 409 rather than overwriting someone else's save.
 import type { Field, FieldError, RelationField } from '../../shared/fields'
+import type { Redirect } from '../redirects'
 import type { EntryPath } from '../routes'
 import type { CollectionDefinition, RouteDefinition } from '../types'
 import type { AtelierDriver } from './driver'
@@ -10,6 +11,7 @@ import type { ContentSchema } from './tables'
 import type { ListQuery } from './query'
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { validateEntry } from '../../shared/fields'
+import { REDIRECT_STATUSES, redirectLoop, sourceProblem, targetProblem } from '../redirects'
 import { entryPaths, MAX_PATH, patterns, presentPaths } from '../routes'
 import { UnsupportedOperationError } from './driver'
 import { fromRow, getRow, isUnique, toRow } from './entries'
@@ -187,7 +189,7 @@ export async function withTransaction<T>(driver: AtelierDriver, operation: strin
 export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, options: { maxNestingDepth?: number } = {}) {
   const tables = buildTables(driver.dialect, schema)
   const db = driver.db as Db
-  const { atelier_relations: relations, atelier_revisions: revisions, atelier_routes: routes, atelier_singletons: singletons } = tables
+  const { atelier_redirects: redirectsTable, atelier_relations: relations, atelier_revisions: revisions, atelier_routes: routes, atelier_singletons: singletons } = tables
 
   function collection(name: string): { definition: CollectionDefinition, table: Db } {
     const definition = schema.collections[name]
@@ -269,7 +271,15 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
 
   interface RouteRow extends EntryPath { source: string, sourceId: string }
   /** The route rows an entry's save replaces: its own and, for nested routes, every entry below it. */
-  interface PathPlan { source: string, ids: string[], rows: RouteRow[] }
+  interface PathPlan {
+    source: string
+    ids: string[]
+    rows: RouteRow[]
+    /** The rows they replace. */
+    old: RouteRow[]
+    /** Redirect old URLs to new ones (`route.redirects`). */
+    redirect: boolean
+  }
 
   const MAX_DEPTH = 100 // nested routes deeper than this are refused as a cycle
 
@@ -317,7 +327,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         .where(and(eq(routes.source, source), eq(routes.sourceId, data[key] as string)))
       own = under(own, parent)
     }
-    const plan: PathPlan = { source, ids: [sourceId], rows: own.map(p => ({ ...p, source, sourceId })) }
+    const plan: PathPlan = { source, ids: [sourceId], rows: own.map(p => ({ ...p, source, sourceId })), old: [], redirect: route.redirects !== false }
     if (key && existing) {
       const walk = async (id: string, paths: EntryPath[], depth: number) => {
         for (const child of await childrenOf(q, source, key, id)) {
@@ -331,6 +341,8 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       }
       await walk(sourceId, own, 0)
     }
+    if (existing)
+      plan.old = await q.select().from(routes).where(and(eq(routes.source, source), inArray(routes.sourceId, plan.ids)))
     return plan
   }
 
@@ -366,16 +378,44 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       throw new ValidationError(errors)
   }
 
-  /** The statements replacing the stored route rows with a plan's. */
+  /**
+   * The statements replacing the stored route rows with a plan's. An entry's URL takes over any redirect
+   * from it; a URL that changed redirects to the new one (301), and redirects to the old URL are pointed
+   * at the new one, so they don't chain.
+   */
   function pathStatements(q: Db, plan: PathPlan | undefined): unknown[] {
     if (!plan)
       return []
     const rows = plan.rows.filter(r => r.path.length <= MAX_PATH)
+    const moved = plan.old.flatMap((old) => {
+      const now = rows.find(r => r.sourceId === old.sourceId && r.locale === old.locale)
+      return now && now.path !== old.path ? [[old.path, now.path] as const] : []
+    })
+    const createdAt = new Date().toISOString()
     return [
       q.delete(routes).where(and(eq(routes.source, plan.source), inArray(routes.sourceId, plan.ids))),
-      ...rows.length ? [q.insert(routes).values(rows)] : [],
+      ...rows.length ? [q.insert(routes).values(rows), q.delete(redirectsTable).where(inArray(redirectsTable.source, [...new Set(rows.map(r => r.path))]))] : [],
+      ...plan.redirect
+        ? moved.flatMap(([from, to]) => [
+            q.update(redirectsTable).set({ target: to }).where(eq(redirectsTable.target, from)),
+            q.delete(redirectsTable).where(eq(redirectsTable.source, from)),
+            q.insert(redirectsTable).values({ id: crypto.randomUUID(), source: from, target: to, status: 301, auto: true, createdAt }),
+          ])
+        : [],
     ]
   }
+
+  // every redirect, for the request middleware; reread at most every 30 s, and after this instance's writes.
+  // ponytail: another instance's change shows up within 30 s, not at once
+  let redirectCache: { at: number, list: Promise<Redirect[]> } | undefined
+  // after a save commits: one that changed URLs changed redirects too
+  const forgetRedirects = () => {
+    redirectCache = undefined
+  }
+  const REDIRECT_TTL = 30_000
+  const readRedirects = async (): Promise<Redirect[]> =>
+    (await db.select().from(redirectsTable).orderBy(asc(redirectsTable.createdAt), asc(redirectsTable.id)) as (Redirect & { createdAt: string })[])
+      .map(({ id, source, target, status, auto }) => ({ id, source, target, status, auto: Boolean(auto) }))
 
   /** The plan for an entry changed as a side effect (a mirrored or nullified relation), checked. */
   async function sidePlan(q: Db, source: string, sourceId: string, data: Record<string, unknown>): Promise<PathPlan | undefined> {
@@ -757,7 +797,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       if (input.id !== undefined && input.version === undefined)
         throw new Error('Updating an entry needs the version it was read at')
       const target = entryTarget(name, input.id ?? crypto.randomUUID(), input.id === undefined ? undefined : input.version, input.authorId)
-      return persist(target, input.data)
+      return persist(target, input.data).finally(forgetRedirects)
     },
 
     /**
@@ -768,12 +808,14 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       if (!driver.capabilities.transactions) {
         // ponytail: on D1 the references are read before the batch runs; one added in between is left dangling (it reads as null)
         await db.batch(await deletion(db, name, id))
+        forgetRedirects()
         return
       }
       await db.transaction(async (tx: Db) => {
         for (const statement of await deletion(tx, name, id))
           await statement
       })
+      forgetRedirects()
     },
 
     /** A singleton's saved data (relations as ids, or entries up to `depth` levels), or undefined before its first save. */
@@ -784,7 +826,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
 
     /** Saves a singleton atomically. `version` is the one read, or undefined/null for the first save. */
     saveSingleton(name: string, input: { data: Record<string, unknown>, version?: number | null, authorId?: string }): Promise<SingletonEntry> {
-      return persist(singletonTarget(name, input.version ?? undefined, input.authorId), input.data)
+      return persist(singletonTarget(name, input.version ?? undefined, input.authorId), input.data).finally(forgetRedirects)
     },
 
     /**
@@ -799,6 +841,67 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       if (!row || !routeOf(row.source))
         return undefined // a type no longer routable
       return { path: row.path, locale: row.locale, kind: row.source in schema.singletons ? 'singleton' : 'collection', name: row.source, id: row.sourceId }
+    },
+
+    redirects: {
+      /** Every redirect, oldest first. */
+      list: readRedirects,
+
+      /** Every redirect, from a cache refreshed every 30 s and after this instance's writes: for serving requests. */
+      cached(): Promise<Redirect[]> {
+        if (!redirectCache || Date.now() - redirectCache.at > REDIRECT_TTL) {
+          const list = readRedirects()
+          redirectCache = { at: Date.now(), list }
+          list.catch(forgetRedirects) // never keep a failed read
+        }
+        return redirectCache.list
+      },
+
+      /**
+       * Creates or updates a redirect (`id` to update). Throws ValidationError (422) for an invalid source or
+       * target, a source in use or that is an entry's URL, or a loop; NotFoundError for an unknown id.
+       */
+      async save(input: { id?: string, source: string, target: string, status?: number }): Promise<Redirect> {
+        const status = (input.status ?? 301) as Redirect['status']
+        const errors: FieldError[] = []
+        const sourceError = sourceProblem(input.source)
+        if (sourceError)
+          errors.push({ path: 'source', message: sourceError })
+        const targetError = sourceError ? undefined : targetProblem(input.source, input.target)
+        if (targetError)
+          errors.push({ path: 'target', message: targetError })
+        if (!REDIRECT_STATUSES.includes(status))
+          errors.push({ path: 'status', message: `Use one of ${REDIRECT_STATUSES.join(', ')}` })
+        if (errors.length)
+          throw new ValidationError(errors)
+        const all = await readRedirects()
+        if (input.id !== undefined && !all.some(r => r.id === input.id))
+          throw new NotFoundError(`No redirect "${input.id}"`)
+        const redirect: Redirect = { id: input.id ?? crypto.randomUUID(), source: input.source, target: input.target, status, auto: false }
+        const same = all.find(r => r.source === redirect.source && r.id !== redirect.id)
+        if (same)
+          throw new ValidationError([{ path: 'source', message: `${redirect.source} already redirects to ${same.target}` }])
+        const [entry]: RouteRow[] = await db.select().from(routes).where(eq(routes.path, redirect.source)).limit(1)
+        if (entry)
+          throw new ValidationError([{ path: 'source', message: `${redirect.source} is the URL of ${entry.source in schema.singletons ? `singleton "${entry.source}"` : `entry "${entry.sourceId}" in "${entry.source}"`}; it can't redirect` }])
+        const loop = redirectLoop(all, redirect)
+        if (loop)
+          throw new ValidationError([{ path: 'target', message: `This would make a loop: ${loop.join(' → ')}` }])
+        if (input.id === undefined)
+          await db.insert(redirectsTable).values({ ...redirect, createdAt: new Date().toISOString() })
+        else
+          await db.update(redirectsTable).set({ source: redirect.source, target: redirect.target, status, auto: false }).where(eq(redirectsTable.id, redirect.id))
+        forgetRedirects()
+        return redirect
+      },
+
+      async delete(id: string): Promise<void> {
+        const [found] = await db.select({ id: redirectsTable.id }).from(redirectsTable).where(eq(redirectsTable.id, id)).limit(1)
+        if (!found)
+          throw new NotFoundError(`No redirect "${id}"`)
+        await db.delete(redirectsTable).where(eq(redirectsTable.id, id))
+        forgetRedirects()
+      },
     },
 
     /** Versions saved for an entry (or a singleton, by its name), newest first. */

@@ -3,7 +3,7 @@
 
 export type ContentAction = 'create' | 'read' | 'update' | 'delete' | 'publish'
 /** Admin areas a role can manage. */
-export type Capability = 'users' | 'roles' | 'settings' | 'media'
+export type Capability = 'users' | 'roles' | 'settings' | 'media' | 'redirects'
 
 export interface ContentPermission {
   actions: readonly ContentAction[]
@@ -48,7 +48,7 @@ const canonical = (value: unknown) => JSON.stringify(value ?? null, (_, x) =>
   x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).toSorted(([a], [b]) => a < b ? -1 : 1)) : x)
 
 const NO_FIELDS: FieldAccess = { hidden: new Set(), readOnly: new Set() }
-const CAPABILITIES = new Set<string>(['users', 'roles', 'settings', 'media'] satisfies Capability[])
+const CAPABILITIES = new Set<string>(['users', 'roles', 'settings', 'media', 'redirects'] satisfies Capability[])
 
 export function createPolicy(roles: Roles) {
   if (ADMIN_ROLE in roles)

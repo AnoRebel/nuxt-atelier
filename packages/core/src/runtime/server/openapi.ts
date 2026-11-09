@@ -186,6 +186,28 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
     },
   }
 
+  schemas.Redirect = {
+    type: 'object',
+    properties: {
+      id: { type: 'string' },
+      source: { type: 'string', description: 'A path, or a pattern with :name segments and a final *' },
+      target: { type: 'string', description: 'A path on the site or an absolute http(s) URL; may use the source\'s :names and *' },
+      status: { enum: [301, 302, 307, 308] },
+      auto: { type: 'boolean', description: 'Created when an entry\'s URL changed' },
+    },
+    required: ['id', 'source', 'target', 'status', 'auto'],
+  }
+  const redirectBody = { required: true, content: { 'application/json': { schema: { type: 'object', properties: { source: { type: 'string' }, target: { type: 'string' }, status: { enum: [301, 302, 307, 308] } }, required: ['source', 'target'] } } } }
+  paths[`${BASE}/redirects`] = {
+    get: { tags: ['redirects'], summary: 'Every redirect, oldest first (`redirects` capability)', responses: { 200: json({ type: 'array', items: ref('Redirect') }), ...errors(401, 403) } },
+    post: { tags: ['redirects'], summary: 'Create a redirect; loops are refused', requestBody: redirectBody, responses: { 200: json(ref('Redirect')), ...errors(401, 403, 422) } },
+  }
+  paths[`${BASE}/redirects/{id}`] = {
+    parameters: [param('id', 'The redirect id', { type: 'string' }, 'path')],
+    patch: { tags: ['redirects'], summary: 'Update a redirect', requestBody: redirectBody, responses: { 200: json(ref('Redirect')), ...errors(401, 403, 404, 422) } },
+    delete: { tags: ['redirects'], summary: 'Delete a redirect', responses: { 200: json({ type: 'object', properties: { ok: { const: true } } }), ...errors(401, 403, 404) } },
+  }
+
   return {
     openapi: '3.1.0',
     info: { title: info.title ?? 'Nuxt Atelier content API', version: info.version ?? '1' },

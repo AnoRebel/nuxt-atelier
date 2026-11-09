@@ -285,6 +285,29 @@ describe.each(engines)('%s entry store', (_, url) => {
     expect(cycle.errors).toEqual([{ path: 'parent', message: 'An entry can\'t be placed under itself or an entry below it' }])
   })
 
+  it('redirects a changed URL to the new one without chains, and lets an entry take a URL back', async () => {
+    const list = async () => (await store.redirects.list()).map(r => `${r.source} → ${r.target} ${r.status}${r.auto ? ' auto' : ''}`)
+    for (const r of await store.redirects.list())
+      await store.redirects.delete(r.id) // from earlier tests
+    const page = await store.save('pages', { data: { slug: 'one' } })
+    await store.save('pages', { id: page.id, version: 1, data: { slug: 'two' } })
+    await store.save('pages', { id: page.id, version: 2, data: { slug: 'three' } })
+    expect(await list()).toEqual(['/one → /three 301 auto', '/two → /three 301 auto']) // re-pointed, not chained
+    await store.save('pages', { id: page.id, version: 3, data: { slug: 'one' } }) // back: the entry's URL wins
+    expect((await list()).toSorted()).toEqual(['/three → /one 301 auto', '/two → /one 301 auto'])
+
+    // manual redirects: checked, and loops refused
+    const manual = await store.redirects.save({ source: '/old/:x', target: '/new/:x', status: 308 })
+    expect(manual).toMatchObject({ source: '/old/:x', target: '/new/:x', status: 308, auto: false })
+    const loop = await store.redirects.save({ source: '/new/:x', target: '/old/:x' }).catch(e => e)
+    expect(loop.errors).toEqual([{ path: 'target', message: 'This would make a loop: /new/x → /old/x → /new/x' }])
+    expect((await store.redirects.save({ source: '/one', target: '/elsewhere' }).catch(e => e)).errors[0].message).toMatch(/^\/one is the URL of entry/)
+    expect((await store.redirects.save({ source: '/two', target: '/x' }).catch(e => e)).errors[0].message).toBe('/two already redirects to /one')
+    expect((await store.redirects.save({ source: '//x', target: '//evil.example', status: 303 }).catch(e => e)).errors.map((e: { path: string }) => e.path)).toEqual(['source', 'status'])
+    await store.redirects.delete(manual.id)
+    expect(await store.redirects.cached()).toHaveLength(2)
+  })
+
   it('reads a singleton field renamed with renamedFrom from its old key', async () => {
     const renamed = { ...schema, singletons: { settings: { fields: { title: f.text({ renamedFrom: 'siteName' }), editor: schema.singletons.settings.fields.editor } } } }
     const saved = (await store.getSingleton('settings'))!

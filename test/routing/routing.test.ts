@@ -54,8 +54,8 @@ describe('site routing', async () => {
     // renaming the slug moves the page
     const renamed = await api(`/api/_atelier/collections/pages/${created.body.id}`, 'PATCH', { version: 1, data: { slug: 'about-us' } })
     expect(renamed.body.path).toBe('/about-us')
-    expect((await page('/about')).status).toBe(404)
     expect((await page('/about-us')).html).toContain('About us')
+    expect((await fetch('/about', { redirect: 'manual' })).headers.get('location')).toBe('/about-us') // the old URL redirects
 
     const list = await api('/api/_atelier/collections/pages')
     expect(list.body.items.map((e: { path: string }) => e.path)).toEqual(['/about-us'])
@@ -105,6 +105,32 @@ describe('site routing', async () => {
     // entries no page hides carry no warning
     const list = await api('/api/_atelier/collections/pages')
     expect(list.body.items.filter((e: { shadowed?: unknown }) => e.shadowed).map((e: { path: string }) => e.path)).toEqual(['/contact'])
+  })
+
+  it('serves redirects before the page, automatic ones after a URL changes, and never to another host', async () => {
+    const raw = (path: string) => fetch(path, { redirect: 'manual' })
+    // the about page moved from /about to /about-us in the first test
+    const auto = await raw('/about?ref=mail')
+    expect(auto.status).toBe(301)
+    expect(auto.headers.get('location')).toBe('/about-us?ref=mail')
+
+    const created = await api('/api/_atelier/redirects', 'POST', { source: '/blog/:slug', target: '/news/:slug', status: 302 })
+    expect(created.status).toBe(200)
+    const moved = await raw('/blog/hello')
+    expect([moved.status, moved.headers.get('location')]).toEqual([302, '/news/hello'])
+
+    expect((await api('/api/_atelier/redirects', 'POST', { source: '/news/:slug', target: '/blog/:slug' })).body)
+      .toMatchObject({ statusCode: 422, data: { code: 'validation_failed', errors: [{ path: 'target', message: 'This would make a loop: /news/x → /blog/x → /news/x' }] } })
+    expect((await api('/api/_atelier/redirects', 'POST', { source: '/out', target: '//evil.example' })).status).toBe(422)
+
+    // a catch-all redirect still can't send a request to another host (Pruvious #127)
+    await api('/api/_atelier/redirects', 'POST', { source: '/go/*', target: '/*' })
+    expect((await raw('/go/fine')).headers.get('location')).toBe('/fine')
+    expect((await raw('/go//evil.example')).headers.get('location')).toBeNull()
+
+    expect((await fetch('/api/_atelier/redirects')).status).toBe(401)
+    expect((await api(`/api/_atelier/redirects/${created.body.id}`, 'DELETE')).body).toEqual({ ok: true })
+    expect((await raw('/blog/hello')).status).toBe(404)
   })
 
   it('answers 404 for unknown paths, protocol-relative paths and visitors who can\'t read the entry', async () => {
