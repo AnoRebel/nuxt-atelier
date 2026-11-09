@@ -1,0 +1,9 @@
+{
+  "name": "@nuxt-atelier/fixture-plugin-host",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@nuxt-atelier/fixture-plugin-events": "workspace:*",
+    "nuxt": "catalog:"
+  }
+}

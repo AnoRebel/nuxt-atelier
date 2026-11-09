@@ -1,8 +1,8 @@
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Nuxt } from '@nuxt/schema'
-import { getLayerDirectories } from '@nuxt/kit'
 import { blockSchemas, discoverBlocks } from '../blocks/discover'
+import { contentDirectories } from '../sources'
 
 type SchemaKind = 'collections' | 'singletons'
 
@@ -10,12 +10,13 @@ const NAME_RE = /^[a-z][a-z0-9-]*$/
 const FILE_RE = /^(.+)\.(?:ts|mts|js|mjs)$/
 
 /**
- * Definition files by name, from `server/atelier/{collections,singletons}/` in the app and every layer.
- * The file name is the content type's name; on a clash the highest-priority layer (the app first) wins.
+ * Definition files by name, from `server/atelier/{collections,singletons}/` in the app, every layer and
+ * module-added directory. The file name is the content type's name; on a clash the highest-priority one
+ * (the app first) wins.
  */
 export function discoverSchema(kind: SchemaKind, nuxt?: Nuxt): Map<string, string> {
   const found = new Map<string, string>()
-  for (const layer of getLayerDirectories(nuxt)) {
+  for (const layer of contentDirectories(nuxt)) {
     const dir = join(layer.server, 'atelier', kind)
     let files: string[]
     try {
@@ -40,7 +41,7 @@ export function discoverSchema(kind: SchemaKind, nuxt?: Nuxt): Map<string, strin
 /** `server/atelier/<name>.{ts,…}` of the app and every layer, highest priority (the app) first. */
 export function layerFiles(name: 'roles' | 'tables', nuxt?: Nuxt): string[] {
   const pattern = new RegExp(`^${name}\\.(?:ts|mts|js|mjs)$`)
-  return getLayerDirectories(nuxt).flatMap((layer) => {
+  return contentDirectories(nuxt).flatMap((layer) => {
     const dir = join(layer.server, 'atelier')
     let files: string[]
     try {

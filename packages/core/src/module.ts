@@ -6,6 +6,7 @@ import { blockComponentsTemplate, blockDirectories, discoverBlocks } from './blo
 import { transformBlockSfc } from './blocks/transform'
 import { setupDevMigrations } from './cli/dev'
 import { resolveOptions } from './options'
+import { collectModuleDirectories } from './sources'
 import { registryTypes, schemaTemplate } from './schema/discover'
 import { driversTemplate } from './schema/drivers'
 import { migrationsTemplate } from './schema/migrations'
@@ -101,7 +102,12 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       nitro = instance as never
     })
     // macro-style blocks: drop the schema and the field helpers from the component the browser loads
-    const blockDirs = blockDirectories(nuxt).map(dir => `${dir}/`)
+    // (the directories are known once every module has had its say: see `atelier:dirs`)
+    let blockDirs: string[] = []
+    nuxt.hook('modules:done', async () => {
+      await collectModuleDirectories(nuxt)
+      blockDirs = blockDirectories(nuxt).map(dir => `${dir}/`)
+    })
     nuxt.hook('builder:watch', async (_event, path) => {
       const file = resolvePath(nuxt.options.srcDir, path)
       if (!blockDirs.some(dir => file.startsWith(dir)))
