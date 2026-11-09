@@ -1,3 +1,4 @@
+import { createServer } from 'node:http'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -6,6 +7,7 @@ import { $fetch, fetch, setup, startServer } from '@nuxt/test-utils/e2e'
 import { sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { PREVIEW_PURPOSE, signToken } from '../../packages/core/src/runtime/server/secrets'
+import { sign } from '../../packages/core/src/runtime/server/webhooks'
 import { connectEngine, query } from '../storage/env'
 
 const rootDir = fileURLToPath(new URL('../fixtures/routing', import.meta.url))
@@ -330,6 +332,51 @@ describe('site routing', async () => {
     expect((await page('/blog/explode', false)).status).toBe(200)
     const [failure] = (await api('/api/_atelier/audit?action=hook.failed')).body
     expect(failure).toMatchObject({ target: { type: 'posts', id: exploded.body.id }, details: { hook: 'atelier:afterPublish', error: 'the after-publish hook exploded' } })
+  })
+
+  it('delivers signed webhooks for published posts through the job queue, logging each attempt, and refuses internal targets', async () => {
+    const received: { path: string, headers: Record<string, string | string[] | undefined>, body: string }[] = []
+    const receiver = createServer((req, res) => {
+      let body = ''
+      req.on('data', (chunk) => {
+        body += chunk
+      })
+      req.on('end', () => {
+        received.push({ path: req.url!, headers: req.headers, body })
+        res.statusCode = req.url === '/fail' ? 500 : 204
+        res.end()
+      })
+    })
+    await new Promise<void>(resolve => receiver.listen(0, '127.0.0.1', resolve))
+    const base = `http://127.0.0.1:${(receiver.address() as { port: number }).port}`
+    try {
+      expect((await api('/api/_atelier/webhooks', 'POST', { url: 'http://10.0.0.1/hook', events: ['entry.published'] })).body.data.errors[0])
+        .toEqual({ path: 'url', message: '10.0.0.1 is an internal address; allowlist it in webhooks.allow if that\'s intended' })
+      expect((await api('/api/_atelier/webhooks', 'POST', { url: 'http://127.0.0.2/hook', events: ['entry.published'] })).status).toBe(422)
+      expect((await api('/api/_atelier/webhooks', 'POST', { url: `${base}/hook`, events: ['entry.published'], types: ['nope'] })).body.data.errors).toEqual([{ path: 'types.0', message: 'No collection or singleton "nope"' }])
+
+      const hook = (await api('/api/_atelier/webhooks', 'POST', { url: `${base}/hook`, events: ['entry.published'], types: ['posts'] })).body
+      expect(hook).toMatchObject({ url: `${base}/hook`, events: ['entry.published'], types: ['posts'], active: true, secret: expect.stringMatching(/^whsec_/) })
+      const failing = (await api('/api/_atelier/webhooks', 'POST', { url: `${base}/fail`, events: ['entry.published'] })).body
+      expect((await api('/api/_atelier/webhooks')).body.every((w: object) => !('secret' in w))).toBe(true) // shown once
+
+      const { body: post } = await api('/api/_atelier/collections/posts', 'POST', { data: { title: 'Hooked', slug: 'hooked' }, publish: true })
+      await expect.poll(() => received.filter(r => r.path === '/hook').length, { timeout: 20_000, interval: 250 }).toBe(1)
+      const delivery = received.find(r => r.path === '/hook')!
+      const [id, timestamp, signature] = ['webhook-id', 'webhook-timestamp', 'webhook-signature'].map(h => delivery.headers[h] as string)
+      expect(signature).toBe(await sign(hook.secret, id!, Number(timestamp), delivery.body)) // verifiable with the secret
+      expect(JSON.parse(delivery.body)).toMatchObject({ type: 'entry.published', data: { type: 'posts', id: post.id, live: true } })
+
+      expect((await api(`/api/_atelier/webhooks/${hook.id}/deliveries`)).body).toEqual([expect.objectContaining({ messageId: id, event: 'entry.published', attempt: 1, status: 204, error: null })])
+      await expect.poll(async () => (await api(`/api/_atelier/webhooks/${failing.id}/deliveries`)).body[0]?.error, { timeout: 20_000, interval: 250 }).toBe('Answered 500')
+      expect((await api('/api/_atelier/jobs?status=queued')).body.some((j: { name: string }) => j.name === 'atelier:webhook')).toBe(true) // retried later
+
+      expect((await fetch('/api/_atelier/webhooks')).status).toBe(401)
+      expect((await api(`/api/_atelier/webhooks/${failing.id}`, 'DELETE')).body).toEqual({ ok: true })
+    }
+    finally {
+      receiver.close()
+    }
   })
 
   it('answers 404 for unknown and protocol-relative paths; visitors read what\'s published but can\'t write', async () => {

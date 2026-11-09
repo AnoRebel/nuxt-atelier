@@ -20,6 +20,8 @@
 //   atelier_roles           roles edited in the admin (code-defined ones are in server/atelier/roles.ts)
 //   atelier_passkeys        their passkeys (WebAuthn credentials), when passkey sign-in is enabled
 //   atelier_jobs            the background job queue: due time, attempts, lock, last error
+//   atelier_webhooks        outgoing webhooks: target URL, events, the signing secret (encrypted)
+//   atelier_webhook_deliveries  each delivery attempt: status or error, how long it took
 //
 // Every field column is nullable: `required` is enforced by validation, so adding a required field
 // later doesn't need a table rewrite. Timestamps are ISO 8601 UTC strings on every engine.
@@ -389,6 +391,27 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       lastError: kit.text('last_error'),
       createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
     }, t => [kit.index('atelier_jobs_due_idx').on(t.status, t.runAt), kit.uniqueIndex('atelier_jobs_key_idx').on(t.key)]),
+    atelier_webhooks: kit.table('atelier_webhooks', {
+      id: kit.key('_id', ID).primaryKey(),
+      url: kit.text('url').notNull(),
+      events: kit.json('events').notNull(), // e.g. ["entry.published"]
+      types: kit.json('types'), // collections and singletons; null for all
+      secret: kit.text('secret').notNull(), // AES-GCM under a key derived from the app secret
+      active: kit.bool('active').notNull(),
+      createdBy: kit.key('created_by', ID).notNull(),
+      createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
+    }),
+    atelier_webhook_deliveries: kit.table('atelier_webhook_deliveries', {
+      id: kit.key('_id', ID).primaryKey(),
+      webhookId: kit.key('webhook_id', ID).notNull(),
+      messageId: kit.key('message_id', 64).notNull(), // the webhook-id header: the same on every attempt
+      event: kit.key('event', NAME).notNull(),
+      attempt: kit.int('attempt').notNull(),
+      status: kit.int('status'), // the response's, or null when none came
+      error: kit.text('error'),
+      durationMs: kit.int('duration_ms').notNull(),
+      at: kit.key('at', TIMESTAMP).notNull(),
+    }, t => [kit.index('atelier_webhook_deliveries_webhook_idx').on(t.webhookId, t.at)]),
     atelier_redirects: kit.table('atelier_redirects', {
       id: kit.key('_id', ID).primaryKey(),
       source: kit.key('source', MAX_PATH).notNull(), // a canonical path, or a pattern with :name and a final *

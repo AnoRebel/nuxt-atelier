@@ -58,6 +58,12 @@ export const optionsSchema = v.strictObject({
     ), '* * * * *'),
     triggerBudget: int(1, 900, 25, 'Seconds the job trigger endpoint (`POST /api/_atelier/jobs/run`) keeps starting jobs; the rest stay queued for the next call. Its secret is `NUXT_ATELIER_JOBS_SECRET`.'),
   }), {}),
+  webhooks: v.optional(v.strictObject({
+    allow: v.optional(v.pipe(
+      v.array(v.pipe(v.string(), v.nonEmpty()), 'expected a list of host names or IP addresses'),
+      v.description('Hosts webhooks may reach even though they\'re internal (private, loopback or link-local addresses), e.g. a service on your own network. Override at runtime with `NUXT_ATELIER_WEBHOOKS_ALLOW` (a JSON list).'),
+    ), []),
+  }), {}),
   limits: v.optional(v.strictObject({
     maxBodySize: int(1024, 100 * MB, MB, 'Largest accepted JSON request body, in bytes.'),
     maxUploadSize: int(1024, 5 * 1024 * MB, 50 * MB, 'Largest accepted upload, in bytes.'),
