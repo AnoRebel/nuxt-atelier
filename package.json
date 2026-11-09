@@ -52,7 +52,7 @@
         "vitest": "5.0.5",
         "@nuxt/test-utils": "4.3.4",
         "miniflare": "4.20260730.0",
-        "playwright-core": "1.64.0",
+        "playwright-core": "1.65.0",
         "@seriousme/openapi-schema-validator": "2.11.0"
       },
       "ui": {

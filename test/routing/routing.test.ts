@@ -40,6 +40,11 @@ describe('site routing', async () => {
     await startServer({ env: {
       NUXT_ATELIER_DATABASE_URL: `file:${DATABASE}`,
       NUXT_APP_SECRET: SECRET,
+      NUXT_ATELIER_JOBS_SECRET: 'a-jobs-secret',
+      // Nitro skips its scheduler in a test environment (std-env's isTest): run this server as production
+      NODE_ENV: 'production',
+      TEST: '',
+      VITEST: '',
     } })
     await $fetch('/api/test/users', { method: 'POST', body: { email: 'admin@example.com', role: 'admin', password: 'password 123' } })
     const signedIn = await fetch('/api/_atelier/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'admin@example.com', password: 'password 123' }) })
@@ -268,6 +273,31 @@ describe('site routing', async () => {
     ])
     await api(`/api/_atelier/collections/posts/${post.id}`, 'PATCH', { version: 2, data: { title: 'Draft only' } })
     expect((await (await fetch('/api/test/changes')).json()).at(-1)).toEqual({ type: 'posts', id: post.id, action: 'saved', live: false })
+  })
+
+  it('runs background jobs on Nitro\'s scheduler, and from the trigger endpoint within its time budget', async () => {
+    const notes = async () => await (await fetch('/api/test/jobs')).json() as string[]
+    // the scheduler (every 2 s here) runs a due job with nobody calling anything
+    await $fetch('/api/test/jobs', { method: 'POST', body: { notes: ['scheduled'] } })
+    await expect.poll(notes, { timeout: 15_000, interval: 250 }).toContain('scheduled')
+
+    const trigger = (secret?: string) => fetch('/api/_atelier/jobs/run', { method: 'POST', headers: secret ? { authorization: `Bearer ${secret}` } : {} })
+    expect((await trigger()).status).toBe(401)
+    expect((await trigger('wrong')).status).toBe(401)
+
+    // twelve 1.5 s jobs, four at a time: a 1 s budget starts one batch and leaves the rest queued
+    const slow = Array.from({ length: 12 }, (_, i) => `slow ${i}`)
+    await $fetch('/api/test/jobs', { method: 'POST', body: { notes: slow, ms: 1500 } })
+    const started = Date.now()
+    const response = await trigger('a-jobs-secret')
+    expect(response.status).toBe(200)
+    const result = await response.json()
+    expect(Date.now() - started).toBeLessThan(1000 + 1500 + 1500) // the budget, plus the jobs it started
+    expect(result.ran).toBeLessThan(12)
+    const left = await api('/api/_atelier/jobs')
+    expect(left.body.filter((j: { name: string }) => j.name === 'test:note').length).toBeGreaterThan(0) // still queued, or being run by the scheduler
+    await expect.poll(async () => (await notes()).filter(n => n.startsWith('slow')).length, { timeout: 30_000, interval: 500 }).toBe(12)
+    expect((await fetch('/api/_atelier/jobs')).status).toBe(401) // the job list is for administrators
   })
 
   it('answers 404 for unknown and protocol-relative paths; visitors read what\'s published but can\'t write', async () => {

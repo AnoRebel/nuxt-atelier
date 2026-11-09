@@ -19,6 +19,7 @@
 //   atelier_rate_limits     counters for rate-limited actions, shared by every server instance
 //   atelier_roles           roles edited in the admin (code-defined ones are in server/atelier/roles.ts)
 //   atelier_passkeys        their passkeys (WebAuthn credentials), when passkey sign-in is enabled
+//   atelier_jobs            the background job queue: due time, attempts, lock, last error
 //
 // Every field column is nullable: `required` is enforced by validation, so adding a required field
 // later doesn't need a table rewrite. Timestamps are ISO 8601 UTC strings on every engine.
@@ -375,6 +376,19 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
       lastUsedAt: kit.key('last_used_at', TIMESTAMP),
     }, t => [kit.index('atelier_passkeys_user_idx').on(t.userId)]),
+    atelier_jobs: kit.table('atelier_jobs', {
+      id: kit.key('_id', ID).primaryKey(),
+      name: kit.key('name', NAME).notNull(), // the job type's handler
+      key: kit.key('key', 255), // at most one job per key: enqueueing again replaces it
+      payload: kit.json('payload').notNull(),
+      status: kit.key('status', 16).notNull(), // queued, running, failed
+      runAt: kit.key('run_at', TIMESTAMP).notNull(),
+      attempts: kit.int('attempts').notNull(),
+      maxAttempts: kit.int('max_attempts').notNull(),
+      lockedUntil: kit.key('locked_until', TIMESTAMP), // a running job whose lock passed is taken again
+      lastError: kit.text('last_error'),
+      createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
+    }, t => [kit.index('atelier_jobs_due_idx').on(t.status, t.runAt), kit.uniqueIndex('atelier_jobs_key_idx').on(t.key)]),
     atelier_redirects: kit.table('atelier_redirects', {
       id: kit.key('_id', ID).primaryKey(),
       source: kit.key('source', MAX_PATH).notNull(), // a canonical path, or a pattern with :name and a final *

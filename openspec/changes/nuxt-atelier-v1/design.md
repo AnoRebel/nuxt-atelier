@@ -224,9 +224,9 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 - **Jobs:**
   - A database-backed queue with `run_at`, `attempts`, `max_attempts`, `locked_until` and exponential backoff. Workers claim jobs with an atomic `UPDATE … WHERE locked_until < now` (`SKIP LOCKED` on Postgres/MySQL 8).
   - **Running jobs:** the DB queue is the durable store (Nitro tasks have no persistence, retries or visibility). A single Nitro task, `atelier:jobs`, drains due jobs with bounded concurrency. The module enables `nitro.experimental.tasks` through the public `nitro:config` hook and registers the task in `scheduledTasks` (every minute by default).
-    - Nitro runs scheduled tasks natively on `node`/`bun`/`deno` presets and generates Vercel Cron Jobs and Cloudflare Cron Triggers at build time.
+    - Nitro runs scheduled tasks natively on `node`/`bun`/`deno` presets, and on Cloudflare for its cron events. Nitro 2 (Nuxt 4.6) writes no platform schedule, so the module adds it once the preset is known (`nitro:init`): a Vercel cron calling the trigger endpoint (authorized by `CRON_SECRET`), and the Cloudflare cron trigger in the generated `wrangler.json`. (Found while implementing 11.2.)
     - On platforms without scheduled-task support (e.g. Netlify, generic serverless), an authenticated trigger endpoint calls `runTask('atelier:jobs')` for an external scheduler, as Nitro recommends.
-    - `atelier jobs run` and `nuxi task run atelier:jobs` drain the queue manually.
+    - `atelier jobs run` drains the queue manually (nuxi 3.37 has no `task` command; in development, Nitro serves `/_nitro/tasks/atelier:jobs`).
     - Task registration uses `{nitro2, nitro3}` variants (the import path moves to `nitro/task` in Nitro v3).
   - **Recurring schedules:** code-defined schedules become `scheduledTasks` entries. `croner` 11 is used only to compute `run_at` for recurrences created at runtime.
 - **Webhooks:** signed per the Standard Webhooks spec with Web Crypto HMAC-SHA256, so no extra dependency is needed. The SSRF guard resolves DNS and rejects private, loopback and link-local ranges unless allowlisted.
@@ -301,7 +301,7 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 - **Git:** semantic commits (`feat:`, `fix:`, `docs:`, `perf:`, `refactor:`, `test:`, `chore:`, `ci:`) and semantic branch names (`feat/block-system`). Changesets drive versioning and changelogs.
 
 ### D17. Testing and CI matrix
-- **Unit and integration:** Vitest 5 with `@nuxt/test-utils` 4 and happy-dom. **End-to-end:** Playwright 1.64 plus `@axe-core/playwright` for accessibility.
+- **Unit and integration:** Vitest 5 with `@nuxt/test-utils` 4 and happy-dom. **End-to-end:** Playwright 1.65 plus `@axe-core/playwright` for accessibility.
 - **Matrix:**
   - Nuxt `latest` 4.x
   - Nuxt 4.x with `future.compatibilityVersion: 5`
@@ -373,7 +373,7 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 | Docs | docus | 5.15.0 |
 | Test | vitest / @vitest/coverage-v8 | 5.0.5 |
 | | @nuxt/test-utils | 4.3.4 |
-| | @playwright/test | 1.64.1 |
+| | @playwright/test | 1.65.0 |
 | | @axe-core/playwright | 4.14.0 |
 | | happy-dom | 21.0.4 |
 | | @vue/test-utils | 2.5.1 |

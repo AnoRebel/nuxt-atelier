@@ -181,9 +181,9 @@ function renamed(fields: Record<string, Field>, data: Record<string, unknown>): 
 const entryKey = (source: string, sourceId: string) => `${source}:${sourceId}`
 
 /** Rows a statement changed, whatever the driver's result shape. */
-function affected(result: unknown): number {
-  const r = (Array.isArray(result) ? result[0] : result) as { rowsAffected?: number, rowCount?: number, affectedRows?: number }
-  return r.rowsAffected ?? r.rowCount ?? r.affectedRows ?? 0
+export function affected(result: unknown): number {
+  const r = (Array.isArray(result) ? result[0] : result) as { rowsAffected?: number, rowCount?: number, affectedRows?: number, meta?: { changes?: number } }
+  return r.rowsAffected ?? r.rowCount ?? r.affectedRows ?? r.meta?.changes ?? 0 // libSQL, pg, mysql2, D1
 }
 
 /**

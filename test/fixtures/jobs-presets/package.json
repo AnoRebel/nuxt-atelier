@@ -1,0 +1,8 @@
+{
+  "name": "@nuxt-atelier/fixture-jobs-presets",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "nuxt": "catalog:"
+  }
+}

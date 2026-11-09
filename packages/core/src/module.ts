@@ -34,7 +34,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     config.atelier = {
       databaseUrl: resolved.database.url, // NUXT_ATELIER_DATABASE_URL
       dbPoolSize: resolved.limits.dbPoolSize,
-      limits: { maxPageSize: resolved.limits.maxPageSize, maxRelationDepth: resolved.limits.maxRelationDepth, maxNestingDepth: resolved.limits.maxNestingDepth, writesPerMinute: resolved.limits.writesPerMinute },
+      limits: { maxPageSize: resolved.limits.maxPageSize, maxRelationDepth: resolved.limits.maxRelationDepth, maxNestingDepth: resolved.limits.maxNestingDepth, writesPerMinute: resolved.limits.writesPerMinute, cacheSize: resolved.limits.cacheSize, jobConcurrency: resolved.limits.jobConcurrency },
+      jobs: { secret: '', triggerBudget: resolved.jobs.triggerBudget }, // NUXT_ATELIER_JOBS_SECRET
       migrations: { autoApply: resolved.migrations.autoApply }, // NUXT_ATELIER_MIGRATIONS_AUTO_APPLY
       storage: { dir: resolved.storage.dir }, // NUXT_ATELIER_STORAGE_DIR
       auth: { signInAttempts: resolved.auth.signInAttempts, signInWindow: resolved.auth.signInWindow, trustProxy: resolved.auth.trustProxy },
@@ -130,6 +131,45 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     }
     addServerHandler({ route: '/api/_atelier/routes', handler: resolve('./runtime/server/api/routes') })
     addServerHandler({ route: '/api/_atelier/preview-links', handler: resolve('./runtime/server/api/preview-links') })
+    addServerHandler({ route: '/api/_atelier/jobs', handler: resolve('./runtime/server/api/jobs') })
+    addServerHandler({ route: '/api/_atelier/jobs/**', handler: resolve('./runtime/server/api/jobs') })
+    // background jobs: one Nitro task drains the queue, on Nitro's scheduler where the platform has one
+    nuxt.hook('nitro:config', (config) => {
+      // the task options of Nitro 2 and 3 alike; the fallback config type doesn't declare them
+      const nitro = config as unknown as {
+        experimental?: Record<string, unknown>
+        tasks?: Record<string, { handler: string, description?: string }>
+        scheduledTasks?: Record<string, string | string[]>
+      }
+      nitro.experimental = { ...nitro.experimental, tasks: true }
+      nitro.tasks = { ...nitro.tasks, 'atelier:jobs': { handler: resolve('./runtime/server/tasks/jobs'), description: 'Run due Nuxt Atelier background jobs' } }
+      if (resolved.jobs.schedule) {
+        const cron = resolved.jobs.schedule
+        nitro.scheduledTasks = { ...nitro.scheduledTasks, [cron]: [...[nitro.scheduledTasks?.[cron] ?? []].flat(), 'atelier:jobs'] }
+      }
+    })
+    // Nitro 2 runs scheduled tasks on servers, and on Cloudflare for its cron events, but writes no platform
+    // schedule: a Vercel cron calls the trigger endpoint (authorized by CRON_SECRET), and Cloudflare gets the
+    // cron trigger in the wrangler.json it generates (`cloudflare.deployConfig`)
+    nuxt.hook('nitro:init', (instance) => {
+      const schedule = resolved.jobs.schedule
+      const options = instance.options as unknown as {
+        preset: string
+        vercel?: { config?: { crons?: { path: string, schedule: string }[] } }
+        cloudflare?: { wrangler?: { triggers?: { crons?: string[] } } }
+      }
+      if (!schedule)
+        return
+      if (options.preset.startsWith('vercel')) {
+        if (schedule.split(/\s+/).length !== 5)
+          return console.warn(`[nuxt-atelier] jobs.schedule "${schedule}" has seconds, which Vercel Cron doesn't take: no cron was added`)
+        options.vercel = { ...options.vercel, config: { ...options.vercel?.config, crons: [...options.vercel?.config?.crons ?? [], { path: '/api/_atelier/jobs/run', schedule }] } }
+      }
+      if (options.preset.startsWith('cloudflare')) {
+        const wrangler = options.cloudflare?.wrangler ?? {}
+        options.cloudflare = { ...options.cloudflare, wrangler: { ...wrangler, triggers: { ...wrangler.triggers, crons: [...new Set([...wrangler.triggers?.crons ?? [], schedule])] } } }
+      }
+    })
     addServerHandler({ route: '/api/_atelier/**', handler: resolve('./runtime/server/api/not-found') })
     if (nuxt.options.dev)
       setupDevMigrations(nuxt)
