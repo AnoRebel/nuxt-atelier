@@ -7,8 +7,11 @@ import type { ListQuery } from './db/query'
 import type { CollectionDefinition, SingletonDefinition } from './types'
 import { useRuntimeConfig, useServerHooks } from 'nuxt/server'
 import type { JobQueue } from './jobs'
+import type { WebhookStore } from './webhooks'
 import { contentChanged } from './cache'
 import { createJobQueue } from './jobs'
+import { queueWebhooks } from './webhook-jobs'
+import { createWebhookStore } from './webhooks'
 import { connect, UnsupportedOperationError } from './db/driver'
 import { QueryError } from './db/query'
 import { buildTables } from './db/tables'
@@ -108,7 +111,10 @@ let entries: Promise<EntryStore> | undefined
 export function useAtelierEntries(): Promise<EntryStore> {
   entries ??= (async () => createEntryStore(await useAtelierDatabase(), await useAtelierSchema(), {
     maxNestingDepth: (useAtelierServerConfig() as unknown as { limits: { maxNestingDepth: number } }).limits.maxNestingDepth,
-    onChange: contentChanged,
+    onChange: (change) => {
+      void contentChanged(change)
+      queueWebhooks(change).catch((error: Error) => console.error(`[nuxt-atelier] Couldn't queue webhooks for ${change.type} "${change.id}": ${error.message}`))
+    },
     hooks: (hook, context) => (useServerHooks().callHook as (name: string, context: unknown) => unknown)(`atelier:${hook}`, context),
     onHookError: async (hook, context, error) => {
       const message = error instanceof Error ? error.message : String(error)
@@ -122,6 +128,17 @@ export function useAtelierEntries(): Promise<EntryStore> {
       throw error
     })
   return entries
+}
+
+let webhookStore: Promise<WebhookStore> | undefined
+
+/** Outgoing webhooks and their delivery log. */
+export function useAtelierWebhooks(): Promise<WebhookStore> {
+  webhookStore ??= useAtelierDatabase().then(createWebhookStore).catch((error) => {
+    webhookStore = undefined
+    throw error
+  })
+  return webhookStore
 }
 
 let jobQueue: Promise<JobQueue> | undefined

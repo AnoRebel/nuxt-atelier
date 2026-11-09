@@ -14,6 +14,7 @@ export type AuditAction
     | 'entry.published' | 'entry.unpublished' | 'entry.deleted'
     | 'redirect.created' | 'redirect.updated' | 'redirect.deleted'
     | 'hook.failed'
+    | 'webhook.created' | 'webhook.updated' | 'webhook.deleted'
 
 export interface AuditInput {
   action: AuditAction
