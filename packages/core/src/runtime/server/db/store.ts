@@ -267,34 +267,121 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
 
   const routeOf = (source: string): RouteDefinition | undefined => (schema.collections[source] ?? schema.singletons[source])?.route
 
+  interface RouteRow extends EntryPath { source: string, sourceId: string }
+  /** The route rows an entry's save replaces: its own and, for nested routes, every entry below it. */
+  interface PathPlan { source: string, ids: string[], rows: RouteRow[] }
+
+  const MAX_DEPTH = 100 // nested routes deeper than this are refused as a cycle
+
+  /** The entry a nested route's entry sits under, as stored. */
+  async function parentOf(q: Db, source: string, key: string, id: string): Promise<string | undefined> {
+    const [row] = await q.select({ targetId: relations.targetId }).from(relations)
+      .where(and(eq(relations.source, source), eq(relations.sourceId, id), eq(relations.field, key))).limit(1)
+    return row?.targetId
+  }
+
+  /** Entries directly under `id`, with their data. */
+  async function childrenOf(q: Db, source: string, key: string, id: string): Promise<Entry[]> {
+    const rows: { sourceId: string }[] = await q.select({ sourceId: relations.sourceId }).from(relations)
+      .where(and(eq(relations.source, source), eq(relations.field, key), eq(relations.target, source), eq(relations.targetId, id)))
+    return [...(await readMany(q, source, rows.map(r => r.sourceId))).values()]
+  }
+
+  /** Paths under a parent's: each locale's under the parent's path in that locale (or its shared one). */
+  const under = (own: EntryPath[], parent: EntryPath[] | undefined) => !parent?.length
+    ? own
+    : own.map(({ locale, path }) => {
+        const base = (parent.find(p => p.locale === locale) ?? parent.find(p => p.locale === ''))?.path
+        return { locale, path: base === undefined ? path : `${base === '/' ? '' : base}${path}` }
+      })
+
   /**
-   * 422 when a path of this data is too long or already another entry's. Paths shared by every locale
+   * The route rows for saving `data` to an entry: its paths, under its parent's for a nested route, and
+   * when it already exists, the recomputed paths of every entry below it. 422 when it would be its own ancestor.
+   */
+  async function planPaths(q: Db, source: string, sourceId: string, data: Record<string, unknown>, existing: boolean): Promise<PathPlan | undefined> {
+    const route = routeOf(source)
+    if (!route)
+      return undefined
+    let own = entryPaths(route, data)
+    const key = route.parent
+    if (key && typeof data[key] === 'string') {
+      // walk up to refuse a cycle; the parent's stored paths are the base
+      let ancestor: string | undefined = data[key] as string
+      for (let depth = 0; ancestor; depth++) {
+        if (ancestor === sourceId || depth >= MAX_DEPTH)
+          throw new ValidationError([{ path: key, message: 'An entry can\'t be placed under itself or an entry below it' }])
+        ancestor = await parentOf(q, source, key, ancestor)
+      }
+      const parent: EntryPath[] = await q.select({ path: routes.path, locale: routes.locale }).from(routes)
+        .where(and(eq(routes.source, source), eq(routes.sourceId, data[key] as string)))
+      own = under(own, parent)
+    }
+    const plan: PathPlan = { source, ids: [sourceId], rows: own.map(p => ({ ...p, source, sourceId })) }
+    if (key && existing) {
+      const walk = async (id: string, paths: EntryPath[], depth: number) => {
+        for (const child of await childrenOf(q, source, key, id)) {
+          if (plan.ids.includes(child.id) || depth >= MAX_DEPTH)
+            continue
+          const childPaths = under(entryPaths(route, child.data), paths)
+          plan.ids.push(child.id)
+          plan.rows.push(...childPaths.map(p => ({ ...p, source, sourceId: child.id })))
+          await walk(child.id, childPaths, depth + 1)
+        }
+      }
+      await walk(sourceId, own, 0)
+    }
+    return plan
+  }
+
+  /**
+   * 422 when a planned path is too long or already another entry's. Paths shared by every locale
    * conflict with any locale's; per-locale ones only within their locale.
    * ponytail: two saves racing for one free path both pass this; the (path, locale) primary key stops the
    * second, which then fails as a database error rather than a 422.
    */
-  async function assertPathsFree(q: Db, source: string, sourceId: string, data: Record<string, unknown>): Promise<void> {
-    const route = routeOf(source)
-    const mine = entryPaths(route, data)
-    if (!route || !mine.length)
+  async function assertPathsFree(q: Db, plan: PathPlan | undefined): Promise<void> {
+    if (!plan?.rows.length)
       return
+    const route = routeOf(plan.source)!
+    const [saved] = plan.ids
     // errors go on the first placeholder's field (a fixed path, like a singleton's "/", has none)
     const fieldOf = (locale: string) => /\{([a-z][a-z0-9]*)\}/i.exec(patterns(route).find(([l]) => l === locale)![1])?.[1] ?? ''
+    const whose = (row: RouteRow) => row.sourceId === saved ? 'The URL' : `The URL of entry "${row.sourceId}", below this one,`
     const errors: FieldError[] = []
-    for (const { locale, path } of mine) {
-      if (path.length > MAX_PATH)
-        errors.push({ path: fieldOf(locale), message: `The URL would be longer than ${MAX_PATH} characters` })
+    for (const row of plan.rows) {
+      if (row.path.length > MAX_PATH)
+        errors.push({ path: fieldOf(row.locale), message: `${whose(row)} would be longer than ${MAX_PATH} characters` })
     }
-    const taken: { path: string, locale: string, source: string, sourceId: string }[] = await q.select().from(routes)
-      .where(inArray(routes.path, [...new Set(mine.map(p => p.path))]))
-    for (const { locale, path } of mine) {
-      const other = taken.find(t => t.path === path && !(t.source === source && t.sourceId === sourceId)
-        && (t.locale === locale || t.locale === '' || locale === ''))
+    const taken: RouteRow[] = await q.select().from(routes).where(inArray(routes.path, [...new Set(plan.rows.map(p => p.path))]))
+    for (const row of plan.rows) {
+      // rows of the entries this save moves are replaced, so they don't count
+      const other = taken.find(t => t.path === row.path && !(t.source === plan.source && plan.ids.includes(t.sourceId))
+        && (t.locale === row.locale || t.locale === '' || row.locale === ''))
+      ?? plan.rows.find(r => r !== row && r.sourceId !== row.sourceId && r.path === row.path && (r.locale === row.locale || r.locale === '' || row.locale === ''))
       if (other)
-        errors.push({ path: fieldOf(locale), message: `The URL ${path}${locale ? ` (${locale})` : ''} is already used by ${other.source in schema.singletons ? `singleton "${other.source}"` : `entry "${other.sourceId}" in "${other.source}"`}` })
+        errors.push({ path: fieldOf(row.locale), message: `${whose(row)} ${row.path}${row.locale ? ` (${row.locale})` : ''} is already used by ${other.source in schema.singletons ? `singleton "${other.source}"` : `entry "${other.sourceId}" in "${other.source}"`}` })
     }
     if (errors.length)
       throw new ValidationError(errors)
+  }
+
+  /** The statements replacing the stored route rows with a plan's. */
+  function pathStatements(q: Db, plan: PathPlan | undefined): unknown[] {
+    if (!plan)
+      return []
+    const rows = plan.rows.filter(r => r.path.length <= MAX_PATH)
+    return [
+      q.delete(routes).where(and(eq(routes.source, plan.source), inArray(routes.sourceId, plan.ids))),
+      ...rows.length ? [q.insert(routes).values(rows)] : [],
+    ]
+  }
+
+  /** The plan for an entry changed as a side effect (a mirrored or nullified relation), checked. */
+  async function sidePlan(q: Db, source: string, sourceId: string, data: Record<string, unknown>): Promise<PathPlan | undefined> {
+    const plan = await planPaths(q, source, sourceId, data, true)
+    await assertPathsFree(q, plan)
+    return plan
   }
 
   /** Calls `visit` for every relation value in `data`, nested ones included; `set` replaces it. */
@@ -437,18 +524,15 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
   }
 
   /** The write, its relation rows and its revision, as unexecuted statements. */
-  function statements(q: Db, target: Target<unknown>, data: Record<string, unknown>, now: string) {
+  function statements(q: Db, target: Target<unknown>, data: Record<string, unknown>, now: string, plan?: PathPlan) {
     const { source, sourceId, expected } = target
     const version = expected === undefined ? 1 : expected + 1
     const links = relationRows(target.fields, data)
-    const route = routeOf(source)
-    const paths = entryPaths(route, data).filter(p => p.path.length <= MAX_PATH) // checked by assertPathsFree on saves
     return [
       target.write(q, data, version, now),
       ...expected === undefined ? [] : [q.delete(relations).where(and(eq(relations.source, source), eq(relations.sourceId, sourceId)))],
       ...links.length ? [q.insert(relations).values(links.map(l => ({ source, sourceId, ...l })))] : [],
-      ...route && expected !== undefined ? [q.delete(routes).where(and(eq(routes.source, source), eq(routes.sourceId, sourceId)))] : [],
-      ...paths.length ? [q.insert(routes).values(paths.map(p => ({ ...p, source, sourceId })))] : [],
+      ...pathStatements(q, plan),
       // unique per (source, version): a stale save always collides with the winning save's revision
       q.insert(revisions).values({ id: crypto.randomUUID(), source, sourceId, version, data, createdAt: now, authorId: target.authorId ?? null }),
     ]
@@ -515,7 +599,10 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
           await edit(source, previous, d => unlink(d, key, id))
       }
     }
-    return [...changed.values()].flatMap(e => statements(q, entryTarget(e.source, e.id, e.version, target.authorId), e.data, now))
+    const result: unknown[] = []
+    for (const e of changed.values())
+      result.push(...statements(q, entryTarget(e.source, e.id, e.version, target.authorId), e.data, now, await sidePlan(q, e.source, e.id, e.data)))
+    return result
   }
 
   /**
@@ -530,8 +617,9 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const result = await validateEntry(target.fields, input, { isUnique: target.isUnique?.(q), blocks: schema.blocks, maxNestingDepth: options.maxNestingDepth })
       if (!result.success)
         throw new ValidationError(result.errors)
-      await assertPathsFree(q, target.source, target.sourceId, result.value)
-      return result.value
+      const plan = await planPaths(q, target.source, target.sourceId, result.value, !creating)
+      await assertPathsFree(q, plan)
+      return { data: result.value, plan }
     }
     // after a write matched nothing or failed: say why, if it's a missing row or a newer version
     const refuseStale = async (q: Db) => {
@@ -544,15 +632,15 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
 
     try {
       if (!driver.capabilities.transactions) {
-        const data = await validate(db)
+        const { data, plan } = await validate(db)
         await refuseStale(db)
-        await db.batch([...statements(db, target, data, now), ...await mirrors(db, target, data, now)])
+        await db.batch([...statements(db, target, data, now, plan), ...await mirrors(db, target, data, now)])
         return await target.read(db)
       }
       return await db.transaction(async (tx: Db) => {
-        const data = await validate(tx)
+        const { data, plan } = await validate(tx)
         const others = await mirrors(tx, target, data, now) // reads the links before this save replaces them
-        const [write, ...rest] = statements(tx, target, data, now)
+        const [write, ...rest] = statements(tx, target, data, now, plan)
         if (!affected(await write))
           await refuseStale(tx)
         for (const statement of [...rest, ...others])
@@ -641,7 +729,8 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const current = source in schema.singletons ? await readSingleton(q, source) : await read(q, source, sourceId)
       const target = source in schema.singletons ? singletonTarget(source, current!.version) : entryTarget(source, sourceId, current!.version)
       // not validated: removing a required reference leaves an entry that must be fixed on its next save
-      result.push(...statements(q, target, withoutRefs(target.fields, current!.data, removed), now))
+      const data = withoutRefs(target.fields, current!.data, removed)
+      result.push(...statements(q, target, data, now, await sidePlan(q, source, sourceId, data)))
     }
     return result
   }

@@ -53,3 +53,16 @@ describe('entry paths', () => {
     expect(presentPaths({ pattern: '/{slug}' }, [])).toEqual({ path: null })
   })
 })
+
+describe('nested routes', () => {
+  const sections = (route: object, parent: f.Field = f.relation({ to: 'sections' })) => () =>
+    buildTables('sqlite', { singletons: {}, collections: { sections: { route: { pattern: '/{slug}', ...route }, fields: { slug: f.slug({ required: true }), parent } } } })
+
+  it('takes a parent relation to the same collection holding one entry', () => {
+    expect(sections({ parent: 'parent' })).not.toThrow()
+    expect(sections({ parent: 'parent' }, f.relation({ to: 'sections', many: true }))).toThrow('route.parent "parent" must be a top-level relation to "sections" holding one entry')
+    expect(sections({ parent: 'slug' })).toThrow('route.parent "slug" must be')
+    expect(() => buildTables('sqlite', { collections: {}, singletons: { home: { route: { pattern: '/', parent: 'x' }, fields: {} } } }))
+      .toThrow('home: route.parent: a singleton has no parent')
+  })
+})
