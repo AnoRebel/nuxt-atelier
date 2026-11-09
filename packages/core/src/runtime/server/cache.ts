@@ -2,6 +2,7 @@
 //
 // Any content write clears the cache: a page shows related entries and links to others, so one change
 // can touch any page. Apps hook `atelier:content:changed` to purge their own caches or a CDN.
+import type { LifecycleHook, LifecycleHooks } from './db/store'
 import { useServerHooks } from 'nuxt/server'
 import { useAtelierServerConfig } from './index'
 
@@ -14,8 +15,10 @@ export interface ContentChange {
   live: boolean
 }
 
+type Hooked = { [H in LifecycleHook as `atelier:${H}`]: (context: LifecycleHooks[H]) => void | Promise<void> }
+
 declare module 'nuxt/schema' {
-  interface NuxtServerHooks {
+  interface NuxtServerHooks extends Hooked {
     /** After a content write commits. Errors are logged, never thrown to the writer. */
     'atelier:content:changed': (change: ContentChange) => void | Promise<void>
   }

@@ -319,6 +319,19 @@ describe('site routing', async () => {
     expect((await api(`${schedule}/unpublish`, 'DELETE')).status).toBe(404)
   })
 
+  it('runs lifecycle hooks: a before-hook\'s error reaches the client, a failing after-hook is logged and the write kept', async () => {
+    const refused = await api('/api/_atelier/collections/posts', 'POST', { data: { title: 'Forbidden', slug: 'forbidden' } })
+    expect(refused.status).toBe(422)
+    expect(refused.body).toMatchObject({ message: 'A post can\'t be called "Forbidden"', data: { errors: [{ path: 'title', message: 'not allowed' }] } })
+    expect((await api('/api/_atelier/collections/posts?draft=true&filter={"slug":{"eq":"forbidden"}}')).body.items).toEqual([])
+
+    const exploded = await api('/api/_atelier/collections/posts', 'POST', { data: { title: 'Explode', slug: 'explode' }, publish: true })
+    expect(exploded.status).toBe(200)
+    expect((await page('/blog/explode', false)).status).toBe(200)
+    const [failure] = (await api('/api/_atelier/audit?action=hook.failed')).body
+    expect(failure).toMatchObject({ target: { type: 'posts', id: exploded.body.id }, details: { hook: 'atelier:afterPublish', error: 'the after-publish hook exploded' } })
+  })
+
   it('answers 404 for unknown and protocol-relative paths; visitors read what\'s published but can\'t write', async () => {
     expect((await page('/nothing-here')).status).toBe(404)
     expect((await api('/api/_atelier/routes?path=//evil.example')).status).toBe(404)

@@ -77,7 +77,7 @@ export default defineEventHandler(async (event) => {
     if (sub === 'unpublish' && method === 'POST') {
       allow(who, 'publish', name)
       await countWrite(event, who)
-      await entries.unpublishSingleton(name)
+      await entries.unpublishSingleton(name, who.principal.id)
       await audit(event, { action: 'entry.unpublished', actorId: who.principal.id, target: { type: name, id: name } })
       return { ok: true }
     }

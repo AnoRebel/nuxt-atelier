@@ -5,7 +5,7 @@ import type { BlockSchema } from '../shared/blocks'
 import type { CollectionName, CollectionQuery, TypedEntry, TypedEntryList } from '../shared/query'
 import type { ListQuery } from './db/query'
 import type { CollectionDefinition, SingletonDefinition } from './types'
-import { useRuntimeConfig } from 'nuxt/server'
+import { useRuntimeConfig, useServerHooks } from 'nuxt/server'
 import type { JobQueue } from './jobs'
 import { contentChanged } from './cache'
 import { createJobQueue } from './jobs'
@@ -50,7 +50,7 @@ export type { StaleContent } from '../shared/reconcile'
 export type { ErrorCode } from './errors'
 export { ConflictError, NotFoundError, ReferencedError, ValidationError, withTransaction } from './db/store'
 export type { ColumnSpec, TableSpec } from './db/tables'
-export type { Entry, EntryList, EntryStore, ListOptions, GetOptions, Reference, SaveInput } from './db/store'
+export type { Entry, EntryList, EntryStore, GetOptions, LifecycleHook, LifecycleHooks, ListOptions, Reference, SaveInput } from './db/store'
 export { defineAuthAdapter } from './auth/adapter'
 export type { AuthAdapter, AuthUser, NewUser } from './auth/adapter'
 export type { BuiltinAuthAdapter } from './auth/builtin'
@@ -109,6 +109,13 @@ export function useAtelierEntries(): Promise<EntryStore> {
   entries ??= (async () => createEntryStore(await useAtelierDatabase(), await useAtelierSchema(), {
     maxNestingDepth: (useAtelierServerConfig() as unknown as { limits: { maxNestingDepth: number } }).limits.maxNestingDepth,
     onChange: contentChanged,
+    hooks: (hook, context) => (useServerHooks().callHook as (name: string, context: unknown) => unknown)(`atelier:${hook}`, context),
+    onHookError: async (hook, context, error) => {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error(`[nuxt-atelier] The atelier:${hook} hook failed (the change it followed was kept):`, error)
+      const { type, id, actorId } = context as { type: string, id: string, actorId?: string | null }
+      await (await useAtelierAudit()).record({ action: 'hook.failed', actorId: actorId ?? null, target: { type, id }, details: { hook: `atelier:${hook}`, error: message.slice(0, 1000) } })
+    },
   }))()
     .catch((error) => {
       entries = undefined
