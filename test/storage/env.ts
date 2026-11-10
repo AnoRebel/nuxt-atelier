@@ -36,11 +36,11 @@ export const urlEngines: [name: string, url: string][] = [
 export const engines: [name: string, url: string][] = [...urlEngines, ['d1', 'd1:DB']]
 
 /** Opens any test engine; D1 gets a fresh local database from Miniflare, disposed on close. */
-export async function connectEngine(url: string, options: { poolSize?: number } = {}): Promise<AtelierDriver> {
+export async function connectEngine(url: string, options: { poolSize?: number, logQuery?: (query: string) => void } = {}): Promise<AtelierDriver> {
   if (!url.startsWith('d1:'))
     return connect(url, { loaders: allDrivers, ...options })
   const mf = new Miniflare({ modules: true, script: 'export default { fetch: () => new Response() }', d1Databases: ['DB'] })
-  const driver = await connect(url, { loaders: allDrivers, d1: await mf.getD1Database('DB') as never })
+  const driver = await connect(url, { loaders: allDrivers, d1: await mf.getD1Database('DB') as never, logQuery: options.logQuery })
   return { ...driver, close: () => mf.dispose() }
 }
 

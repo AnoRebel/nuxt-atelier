@@ -41,6 +41,8 @@ export interface ConnectOptions {
   poolSize?: number
   /** The D1 binding for a `d1:<binding>` URL. Defaults to the binding of that name in the Worker's env. */
   d1?: AnyD1Database
+  /** Called with every query run: for counting them (tests) or logging. */
+  logQuery?: (query: string, params: unknown[]) => void
 }
 
 /** The database can't run this operation (e.g. a multi-statement transaction on D1). Nothing was changed. */
@@ -172,7 +174,8 @@ function inTurn(client: LibsqlClient): LibsqlClient {
   })
 }
 
-async function open(dialect: Dialect, url: string, { loaders, poolSize = 10 }: ConnectOptions): Promise<AtelierDriver> {
+async function open(dialect: Dialect, url: string, { loaders, poolSize = 10, logQuery }: ConnectOptions): Promise<AtelierDriver> {
+  const logger = logQuery ? { logQuery } : undefined
   if (dialect === 'sqlite') {
     const [{ createClient }, { drizzle }] = await load<NonNullable<Awaited<ReturnType<NonNullable<DriverLoaders['libsql']>>>>>(loaders, 'libsql', '@libsql/client')
     if (url.startsWith('file:'))
@@ -183,23 +186,23 @@ async function open(dialect: Dialect, url: string, { loaders, poolSize = 10 }: C
     // waited for, up to 5 s.
     const opened = createClient({ url, ...url.startsWith('file:') ? { concurrency: 1, timeout: 5000 } : {} })
     const client = url.startsWith('file:') ? inTurn(opened) : opened
-    return { dialect, capabilities, db: drizzle({ client }), ping: async () => void await client.execute('select 1'), close: async () => client.close() }
+    return { dialect, capabilities, db: drizzle({ client, logger }), ping: async () => void await client.execute('select 1'), close: async () => client.close() }
   }
   if (dialect === 'postgres') {
     const [pg, { drizzle }] = await load<Awaited<ReturnType<NonNullable<DriverLoaders['pg']>>>>(loaders, 'pg', 'pg')
     const { Pool } = pg.default
     const client = new Pool({ connectionString: url, max: poolSize })
-    return { dialect, capabilities, db: drizzle({ client }), ping: async () => void await client.query('select 1'), close: () => client.end() }
+    return { dialect, capabilities, db: drizzle({ client, logger }), ping: async () => void await client.query('select 1'), close: () => client.end() }
   }
   const [{ createPool }, { drizzle }] = await load<Awaited<ReturnType<NonNullable<DriverLoaders['mysql2']>>>>(loaders, 'mysql2', 'mysql2')
   const client = createPool({ uri: url.replace(/^mariadb:/, 'mysql:'), connectionLimit: poolSize })
-  return { dialect, capabilities, db: drizzle({ client }), ping: async () => void await client.query('select 1'), close: () => client.end() }
+  return { dialect, capabilities, db: drizzle({ client, logger }), ping: async () => void await client.query('select 1'), close: () => client.end() }
 }
 
 const capabilities = { transactions: true }
 
 /** Cloudflare D1: opt in with a `d1:<binding>` URL. */
-async function openD1(url: string, { loaders, d1: binding }: ConnectOptions): Promise<AtelierDriver> {
+async function openD1(url: string, { loaders, d1: binding, logQuery }: ConnectOptions): Promise<AtelierDriver> {
   const name = url.slice('d1:'.length)
   const d1 = binding ?? (globalThis as { __env__?: Record<string, AnyD1Database> }).__env__?.[name]
   if (!d1)
@@ -208,7 +211,7 @@ async function openD1(url: string, { loaders, d1: binding }: ConnectOptions): Pr
   return {
     dialect: 'sqlite',
     capabilities: { transactions: false },
-    db: drizzle(d1),
+    db: drizzle(d1, logQuery ? { logger: { logQuery } } : {}),
     ping: async () => void await d1.prepare('select 1').first(),
     close: async () => {}, // the binding is the Worker's, not ours to close
   }
@@ -221,4 +224,10 @@ async function ensureDir(path: string) {
   const { mkdir } = await import('node:fs/promises')
   const { dirname } = await import('node:path')
   await mkdir(dirname(path.replace(/\?.*$/, '')), { recursive: true })
+}
+
+/** A deadlock or serialization failure (MySQL 1213, SQLSTATE 40001, Postgres 40P01): safe to retry. */
+export const deadlocked = (error: unknown): boolean => {
+  const e = error as { code?: string, errno?: number, cause?: unknown } | undefined
+  return !!e && (e.errno === 1213 || e.code === 'ER_LOCK_DEADLOCK' || e.code === '40001' || e.code === '40P01' || deadlocked(e.cause))
 }
