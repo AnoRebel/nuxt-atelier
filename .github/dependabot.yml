@@ -11,6 +11,11 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # TypeScript 7 (the Go compiler) has no JavaScript compiler API yet, which vue-tsc, typescript-eslint
+      # and the packages' .d.ts builds need (tried in #1). Remove once they support it.
+      - dependency-name: typescript
+        versions: ['>=7']
 
   - package-ecosystem: github-actions
     directory: /
