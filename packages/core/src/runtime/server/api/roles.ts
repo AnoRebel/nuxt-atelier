@@ -2,10 +2,10 @@
 //   GET     /          every role, with its source (builtin, code, database)
 //   PUT     /<name>    creates or replaces a database role
 //   DELETE  /<name>    deletes a database role no user has
-import { defineEventHandler, getRequestURL, readBody } from 'nuxt/server'
+import { defineEventHandler, getRequestURL } from 'nuxt/server'
 import { assertMigrated, audit, requireUser, useAtelierAuth, useAtelierRoles } from '../index'
 import { forgetCached } from '../cache'
-import { apiError } from '../errors'
+import { apiError, readJson } from '../errors'
 
 const PREFIX = '/api/_atelier/roles'
 
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     return roles.list()
   if (name && method === 'PUT') {
     const before = (await roles.roles())[name] ?? null
-    const saved = await roles.save(name, await readBody(event))
+    const saved = await roles.save(name, await readJson(event))
     forgetCached() // what visitors see follows the public role
     await audit(event, { action: 'role.saved', actorId: actor.id, target: { type: 'role', id: name }, details: { from: before, to: saved } })
     return saved

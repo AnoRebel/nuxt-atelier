@@ -28,4 +28,15 @@ describe('responsive image markup', () => {
     expect(imageAttributes({ ...photo, mime: 'image/gif' }, {}, widths)).toEqual({ src: photo.url, alt: 'Team', width: 1600, height: 900 })
     expect(imageAttributes({ ...photo, width: null, height: null, alt: null }, { alt: 'Given' }, widths)).toEqual({ src: photo.url, alt: 'Given' })
   })
+
+  it('hands the variants to an image service when one is configured', () => {
+    const cloudflare = { template: '/cdn-cgi/image/width={w},height={h},fit=cover,gravity={fx}x{fy},format=auto/{src}', site: 'https://example.com' }
+    const attrs = imageAttributes({ ...photo, focal: { x: 0.8, y: 0.25 } }, { ratio: '1:1' }, [320, 640, 1280], cloudflare)
+    expect(attrs.srcset).toBe([
+      '/cdn-cgi/image/width=320,height=320,fit=cover,gravity=0.80x0.25,format=auto/https://example.com/_atelier/media/m1/team.jpg 320w',
+      '/cdn-cgi/image/width=640,height=640,fit=cover,gravity=0.80x0.25,format=auto/https://example.com/_atelier/media/m1/team.jpg 640w',
+      '/cdn-cgi/image/width=900,height=900,fit=cover,gravity=0.80x0.25,format=auto/https://example.com/_atelier/media/m1/team.jpg 900w',
+    ].join(', '))
+    expect([attrs.width, attrs.height]).toEqual([900, 900])
+  })
 })

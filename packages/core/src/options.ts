@@ -38,6 +38,11 @@ export const optionsSchema = v.strictObject({
       v.minLength(1),
       v.description('The widths image variants are made at (with `sharp` installed), and the only ones served: other sizes would let anyone fill your storage with variants.'),
     ), [320, 640, 960, 1280, 1920, 2560]),
+    provider: v.optional(v.pipe(
+      v.string('expected a URL template'),
+      v.check(t => t.includes('{src}') && t.includes('{w}'), 'expected a URL template with {src} and {w}'),
+      v.description('An image service that makes the variants instead of this server, for hosts without `sharp`: a URL template with `{src}` (the file\'s absolute URL), `{w}`, and optionally `{h}` (for a ratio), `{fx}` and `{fy}` (the focal point, 0–1). Cloudflare: `/cdn-cgi/image/width={w},height={h},fit=cover,gravity={fx}x{fy},format=auto/{src}`.'),
+    )),
   }), {}),
   storage: v.optional(v.strictObject({
     driver: v.optional(v.pipe(v.picklist(['local', 's3', 'vercel-blob'], 'accepted: "local", "s3", "vercel-blob"'), v.description('Where media files are stored: `local` (the server\'s disk, `storage.dir`), `s3` (S3-compatible storage and Cloudflare R2: install `@nuxt-atelier/storage-s3`) or `vercel-blob` (install `@nuxt-atelier/storage-vercel-blob`).')), 'local'),

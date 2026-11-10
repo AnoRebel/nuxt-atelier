@@ -471,5 +471,8 @@ describe('site routing', async () => {
     expect((await (await fetch('/api/_atelier/routes?path=/about-us')).json()).entry.data.title).toBe('About')
     expect((await page('/about-us', false)).html).toContain('About us')
     expect((await fetch('/api/_atelier/collections/pages', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data: { title: 'Spam', slug: 'spam' } }) })).status).toBe(401)
+    // a JSON body past limits.maxBodySize (1 MB): refused before it's read whole
+    const huge = await api('/api/_atelier/collections/pages', 'POST', { data: { title: 'x'.repeat(1_100_000), slug: 'huge' } })
+    expect(huge.body).toMatchObject({ statusCode: 413, data: { code: 'too_large' } })
   })
 })

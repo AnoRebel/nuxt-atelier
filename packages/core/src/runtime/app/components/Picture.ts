@@ -18,13 +18,16 @@ export default defineComponent({
     loading: { type: String as PropType<'lazy' | 'eager'>, default: 'lazy' },
   },
   setup(props) {
-    const widths = (useAtelierConfig() as { mediaWidths?: number[] }).mediaWidths ?? []
+    const config = useAtelierConfig() as { mediaWidths?: number[], mediaProvider?: string, siteUrl?: string }
+    const widths = config.mediaWidths ?? []
+    const provider = config.mediaProvider ? { template: config.mediaProvider, site: config.siteUrl ?? '' } : undefined
     return () => {
-      const img = imageAttributes(props.media, props, widths)
-      if (!('srcset' in img)) // not resizable: just the image
+      const img = imageAttributes(props.media, props, widths, provider)
+      // not resizable, or an image service choosing the format itself: just the image
+      if (!('srcset' in img) || provider)
         return h('img', { ...img, loading: props.loading, decoding: 'async' })
       const sources = (['avif', 'webp'] as const).map(format =>
-        h('source', { type: `image/${format}`, srcset: imageAttributes(props.media, { ...props, format }, widths).srcset, sizes: img.sizes }))
+        h('source', { type: `image/${format}`, srcset: imageAttributes(props.media, { ...props, format }, widths, provider).srcset, sizes: img.sizes }))
       return h('picture', [...sources, h('img', { ...img, loading: props.loading, decoding: 'async' })])
     }
   },
