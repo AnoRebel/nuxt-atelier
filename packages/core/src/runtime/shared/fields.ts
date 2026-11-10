@@ -439,7 +439,8 @@ async function blockErrors(fields: Fields, data: Record<string, unknown>, regist
   const ids = new Set<string>()
 
   const list = async (blocks: BlockValue[], path: string, depth: number, area?: { name: string, rules: AreaRules, parent: string }) => {
-    if (depth > maxDepth) {
+    // an empty area past the deepest level holds nothing too deep
+    if (depth > maxDepth && blocks.length) {
       errors.push({ path, message: `blocks nest at most ${maxDepth} levels deep` })
       return
     }

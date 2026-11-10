@@ -91,6 +91,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerTemplate({ filename: '#atelier-schema', getContents: schemaTemplate })
     addServerTemplate({ filename: '#atelier-drivers', getContents: () => driversTemplate(nuxt.options.rootDir, resolved.database.url) })
     addServerTemplate({ filename: '#atelier-migrations', getContents: () => migrationsTemplate(nuxt.options.rootDir) })
+    addServerPlugin(resolve('./runtime/server/plugins/limits'))
     addServerPlugin(resolve('./runtime/server/plugins/migrations'))
     addServerPlugin(resolve('./runtime/server/plugins/jobs'))
 
