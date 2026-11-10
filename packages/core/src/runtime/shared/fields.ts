@@ -30,7 +30,15 @@ interface Base {
    * being dropped. Top-level fields only.
    */
   renamedFrom?: string
+  /**
+   * Only applies while this holds: otherwise the field is hidden in the admin, not required, and not stored.
+   * `field` names a sibling (in the same object or repeater item), or a top-level field with a leading `/`.
+   */
+  when?: Condition
 }
+
+/** A condition on another field's value: equal to, not equal to, one of, or set (not empty). */
+export type Condition = { field: string } & ({ eq: unknown } | { ne: unknown } | { in: readonly unknown[] } | { set: boolean })
 interface Length { minLength?: number, maxLength?: number }
 interface Items { minItems?: number, maxItems?: number }
 
@@ -308,6 +316,66 @@ export function entrySchema(fields: Fields, nested = false): Schema {
   )
 }
 
+const hasConditions = (fields: Fields): boolean =>
+  Object.values(fields).some(f => !!f.when || ((f.type === 'object' || f.type === 'repeater') && hasConditions(f.fields)))
+
+/** Whether a field's condition holds, with `sibling` the object it's in and `root` the whole entry. */
+export function applies(field: Field, sibling: Record<string, unknown>, root: Record<string, unknown>): boolean {
+  const when = field.when
+  if (!when)
+    return true
+  const value = when.field.startsWith('/') ? root[when.field.slice(1)] : sibling[when.field]
+  if ('eq' in when)
+    return same(value, when.eq)
+  if ('ne' in when)
+    return !same(value, when.ne)
+  if ('in' in when)
+    return when.in.some(option => same(value, option))
+  return when.set === !isEmpty(value)
+}
+const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b)
+
+/** A copy of `data` without the values of fields whose condition doesn't hold, in objects and repeaters too. */
+function withoutInactive(fields: Fields, data: Record<string, unknown>, root: Record<string, unknown>): Record<string, unknown> {
+  const inactive = new Set(Object.entries(fields).filter(([, field]) => !applies(field, data, root)).map(([key]) => key))
+  const out = Object.fromEntries(Object.entries(data).filter(([key]) => !inactive.has(key)))
+  for (const [key, field] of Object.entries(fields)) {
+    if (inactive.has(key))
+      continue
+    const value = data[key]
+    if (field.type === 'object' && isPlainObject(value))
+      out[key] = withoutInactive(field.fields, value, root)
+    else if (field.type === 'repeater' && Array.isArray(value))
+      out[key] = value.map(item => isPlainObject(item) ? withoutInactive(field.fields, item, root) : item)
+  }
+  return out
+}
+
+/** The fields with `required` left off conditional ones: whether they're required depends on the data. */
+function relaxed(fields: Fields): Fields {
+  return Object.fromEntries(Object.entries(fields).map(([key, field]) => {
+    let f: Field = field.when && field.required ? { ...field, required: false } : field
+    if (f.type === 'object' || f.type === 'repeater')
+      f = { ...f, fields: relaxed(f.fields) } as Field
+    return [key, f]
+  }))
+}
+
+/** `required` errors for conditional fields that apply and are empty. */
+function conditionalErrors(fields: Fields, data: Record<string, unknown>, root: Record<string, unknown>, prefix = ''): FieldError[] {
+  const errors: FieldError[] = []
+  for (const [key, field] of Object.entries(fields)) {
+    const value = data[key]
+    if (field.when && field.required && applies(field, data, root) && isEmpty(value))
+      errors.push({ path: `${prefix}${key}`, message: 'required' })
+    if (field.type === 'object' && isPlainObject(value))
+      errors.push(...conditionalErrors(field.fields, value, root, `${prefix}${key}.`))
+    else if (field.type === 'repeater' && Array.isArray(value))
+      value.forEach((item, i) => isPlainObject(item) && errors.push(...conditionalErrors(field.fields, item, root, `${prefix}${key}.${i}.`)))
+  }
+  return errors
+}
+
 export interface FieldError {
   /** Dot path to the field, with list indexes: `faq.2.question`. */
   path: string
@@ -329,11 +397,14 @@ export interface ValidateOptions {
 
 /** Validates entry data against its fields, collecting every failing field path and reason. */
 export async function validateEntry(fields: Fields, data: unknown, options: ValidateOptions = {}): Promise<ValidationResult> {
-  const result = await v.safeParseAsync(entrySchema(fields), data)
+  // conditional fields: inactive ones dropped before validating, active required ones checked after
+  const conditional = hasConditions(fields)
+  const input = conditional && isPlainObject(data) ? withoutInactive(fields, data, data) : data
+  const result = await v.safeParseAsync(entrySchema(conditional ? relaxed(fields) : fields), input)
   if (!result.success)
     return { success: false, errors: result.issues.map(issueToError) }
 
-  const errors: FieldError[] = []
+  const errors: FieldError[] = conditional ? conditionalErrors(fields, result.output as Record<string, unknown>, result.output as Record<string, unknown>) : []
   for (const [key, field] of Object.entries(fields)) {
     const value = (result.output as Record<string, unknown>)[key]
     if (!field.unique || isEmpty(value))
