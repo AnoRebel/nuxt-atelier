@@ -12,7 +12,7 @@ import { loadNuxt } from '@nuxt/kit'
 import { createJiti } from 'jiti'
 import { resolveOptions } from '../options'
 import { connect, dialectOf } from '../runtime/server/db/driver'
-import { applyMigrations, destructiveChanges, localMigrationNames, migrationsFolder, migrationStatus } from '../runtime/server/db/migrations'
+import { applyMigrations, destructiveChanges, localMigrationNames, migrationsFolder, migrationStatus, rehearseMigrations } from '../runtime/server/db/migrations'
 import { buildTables, collectionTable, publishedTable } from '../runtime/server/db/tables'
 import { allDrivers } from '../runtime/server/db/loaders'
 import { discoverSchema, layerFiles } from '../schema/discover'
@@ -240,6 +240,17 @@ export async function applyProjectMigrations(project: Project, dialect = dialect
   const driver = await connect(project.databaseUrl, { loaders: allDrivers })
   try {
     return await applyMigrations(driver, migrationsFolder(project.rootDir, dialect))
+  }
+  finally {
+    await driver.close()
+  }
+}
+
+/** `migrate apply --dry-run`: the pending migrations rehearsed and rolled back. */
+export async function rehearseProjectMigrations(project: Project, dialect = dialectOf(project.databaseUrl)) {
+  const driver = await connect(project.databaseUrl, { loaders: allDrivers })
+  try {
+    return await rehearseMigrations(driver, migrationsFolder(project.rootDir, dialect))
   }
   finally {
     await driver.close()

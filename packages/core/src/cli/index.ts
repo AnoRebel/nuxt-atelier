@@ -7,7 +7,7 @@ import process from 'node:process'
 import { parseArgs } from 'node:util'
 import { connect } from '../runtime/server/db/driver'
 import { allDrivers } from '../runtime/server/db/loaders'
-import { applyProjectMigrations, generateMigration, loadProject, projectMigrationStatus, withMigrationLock } from './migrate'
+import { applyProjectMigrations, generateMigration, loadProject, projectMigrationStatus, rehearseProjectMigrations, withMigrationLock } from './migrate'
 import { createJobQueue } from '../runtime/server/jobs'
 import { init } from './init'
 import { exportToFile, importFromFile } from './transfer'
@@ -18,7 +18,7 @@ const USAGE = `Usage: atelier <command> [options]
 Commands:
   init                     add secrets to .env and a first collection, where missing
   migrate generate         write a migration for schema changes to server/atelier/migrations/<dialect>/
-  migrate apply            apply pending migrations to the database
+  migrate apply            apply pending migrations to the database (--dry-run: rehearse them, keeping nothing)
   migrate status           list applied and pending migrations
   export <file>            write all content to a portable archive (gzipped when <file> ends in .gz)
   import <file>            load an archive into an empty, migrated database (any engine)
@@ -51,6 +51,7 @@ async function main() {
       'name': { type: 'string' },
       'drop': { type: 'string', multiple: true },
       'rename': { type: 'string', multiple: true },
+      'dry-run': { type: 'boolean' },
       'email': { type: 'string' },
       'password-stdin': { type: 'boolean' },
       'status': { type: 'string' },
@@ -100,6 +101,18 @@ async function main() {
   else if (command === 'generate') {
     const folder = await withMigrationLock(project.databaseUrl, () => generateMigration(project, { dialect: values.dialect as Dialect | undefined, name: values.name, drop: values.drop, rename: values.rename }))
     console.log(folder ? `Wrote ${relative(process.cwd(), folder)}/migration.sql: review it and commit it.` : 'No schema changes.')
+  }
+  else if (command === 'apply' && values['dry-run']) {
+    const results = await withMigrationLock(project.databaseUrl, () => rehearseProjectMigrations(project, values.dialect as Dialect | undefined))
+    if (!results.length) {
+      console.log('Nothing to rehearse: the database is up to date.')
+      return 0
+    }
+    for (const r of results)
+      console.log(r.result === 'ok' ? `  ok       ${r.name}` : r.result === 'failed' ? `  FAILED   ${r.name}\n           ${r.error}` : `  not run  ${r.name} (after a failure)`)
+    const failed = results.some(r => r.result === 'failed')
+    console.log(failed ? 'Rehearsal failed: nothing was changed. Fix the migration before applying it.' : 'Rehearsal passed: nothing was changed. Apply with `atelier migrate apply`.')
+    return failed ? 1 : 0
   }
   else if (command === 'apply') {
     const applied = await withMigrationLock(project.databaseUrl, () => applyProjectMigrations(project, values.dialect as Dialect | undefined))
