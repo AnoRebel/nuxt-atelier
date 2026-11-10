@@ -39,7 +39,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       databaseUrl: resolved.database.url, // NUXT_ATELIER_DATABASE_URL
       dbPoolSize: resolved.limits.dbPoolSize,
       media: { accept: resolved.media.accept, widths: resolved.media.widths },
-      limits: { maxUploadSize: resolved.limits.maxUploadSize, maxPageSize: resolved.limits.maxPageSize, maxRelationDepth: resolved.limits.maxRelationDepth, maxNestingDepth: resolved.limits.maxNestingDepth, writesPerMinute: resolved.limits.writesPerMinute, cacheSize: resolved.limits.cacheSize, jobConcurrency: resolved.limits.jobConcurrency },
+      limits: { maxBodySize: resolved.limits.maxBodySize, maxUploadSize: resolved.limits.maxUploadSize, maxPageSize: resolved.limits.maxPageSize, maxRelationDepth: resolved.limits.maxRelationDepth, maxNestingDepth: resolved.limits.maxNestingDepth, writesPerMinute: resolved.limits.writesPerMinute, cacheSize: resolved.limits.cacheSize, jobConcurrency: resolved.limits.jobConcurrency },
       jobs: { secret: '', triggerBudget: resolved.jobs.triggerBudget }, // NUXT_ATELIER_JOBS_SECRET
       revisions: { keep: resolved.revisions.keep, days: resolved.revisions.days },
       webhooks: { allow: resolved.webhooks.allow }, // NUXT_ATELIER_WEBHOOKS_ALLOW
@@ -51,6 +51,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     config.public.atelier = {
       siteUrl: '', // NUXT_PUBLIC_ATELIER_SITE_URL
       mediaWidths: resolved.media.widths, // the image variant widths, for srcset
+      mediaProvider: resolved.media.provider ?? '', // an image service's URL template, when variants aren't made here
       ...config.public.atelier as object | undefined,
     }
 

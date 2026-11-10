@@ -19,7 +19,9 @@ export default defineComponent({
     loading: { type: String as PropType<'lazy' | 'eager'>, default: 'lazy' },
   },
   setup(props) {
-    const widths = (useAtelierConfig() as { mediaWidths?: number[] }).mediaWidths ?? []
-    return () => h('img', { ...imageAttributes(props.media, props, widths), loading: props.loading, decoding: 'async' })
+    const config = useAtelierConfig() as { mediaWidths?: number[], mediaProvider?: string, siteUrl?: string }
+    const widths = config.mediaWidths ?? []
+    const provider = config.mediaProvider ? { template: config.mediaProvider, site: config.siteUrl ?? '' } : undefined
+    return () => h('img', { ...imageAttributes(props.media, props, widths, provider), loading: props.loading, decoding: 'async' })
   },
 })

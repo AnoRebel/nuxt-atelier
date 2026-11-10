@@ -4,7 +4,7 @@
 //   { "status": 422, "message": "Invalid entry: …", "data": { "code": "validation_failed", "errors": [{ "path": "title", "message": "required" }] } }
 import type { RequestEvent } from 'nuxt/server'
 import * as v from 'valibot'
-import { createError, readBody } from 'nuxt/server'
+import { createError, useRuntimeConfig } from 'nuxt/server'
 
 export type ErrorCode
   = | 'bad_request' | 'invalid_query' | 'unauthenticated' | 'forbidden' | 'csrf' | 'not_found' | 'method_not_allowed'
@@ -39,8 +39,43 @@ export function validated<S extends v.GenericSchema>(schema: S, input: unknown):
   throw apiError(422, `Invalid request: ${errors.map(e => `${e.path || 'body'}: ${e.message}`).join('; ')}`, { errors })
 }
 
-/** The JSON body, checked against a Valibot schema (see `validated`). */
-export const readValid = async <S extends v.GenericSchema>(event: RequestEvent, schema: S) =>
-  validated(schema, await readBody(event).catch(() => {
+/**
+ * The JSON body, at most `limits.maxBodySize` bytes: 413 past it, whether the request says its length or
+ * streams it. 400 when it isn't JSON.
+ */
+export async function readJson(event: RequestEvent): Promise<unknown> {
+  const max = (useRuntimeConfig().atelier as { limits?: { maxBodySize?: number } }).limits?.maxBodySize ?? 1024 * 1024
+  const tooLarge = () => apiError(413, `The request body is larger than the ${Math.round(max / 1024)} KB allowed`, {}, 'too_large')
+  if (Number(event.req.headers.get('content-length') ?? 0) > max)
+    throw tooLarge()
+  const body = event.req.body
+  if (!body)
+    return undefined
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for await (const chunk of body as unknown as AsyncIterable<Uint8Array>) {
+    size += chunk.length
+    if (size > max)
+      throw tooLarge()
+    chunks.push(chunk)
+  }
+  const bytes = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.length
+  }
+  const text = new TextDecoder().decode(bytes)
+  if (!text.trim())
+    return undefined
+  try {
+    return JSON.parse(text)
+  }
+  catch {
     throw apiError(400, 'The request body isn\'t valid JSON')
-  }))
+  }
+}
+
+/** The JSON body (see `readJson`), checked against a Valibot schema (see `validated`). */
+export const readValid = async <S extends v.GenericSchema>(event: RequestEvent, schema: S) =>
+  validated(schema, await readJson(event))
