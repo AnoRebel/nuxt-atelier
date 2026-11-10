@@ -1,4 +1,5 @@
 import * as v from 'valibot'
+import { LIMIT_RANGES } from './runtime/shared/limits'
 
 const DB_SCHEMES = ['file', 'libsql', 'd1', 'postgres', 'postgresql', 'mysql', 'mariadb']
 
@@ -81,15 +82,15 @@ export const optionsSchema = v.strictObject({
     ), []),
   }), {}),
   limits: v.optional(v.strictObject({
-    maxBodySize: int(1024, 100 * MB, MB, 'Largest accepted JSON request body, in bytes.'),
-    maxUploadSize: int(1024, 5 * 1024 * MB, 50 * MB, 'Largest accepted upload, in bytes.'),
-    maxPageSize: int(1, 1000, 100, 'Most entries a single query returns.'),
-    maxRelationDepth: int(0, 10, 3, 'How deep relations are populated.'),
-    maxNestingDepth: int(1, 50, 10, 'How deep blocks can be nested.'),
-    jobConcurrency: int(1, 64, 4, 'Background jobs run at the same time.'),
+    maxBodySize: int(...LIMIT_RANGES.maxBodySize, MB, 'Largest accepted JSON request body, in bytes.'),
+    maxUploadSize: int(...LIMIT_RANGES.maxUploadSize, 50 * MB, 'Largest accepted upload, in bytes.'),
+    maxPageSize: int(...LIMIT_RANGES.maxPageSize, 100, 'Most entries a single query returns.'),
+    maxRelationDepth: int(...LIMIT_RANGES.maxRelationDepth, 3, 'How deep relations are populated.'),
+    maxNestingDepth: int(...LIMIT_RANGES.maxNestingDepth, 10, 'How deep blocks can be nested.'),
+    jobConcurrency: int(...LIMIT_RANGES.jobConcurrency, 4, 'Background jobs run at the same time.'),
     dbPoolSize: int(1, 100, 10, 'Database connection pool size.'),
-    writesPerMinute: int(1, 100_000, 120, 'Content writes (create, update, delete) one user or API token may make per minute; then 429.'),
-    cacheSize: int(0, 1_000_000, 1000, 'Entries kept in the in-memory cache.'),
+    writesPerMinute: int(...LIMIT_RANGES.writesPerMinute, 120, 'Content writes (create, update, delete) one user or API token may make per minute; then 429.'),
+    cacheSize: int(...LIMIT_RANGES.cacheSize, 1000, 'Entries kept in the in-memory cache.'),
   }), {}),
 })
 

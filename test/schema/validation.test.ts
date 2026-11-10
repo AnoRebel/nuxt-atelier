@@ -1,5 +1,6 @@
 import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
+import { limitProblems } from '../../packages/core/src/runtime/shared/limits'
 import * as f from '../../packages/core/src/runtime/shared/fields'
 
 const alwaysUnique = async () => true
@@ -117,5 +118,24 @@ describe('structured field paths', () => {
   it('returns the parsed value when valid', async () => {
     const result = await f.validateEntry(fields, { title: 'Ok' })
     expect(result).toEqual({ success: true, value: { title: 'Ok', address: undefined, faq: undefined } })
+  })
+})
+
+describe('limits', () => {
+  it('refuses blocks nested deeper than maxNestingDepth', async () => {
+    const blocks = { Box: { name: 'Box', fields: {}, options: {}, areas: { inner: {} } } }
+    const nest = (depth: number): unknown[] => [{ id: `b${depth}`, type: 'Box', props: depth > 1 ? { inner: nest(depth - 1) } : {} }]
+    const fields = { content: f.blocks() }
+    expect(await f.validateEntry(fields, { content: nest(3) }, { blocks, maxNestingDepth: 3 })).toEqual({ success: true, value: expect.anything() })
+    expect(await f.validateEntry(fields, { content: nest(4) }, { blocks, maxNestingDepth: 3 })).toEqual({ success: false, errors: [{ path: 'content.0.props.inner.0.props.inner.0.props.inner', message: 'blocks nest at most 3 levels deep' }] })
+  })
+
+  it('checks runtime overrides against their ranges', () => {
+    expect(limitProblems({ maxPageSize: 100, cacheSize: 0 })).toEqual([])
+    expect(limitProblems({ maxPageSize: 5000, maxNestingDepth: '12', jobConcurrency: 1.5 })).toEqual([
+      'limits.maxPageSize = 5000: expected a whole number from 1 to 1000',
+      'limits.maxNestingDepth = "12": expected a whole number from 1 to 50',
+      'limits.jobConcurrency = 1.5: expected a whole number from 1 to 64',
+    ])
   })
 })
