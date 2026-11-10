@@ -41,7 +41,10 @@ jobs:
       ATELIER_TEST_POSTGRES_URL: postgres://atelier:atelier@127.0.0.1:5432/atelier
       ATELIER_TEST_MYSQL_URL: mysql://atelier:atelier@127.0.0.1:3306/atelier
       ATELIER_TEST_MARIADB_URL: mariadb://atelier:atelier@127.0.0.1:3307/atelier
+      ATELIER_TEST_S3_URL: http://atelier:atelier-secret@127.0.0.1:9000/atelier
     steps:
+      # MinIO for the S3 storage driver (a service container can't be given its `server` command)
+      - run: docker run -d -p 9000:9000 -e MINIO_ROOT_USER=atelier -e MINIO_ROOT_PASSWORD=atelier-secret quay.io/minio/minio:latest server /data
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
