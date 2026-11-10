@@ -44,7 +44,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       revisions: { keep: resolved.revisions.keep, days: resolved.revisions.days },
       webhooks: { allow: resolved.webhooks.allow }, // NUXT_ATELIER_WEBHOOKS_ALLOW
       migrations: { autoApply: resolved.migrations.autoApply }, // NUXT_ATELIER_MIGRATIONS_AUTO_APPLY
-      storage: { dir: resolved.storage.dir }, // NUXT_ATELIER_STORAGE_DIR
+      storage: { driver: resolved.storage.driver, dir: resolved.storage.dir }, // NUXT_ATELIER_STORAGE_DIR
       auth: { signInAttempts: resolved.auth.signInAttempts, signInWindow: resolved.auth.signInWindow, trustProxy: resolved.auth.trustProxy },
       ...config.atelier as object | undefined,
     }

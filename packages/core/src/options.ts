@@ -35,7 +35,7 @@ export const optionsSchema = v.strictObject({
     ), ['image/*', 'video/*', 'audio/*', 'application/pdf']),
   }), {}),
   storage: v.optional(v.strictObject({
-    driver: v.optional(v.pipe(v.picklist(['local'], 'accepted: "local"'), v.description('Media storage driver.')), 'local'),
+    driver: v.optional(v.pipe(v.picklist(['local', 's3', 'vercel-blob'], 'accepted: "local", "s3", "vercel-blob"'), v.description('Where media files are stored: `local` (the server\'s disk, `storage.dir`), `s3` (S3-compatible storage and Cloudflare R2: install `@nuxt-atelier/storage-s3`) or `vercel-blob` (install `@nuxt-atelier/storage-vercel-blob`).')), 'local'),
     dir: v.optional(v.pipe(v.string('expected a directory path'), v.nonEmpty('expected a directory path'), v.description('Upload directory, relative to the app root. Override at runtime with `NUXT_ATELIER_STORAGE_DIR`.')), '.data/uploads'),
   }), {}),
   auth: v.optional(v.strictObject({

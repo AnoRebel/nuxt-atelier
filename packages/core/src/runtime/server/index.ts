@@ -8,6 +8,7 @@ import type { CollectionDefinition, SingletonDefinition } from './types'
 import { useRuntimeConfig, useServerHooks } from 'nuxt/server'
 import type { JobQueue } from './jobs'
 import type { MediaLibrary } from './media/library'
+import type { StorageDriver } from './media/storage'
 import type { WebhookStore } from './webhooks'
 import { contentChanged } from './cache'
 import { createJobQueue } from './jobs'
@@ -136,13 +137,26 @@ export function useAtelierEntries(): Promise<EntryStore> {
 }
 
 let mediaLibrary: Promise<MediaLibrary> | undefined
+let customStorage: (() => StorageDriver | Promise<StorageDriver>) | undefined
+
+/**
+ * Stores media with another driver than the local disk, from a storage package's server plugin:
+ * `registerStorageDriver(() => createS3Driver(options))`. The factory runs on first use.
+ */
+export function registerStorageDriver(factory: () => StorageDriver | Promise<StorageDriver>): void {
+  customStorage = factory
+  mediaLibrary = undefined
+}
 
 /** The media library: files in the configured storage, their metadata in the database. */
 export function useAtelierMedia(): Promise<MediaLibrary> {
-  mediaLibrary ??= useAtelierDatabase().then((driver) => {
-    const config = useAtelierServerConfig() as unknown as { storage: { dir: string }, media: { accept: string[] | string }, limits: { maxUploadSize: number } }
+  mediaLibrary ??= useAtelierDatabase().then(async (driver) => {
+    const config = useAtelierServerConfig() as unknown as { storage: { driver: string, dir: string }, media: { accept: string[] | string }, limits: { maxUploadSize: number } }
     const accept = typeof config.media.accept === 'string' ? JSON.parse(config.media.accept) as string[] : config.media.accept
-    return createMediaLibrary(driver, createLocalDriver(config.storage.dir), { maxUploadSize: config.limits.maxUploadSize, accept })
+    if (config.storage.driver !== 'local' && !customStorage)
+      throw new Error(`[nuxt-atelier] storage.driver is "${config.storage.driver}": add @nuxt-atelier/storage-${config.storage.driver} to your modules`)
+    const storage = customStorage ? await customStorage() : createLocalDriver(config.storage.dir)
+    return createMediaLibrary(driver, storage, { maxUploadSize: config.limits.maxUploadSize, accept })
   }).catch((error) => {
     mediaLibrary = undefined
     throw error

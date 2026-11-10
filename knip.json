@@ -25,8 +25,15 @@
         "src/runtime/server/middleware/*.ts",
         "src/runtime/app/components/*.ts",
         "src/runtime/app/pages/*.ts",
-        "src/adapter.ts"
+        "src/adapter.ts",
+        "src/storage.ts"
       ]
+    },
+    "packages/storage-s3": {
+      "entry": ["src/module.ts", "src/runtime/plugin.ts"]
+    },
+    "packages/storage-vercel-blob": {
+      "entry": ["src/module.ts", "src/runtime/plugin.ts"]
     },
     "packages/auth-better-auth": {
       "entry": [

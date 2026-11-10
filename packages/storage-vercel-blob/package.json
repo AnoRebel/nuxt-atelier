@@ -36,7 +36,9 @@
     "nuxt": ">=4.6.0"
   },
   "dependencies": {
-    "@nuxt/kit": "catalog:"
+    "@nuxt/kit": "catalog:",
+    "@vercel/blob": "catalog:media",
+    "nuxt-atelier": "workspace:*"
   },
   "devDependencies": {
     "@nuxt/schema": "catalog:"

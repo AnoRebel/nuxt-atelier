@@ -18,6 +18,10 @@
     "./adapter": {
       "types": "./dist/adapter.d.mts",
       "import": "./dist/adapter.mjs"
+    },
+    "./storage": {
+      "types": "./dist/storage.d.mts",
+      "import": "./dist/storage.mjs"
     }
   },
   "main": "./dist/module.mjs",
@@ -28,6 +32,9 @@
       ],
       "adapter": [
         "./dist/adapter.d.mts"
+      ],
+      "storage": [
+        "./dist/storage.d.mts"
       ]
     }
   },
