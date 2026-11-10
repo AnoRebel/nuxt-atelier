@@ -7,9 +7,9 @@ import type { Db } from '../db/entries'
 import type { Filter, ListQuery } from '../db/query'
 import type { StorageDriver } from './storage'
 import { fileTypeFromBuffer } from 'file-type'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, lt, sql } from 'drizzle-orm'
 import { afterCursor, compileFilter, compileSort, decodeCursor, encodeCursor, orderBy } from '../db/query'
-import { MEDIA_TARGET } from '../db/store'
+import { affected, MEDIA_TARGET } from '../db/store'
 import { buildTables } from '../db/tables'
 import { storageKey } from './storage'
 
@@ -38,6 +38,24 @@ export interface MediaItem {
   createdBy: string | null
   createdAt: string
   updatedAt: string
+}
+
+/** A resumable upload in progress. */
+export interface UploadSession {
+  id: string
+  /** Who started it. */
+  createdBy: string | null
+  filename: string
+  size: number
+  /** Bytes stored so far: where the next chunk starts. */
+  received: number
+}
+
+/** A chunk refused: 409 at the wrong offset (`received` says where to continue), 413 past the announced size. */
+export class ChunkError extends Error {
+  constructor(readonly statusCode: 409 | 413, message: string, readonly received: number) {
+    super(message)
+  }
 }
 
 export type MediaChanges = Partial<Pick<MediaItem, 'title' | 'alt' | 'caption' | 'credits' | 'folder' | 'tags' | 'focal' | 'private'>>
@@ -121,7 +139,7 @@ function limited(max: number, seen: { bytes: number }) {
 }
 
 export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver, options: { maxUploadSize: number, accept?: readonly string[] }) {
-  const { atelier_media: media, atelier_relations: relations, atelier_p_relations: publishedRelations } = buildTables(driver.dialect, { collections: {}, singletons: {} })
+  const { atelier_media: media, atelier_media_uploads: uploads, atelier_relations: relations, atelier_p_relations: publishedRelations } = buildTables(driver.dialect, { collections: {}, singletons: {} })
   const db = driver.db as Db
   const accept = options.accept ?? DEFAULT_ACCEPT
 
@@ -204,6 +222,102 @@ export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver
         await storage.delete(key).catch(() => {})
         throw error
       }
+    },
+
+    /** Starts a resumable upload of a `size`-byte file. 413 past `maxUploadSize`. */
+    async startUpload(input: { filename: string, size: number, folder?: string, private?: boolean, createdBy: string | null }): Promise<UploadSession> {
+      if (input.size > options.maxUploadSize)
+        throw new UploadError(413, `The file is larger than the ${Math.round(options.maxUploadSize / 1024 / 1024 * 10) / 10} MB allowed`)
+      const row = { id: crypto.randomUUID(), filename: input.filename.slice(0, 255), folder: input.folder ?? '', private: input.private ?? false, size: input.size, received: 0, parts: [], createdBy: input.createdBy, createdAt: new Date().toISOString() }
+      await db.insert(uploads).values(row)
+      return { id: row.id, createdBy: row.createdBy, filename: row.filename, size: row.size, received: 0 }
+    },
+
+    async uploadSession(id: string): Promise<UploadSession | undefined> {
+      const [row] = await db.select().from(uploads).where(eq(uploads.id, id)).limit(1)
+      return row && { id: row.id, createdBy: row.createdBy ?? null, filename: row.filename, size: Number(row.size), received: Number(row.received) }
+    },
+
+    /**
+     * Stores the chunk starting at `offset`, which must be where the upload stands (409 with `received`
+     * otherwise: the client resumes from there). A chunk sent twice, after a lost answer, is refused the
+     * same way rather than stored twice.
+     */
+    async appendChunk(id: string, offset: number, body: ReadableStream<Uint8Array>): Promise<UploadSession> {
+      const [row] = await db.select().from(uploads).where(eq(uploads.id, id)).limit(1)
+      if (!row)
+        throw new ChunkError(409, 'No such upload: start again', 0)
+      const received = Number(row.received)
+      const size = Number(row.size)
+      if (offset !== received) {
+        await body.cancel()
+        throw new ChunkError(409, `Send the chunk starting at byte ${received}`, received)
+      }
+      const key = `uploads/${id}/${offset}`
+      const seen = { bytes: 0 }
+      await storage.put(key, body.pipeThrough(limited(size - received, seen)), { contentType: 'application/octet-stream' })
+        .catch((error: unknown) => {
+          throw error instanceof UploadError ? new ChunkError(413, `The file is larger than the ${size} bytes announced`, received) : error
+        })
+      const parts = [...row.parts as { offset: number, size: number }[], { offset, size: seen.bytes }]
+      // only if no other request moved it on meanwhile
+      const moved = await db.update(uploads).set({ received: received + seen.bytes, parts }).where(and(eq(uploads.id, id), eq(uploads.received, received)))
+      if (!affected(moved)) {
+        await storage.delete(key)
+        const now = (await this.uploadSession(id))?.received ?? 0
+        throw new ChunkError(409, `Send the chunk starting at byte ${now}`, now)
+      }
+      return { id, createdBy: row.createdBy ?? null, filename: row.filename, size, received: received + seen.bytes }
+    },
+
+    /** Finishes an upload once every byte is in: the file goes through `upload` (its type checked), the chunks go. */
+    async completeUpload(id: string, createdBy: string | null): Promise<MediaItem> {
+      const [row] = await db.select().from(uploads).where(eq(uploads.id, id)).limit(1)
+      if (!row)
+        throw new ChunkError(409, 'No such upload: start again', 0)
+      if (Number(row.received) !== Number(row.size))
+        throw new ChunkError(409, `${row.received} of ${row.size} bytes received: send the rest first`, Number(row.received))
+      const parts = row.parts as { offset: number }[]
+      let index = 0
+      let current: ReadableStreamDefaultReader<Uint8Array> | undefined
+      // the chunks, one after another, as one stream
+      const body = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          while (true) {
+            if (!current) {
+              if (index >= parts.length)
+                return controller.close()
+              const file = await storage.get(`uploads/${id}/${parts[index++]!.offset}`)
+              if (!file)
+                return controller.error(new Error('A chunk of this upload is missing: start again'))
+              current = file.stream.getReader()
+            }
+            const next = await current.read()
+            if (!next.done)
+              return controller.enqueue(next.value)
+            current = undefined
+          }
+        },
+      })
+      const item = await this.upload({ body, filename: row.filename, folder: row.folder, private: Boolean(row.private), createdBy })
+      await this.discardUpload(id)
+      return item
+    },
+
+    /** Deletes an upload in progress and its chunks. */
+    async discardUpload(id: string): Promise<void> {
+      const [row] = await db.select({ parts: uploads.parts }).from(uploads).where(eq(uploads.id, id)).limit(1)
+      for (const part of (row?.parts ?? []) as { offset: number }[])
+        await storage.delete(`uploads/${id}/${part.offset}`)
+      await db.delete(uploads).where(eq(uploads.id, id))
+    },
+
+    /** Discards uploads started before `olderThan`: abandoned ones. Returns how many. */
+    async discardUploadsBefore(olderThan: Date): Promise<number> {
+      const stale: { id: string }[] = await db.select({ id: uploads.id }).from(uploads).where(lt(uploads.createdAt, olderThan.toISOString()))
+      for (const { id } of stale)
+        await this.discardUpload(id)
+      return stale.length
     },
 
     async get(id: string): Promise<MediaItem | undefined> {

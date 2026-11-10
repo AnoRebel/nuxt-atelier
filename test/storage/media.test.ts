@@ -96,6 +96,52 @@ describe.each(engines)('%s media library', (_, url) => {
     expect(await library.usage(a!.id)).toEqual([])
   })
 
+  it('resumes an upload after a dropped connection, finishing byte for byte', async () => {
+    const resumable = createMediaLibrary(driver, createLocalDriver(dir), { maxUploadSize: 10 * 1024 * 1024 })
+    const file = new Uint8Array(300_000)
+    file.set(PNG)
+    for (let i = PNG.length; i < file.length; i++)
+      file[i] = (i * 7) % 256
+    const session = await resumable.startUpload({ filename: 'long.png', size: file.length, createdBy: 'u1' })
+    expect(await resumable.appendChunk(session.id, 0, stream(file.slice(0, 100_000)))).toMatchObject({ received: 100_000 })
+
+    // the second chunk's connection drops halfway: nothing of it counts
+    let sent = 0
+    const dropping = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sent >= 50_000)
+          return controller.error(new Error('connection reset'))
+        controller.enqueue(file.slice(100_000 + sent, 100_000 + sent + 10_000))
+        sent += 10_000
+      },
+    })
+    await expect(resumable.appendChunk(session.id, 100_000, dropping)).rejects.toThrow('connection reset')
+    expect((await resumable.uploadSession(session.id))!.received).toBe(100_000) // where to resume
+
+    // a chunk at the wrong place says where to continue
+    await expect(resumable.appendChunk(session.id, 200_000, stream(file.slice(200_000)))).rejects.toMatchObject({ statusCode: 409, received: 100_000 })
+    await resumable.appendChunk(session.id, 100_000, stream(file.slice(100_000, 200_000)))
+    await expect(resumable.completeUpload(session.id, 'u1')).rejects.toMatchObject({ statusCode: 409, received: 200_000 })
+    await resumable.appendChunk(session.id, 200_000, stream(file.slice(200_000)))
+
+    const item = await resumable.completeUpload(session.id, 'u1')
+    expect(item).toMatchObject({ filename: 'long.png', mime: 'image/png', size: file.length })
+    expect(new Uint8Array(readFileSync(join(dir, item.key)))).toEqual(file)
+    expect(await resumable.uploadSession(session.id)).toBeUndefined()
+    expect(existsSync(join(dir, 'uploads', session.id))).toBe(false) // its chunks are gone
+  })
+
+  it('refuses uploads past the limit or their announced size, and discards abandoned ones', async () => {
+    const resumable = createMediaLibrary(driver, createLocalDriver(dir), { maxUploadSize: 1000 })
+    await expect(resumable.startUpload({ filename: 'huge.png', size: 2000, createdBy: null })).rejects.toMatchObject({ statusCode: 413 })
+    const session = await resumable.startUpload({ filename: 'small.png', size: 100, createdBy: null })
+    await expect(resumable.appendChunk(session.id, 0, stream(new Uint8Array(150)))).rejects.toMatchObject({ statusCode: 413, received: 0 })
+    await resumable.appendChunk(session.id, 0, stream(PNG.slice(0, 50)))
+    expect(await resumable.discardUploadsBefore(new Date(Date.now() + 1000))).toBeGreaterThanOrEqual(1)
+    expect(await resumable.uploadSession(session.id)).toBeUndefined()
+    expect(existsSync(join(dir, 'uploads', session.id))).toBe(false)
+  })
+
   it('searches by tag, text and type with the query language, and deletes file and row', async () => {
     const team = await library.upload({ body: stream(PNG), filename: 'ada.png', folder: 'people', createdBy: null })
     const logo = await library.upload({ body: stream(PNG), filename: 'logo.png', createdBy: null })

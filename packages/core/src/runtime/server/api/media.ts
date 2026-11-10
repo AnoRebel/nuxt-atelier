@@ -5,6 +5,11 @@
 //   PATCH   /api/_atelier/media/<id>              { title, alt, caption, credits, folder, tags, focal, private }
 //   GET     /api/_atelier/media/<id>/usage        the entries using it, and in which field
 //   DELETE  /api/_atelier/media/<id>              409 `referenced` with `usages` while it's used, unless ?force=true
+//   POST    /api/_atelier/media/uploads           { filename, size, folder?, private? }: starts a resumable upload
+//   GET     /api/_atelier/media/uploads/<id>      where it stands: { received, size }
+//   PUT     /api/_atelier/media/uploads/<id>?offset=<n>   the next chunk as the body; 409 with `received` at the wrong offset
+//   POST    /api/_atelier/media/uploads/<id>/complete      the finished item
+//   DELETE  /api/_atelier/media/uploads/<id>      abandons it
 // Signed-in users browse it; changing it takes the `media` capability. Files are served at /_atelier/media/<id>/<name>.
 import type { Filter } from '../db/query'
 import type { MediaItem } from '../media/library'
@@ -13,7 +18,8 @@ import { defineEventHandler, getQuery, getRequestHeader } from 'nuxt/server'
 import { caller, countWrite, limits, segments } from '../content-access'
 import { apiError, readValid, validated } from '../errors'
 import { assertMigrated, toHttpError, useAtelierMedia, useAtelierServerConfig } from '../index'
-import { UploadError } from '../media/library'
+import { ADMIN_ROLE } from '../../shared/policy'
+import { ChunkError, UploadError } from '../media/library'
 
 const count = (name: string) => v.optional(v.pipe(v.string(), v.regex(/^\d+$/, `${name}: expected a whole number`), v.transform(Number)))
 const ListParams = v.object({
@@ -36,6 +42,13 @@ const UploadParams = v.object({
   folder: v.optional(v.pipe(v.string(), v.regex(/^(?:[\w-]+(?:\/[\w-]+)*)?$/, 'folder: letters, digits, "-" and "_", in levels separated by "/"'), v.maxLength(255))),
   private: v.optional(v.picklist(['true', 'false'], 'private: expected true or false')),
 })
+const NewUpload = v.object({
+  filename: UploadParams.entries.filename,
+  size: v.pipe(v.number('size: the file\'s size in bytes'), v.integer(), v.minValue(1)),
+  folder: UploadParams.entries.folder,
+  private: v.optional(v.boolean('private: expected true or false')),
+})
+const Offset = v.object({ offset: v.pipe(v.string('offset: where this chunk starts, in bytes'), v.regex(/^\d+$/, 'offset: a whole number of bytes'), v.transform(Number)) })
 const text = (max: number) => v.optional(v.nullable(v.pipe(v.string(), v.maxLength(max))))
 const Changes = v.strictObject({
   title: text(255),
@@ -52,9 +65,10 @@ const Changes = v.strictObject({
 const shown = (item: MediaItem) => ({ ...item, key: undefined, url: `/_atelier/media/${item.id}/${encodeURIComponent(item.filename)}` })
 
 export default defineEventHandler(async (event) => {
-  const [id, sub, ...rest] = segments(event, '/api/_atelier/media')
+  const [id, sub, ...more] = segments(event, '/api/_atelier/media')
+  const rest = id === 'uploads' ? [sub, ...more].filter((s): s is string => s !== undefined) : more
   const method = event.req.method
-  if (rest.length || (sub !== undefined && sub !== 'usage'))
+  if (id !== 'uploads' && (rest.length || (sub !== undefined && sub !== 'usage')))
     throw apiError(404, 'Not found')
   if (method !== 'GET')
     await assertMigrated()
@@ -65,7 +79,42 @@ export default defineEventHandler(async (event) => {
       throw apiError(403, 'Your role can\'t manage media')
   }
 
+  /** Resumable uploads (`/uploads/…`): each belongs to whoever started it. */
+  async function uploadRequest() {
+    manage()
+    const [uploadId, action, ...extra] = rest
+    if (extra.length)
+      throw apiError(404, 'Not found')
+    if (!uploadId && method === 'POST') {
+      const body = await readValid(event, NewUpload)
+      await countWrite(event, who)
+      return library.startUpload({ ...body, createdBy: who.principal.id })
+    }
+    const session = uploadId ? await library.uploadSession(uploadId) : undefined
+    if (!session || (session.createdBy !== who.principal.id && who.principal.role !== ADMIN_ROLE))
+      throw apiError(404, `No upload "${uploadId}"`)
+    if (!action && method === 'GET')
+      return session
+    if (!action && method === 'PUT') {
+      const { offset } = validated(Offset, getQuery(event))
+      if (!event.req.body)
+        throw apiError(400, 'Send the chunk as the request body')
+      return library.appendChunk(session.id, offset, event.req.body)
+    }
+    if (action === 'complete' && method === 'POST') {
+      await countWrite(event, who)
+      return shown(await library.completeUpload(session.id, who.principal.id))
+    }
+    if (!action && method === 'DELETE') {
+      await library.discardUpload(session.id)
+      return { ok: true }
+    }
+    throw apiError(405, `${method} isn't allowed here`)
+  }
+
   try {
+    if (id === 'uploads')
+      return await uploadRequest()
     if (!id && method === 'GET') {
       const query = validated(ListParams, getQuery(event))
       const page = await library.list({ ...query, limit: Math.min(query.limit ?? 50, limits().maxPageSize) })
@@ -110,6 +159,8 @@ export default defineEventHandler(async (event) => {
     throw apiError(405, `${method} isn't allowed here`)
   }
   catch (error) {
+    if (error instanceof ChunkError)
+      throw apiError(error.statusCode, error.message, { received: error.received }, error.statusCode === 413 ? 'too_large' : 'conflict')
     if (error instanceof UploadError)
       throw apiError(error.statusCode, error.message, {}, error.statusCode === 413 ? 'too_large' : 'unsupported_type')
     throw toHttpError(error)
