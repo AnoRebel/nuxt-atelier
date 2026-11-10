@@ -417,6 +417,24 @@ describe('site routing', async () => {
     const refused = await api(`/api/_atelier/media/${photo.body.id}`, 'DELETE')
     expect(refused.body).toMatchObject({ statusCode: 409, data: { code: 'referenced', usages: [{ type: 'posts', id: post.id, field: 'cover' }] } })
     expect((await fetch(photo.body.url)).status).toBe(200)
+    // a resumable upload: chunks at offsets, the wrong one answered with where to continue
+    const big = new Uint8Array(250_000)
+    big.set(png)
+    for (let i = png.length; i < big.length; i++)
+      big[i] = i % 251
+    const started = (await api('/api/_atelier/media/uploads', 'POST', { filename: 'big.png', size: big.length })).body
+    expect(started).toMatchObject({ received: 0, size: big.length })
+    const chunk = async (offset: number, bytes: Uint8Array<ArrayBuffer>) => {
+      const response = await fetch(`/api/_atelier/media/uploads/${started.id}?offset=${offset}`, { method: 'PUT', headers: { cookie, 'x-atelier-csrf': csrf }, body: new Blob([bytes]) })
+      return { status: response.status, body: await response.json() }
+    }
+    expect((await chunk(0, big.slice(0, 100_000))).body).toMatchObject({ received: 100_000 })
+    expect((await chunk(0, big.slice(0, 100_000))).body).toMatchObject({ statusCode: 409, data: { received: 100_000 } }) // sent twice: refused
+    await chunk(100_000, big.slice(100_000))
+    const finished = (await api(`/api/_atelier/media/uploads/${started.id}/complete`, 'POST')).body
+    expect(finished).toMatchObject({ mime: 'image/png', size: big.length })
+    expect(new Uint8Array(await (await fetch(finished.url)).arrayBuffer())).toEqual(big)
+
     expect((await api(`/api/_atelier/media/${photo.body.id}?force=true`, 'DELETE')).body).toEqual({ ok: true })
     expect((await fetch(photo.body.url)).status).toBe(404)
   })

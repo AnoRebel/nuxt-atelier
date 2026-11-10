@@ -21,6 +21,7 @@
 //   atelier_passkeys        their passkeys (WebAuthn credentials), when passkey sign-in is enabled
 //   atelier_jobs            the background job queue: due time, attempts, lock, last error
 //   atelier_media           the media library: one row per file, with its metadata and where it's stored
+//   atelier_media_uploads   resumable uploads in progress: the chunks received so far
 //   atelier_webhooks        outgoing webhooks: target URL, events, the signing secret (encrypted)
 //   atelier_webhook_deliveries  each delivery attempt: status or error, how long it took
 //
@@ -412,6 +413,17 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       _createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
       _updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
     }, t => [kit.index('atelier_media_folder_idx').on(t.folder), kit.index('atelier_media_created_idx').on(t._createdAt)]),
+    atelier_media_uploads: kit.table('atelier_media_uploads', {
+      id: kit.key('_id', ID).primaryKey(),
+      filename: kit.key('filename', 255).notNull(),
+      folder: kit.key('folder', 255).notNull(),
+      private: kit.bool('private').notNull(),
+      size: kit.bigint('size').notNull(), // the whole file's, announced at the start
+      received: kit.bigint('received').notNull(),
+      parts: kit.json('parts').notNull(), // [{ offset, size }]: the chunks stored, in order
+      createdBy: kit.key('created_by', ID),
+      createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
+    }),
     atelier_webhooks: kit.table('atelier_webhooks', {
       id: kit.key('_id', ID).primaryKey(),
       url: kit.text('url').notNull(),

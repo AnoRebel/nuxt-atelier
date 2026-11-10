@@ -1,7 +1,7 @@
 // Nuxt Atelier's own background jobs.
 import type { Scheduled } from '../schedule'
 import type { Message } from '../webhooks'
-import { useAtelierAudit, useAtelierEntries, useAtelierJobs, useAtelierServerConfig, useAtelierWebhooks } from '../index'
+import { useAtelierAudit, useAtelierEntries, useAtelierJobs, useAtelierMedia, useAtelierServerConfig, useAtelierWebhooks } from '../index'
 import { defineJob } from '../jobs'
 import { runScheduled, SCHEDULE_JOB } from '../schedule'
 import { runDelivery, WEBHOOK_JOB } from '../webhook-jobs'
@@ -17,6 +17,7 @@ export default () => {
     const pinned = scheduled.map(j => j.payload as unknown as Scheduled).filter(s => s.version !== undefined).map(s => ({ source: s.type, sourceId: s.id, version: s.version! }))
     await (await useAtelierEntries()).pruneRevisions({ keep, olderThan: new Date(Date.now() - days * DAY), pinned })
     await (await useAtelierWebhooks()).pruneDeliveries(new Date(Date.now() - 30 * DAY)) // the webhook delivery log keeps 30 days
+    await (await useAtelierMedia()).discardUploadsBefore(new Date(Date.now() - DAY)) // resumable uploads left for a day
   }, { every: DAY })
 
   // webhook deliveries, retried with the queue's backoff
