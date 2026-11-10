@@ -163,7 +163,7 @@ function fieldColumn(kit: Kit, key: string, field: Field): Column | undefined {
 
 interface Owner { name: string, singleton: boolean, collections: Record<string, { fields: Record<string, Field> }> }
 
-function checkFields(owner: Owner, fields: Record<string, Field>, path = '') {
+function checkFields(owner: Owner, fields: Record<string, Field>, path = '', top: Record<string, Field> = fields) {
   const where = `${owner.name}${path}`
   for (const [key, field] of Object.entries(fields)) {
     if (!FIELD_KEY.test(key) || key.length > IDENTIFIER_MAX)
@@ -190,8 +190,15 @@ function checkFields(owner: Owner, fields: Record<string, Field>, path = '') {
           throw new Error(`[nuxt-atelier] ${where}: relation "${key}" has the inverse "${field.to}.${field.inverse}", which must be a relation to "${owner.name}" with inverse "${key}"`)
       }
     }
+    if (field.when) {
+      const name = field.when.field
+      const scope = name.startsWith('/') ? top : fields
+      const target = name.replace(/^\//, '')
+      if (!(target in scope) || (scope === fields && target === key))
+        throw new Error(`[nuxt-atelier] ${where}: field "${key}" applies when "${name}" …, but there's no ${name.startsWith('/') ? 'top-level' : 'sibling'} field "${target}"`)
+    }
     if (field.type === 'object' || field.type === 'repeater')
-      checkFields(owner, field.fields, `${path}.${key}`)
+      checkFields(owner, field.fields, `${path}.${key}`, top)
   }
 }
 
