@@ -17,7 +17,7 @@ import { apiError, readValid, validated } from '../errors'
 import { audit, toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
 import { scheduleRequest } from '../scheduling'
 import { shadowed } from '../shadowing'
-import { allow, assertMigrated, assertWritable, caller, countWrite, limits, present, restorable, segments, select, stageFor } from '../content-access'
+import { allow, assertMigrated, assertWritable, caller, countWrite, limits, mediaOf, present, restorable, segments, select, stageFor } from '../content-access'
 
 const PREFIX = '/api/_atelier/singletons'
 const Query = v.object({
@@ -56,7 +56,9 @@ export default defineEventHandler(async (event) => {
       const query = validated(Query, getQuery(event))
       const saved = await entries.getSingleton(name, { depth: Math.min(query.depth ?? 0, limits().maxRelationDepth), stage: stageFor(who, name, query.draft) })
       const entry = saved ?? { name, version: null, updatedAt: null, data: defaultsFactory(definition.fields)() }
-      return { ...entry, ...saved && shadowed(saved), data: select(await present(who, definition.fields, name, entry.data), query.fields) }
+      const data = select(await present(who, definition.fields, name, entry.data), query.fields)
+      const media = await mediaOf(who, definition.fields, data)
+      return { ...entry, ...saved && shadowed(saved), data, ...Object.keys(media).length ? { media } : {} }
     }
     if (!sub && method === 'PATCH') {
       allow(who, 'update', name)

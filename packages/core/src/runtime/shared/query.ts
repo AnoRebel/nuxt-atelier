@@ -76,6 +76,21 @@ export type PopulatedEntry<N extends CollectionName> = Omit<Data<N>, RelationKey
   [K in RelationKey<N>]?: Defs<N>[K] extends { many: true } ? (RelatedEntry | string)[] : RelatedEntry | string | null
 }
 
+/** What a page needs to show a media item: where it's served, its size, and how to describe it. */
+export interface MediaSummary {
+  id: string
+  url: string
+  filename: string
+  mime: string
+  width: number | null
+  height: number | null
+  title: string | null
+  alt: Record<string, string> | null
+  caption: string | null
+  credits: string | null
+  focal: { x: number, y: number } | null
+}
+
 export interface TypedEntry<N extends CollectionName, Populated extends boolean = false> {
   id: string
   version: number
@@ -90,6 +105,8 @@ export interface TypedEntry<N extends CollectionName, Populated extends boolean 
   shadowed?: { path: string, page: string }[]
   /** The version the site serves, or null when unpublished; below `version` when the draft has unpublished changes. */
   publishedVersion: number | null
+  /** The media items its fields use, by id: `entry.media[entry.data.cover]`. Absent when there are none. */
+  media?: Record<string, MediaSummary>
   data: Populated extends true ? PopulatedEntry<N> : Data<N>
 }
 

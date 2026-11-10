@@ -11,7 +11,7 @@ import { toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
 import type { PreviewToken } from '../secrets'
 import { PUBLIC_ROLE } from '../../shared/policy'
 import { cached, remember } from '../cache'
-import { allow, caller, limits, present, stageFor } from '../content-access'
+import { allow, caller, limits, mediaOf, present, stageFor } from '../content-access'
 import { PREVIEW_PURPOSE, verifyToken } from '../secrets'
 import { canonicalPath } from '../routes'
 
@@ -66,13 +66,16 @@ export default defineEventHandler(async (event) => {
     if (!linked) // the link's signer could edit the entry, and shared it
       allow(who, 'read', route.name, route.kind === 'singleton' ? undefined : entry as { createdBy: string | null })
     const { component, layout } = definition.route!
+    const data = await present(who, definition.fields, route.name, entry.data)
+    const media = await mediaOf(who, definition.fields, data)
     const answer = {
       ...route,
       component: component ?? null,
       layout: layout ?? null,
       // rendered in this order when there's no component
       blocks: Object.entries(definition.fields).filter(([, f]) => f.type === 'blocks').map(([key]) => key),
-      entry: { ...entry, path: route.path, data: await present(who, definition.fields, route.name, entry.data) },
+      entry: { ...entry, path: route.path, data },
+      ...Object.keys(media).length ? { media } : {},
     }
     if (shared && path !== undefined)
       remember(key, answer)

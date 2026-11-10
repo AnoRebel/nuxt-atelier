@@ -419,6 +419,18 @@ describe('site routing', async () => {
     const square = await fetch(`${picture.url}?w=320&ar=1:1&format=webp`)
     expect([square.status, square.headers.get('content-type'), square.headers.get('cache-control')]).toEqual([200, 'image/webp', 'public, max-age=31536000, immutable'])
     expect(await sharp(new Uint8Array(await square.arrayBuffer())).metadata()).toMatchObject({ width: 320, height: 320, format: 'webp' })
+    // a page showing it: the entry carries its media, rendered as a sized, responsive image
+    await api(`/api/_atelier/media/${picture.id}`, 'PATCH', { alt: { '': 'A blue field' } })
+    const { body: shown } = await api('/api/_atelier/collections/posts', 'POST', { data: { title: 'Pictured', slug: 'pictured', content: [{ id: 'ph', type: 'Photo', props: { image: picture.id } }] }, publish: true })
+    expect((await (await fetch(`/api/_atelier/collections/posts/${shown.id}`)).json()).media).toEqual({ [picture.id]: expect.objectContaining({ url: picture.url, width: 800, height: 400, alt: { '': 'A blue field' } }) })
+    const html = (await page('/blog/pictured', false)).html
+    const img = /<img [^>]*>/.exec(html.slice(html.indexOf('class="photo"')))![0]
+    expect(img).toContain(`src="${picture.url}?w=640&amp;ar=1:1"`) // the full size, for browsers without srcset
+    expect(img).toMatch(/width="400" height="400"/)
+    expect(img).toContain('alt="A blue field"')
+    expect(img).toContain(`srcset="${picture.url}?w=320&amp;ar=1:1 320w, ${picture.url}?w=640&amp;ar=1:1 400w"`)
+    expect(img).toContain('sizes="50vw"')
+    expect(img).toContain('loading="lazy"')
     expect((await fetch(`${picture.url}?w=333`)).status).toBe(400) // only the configured widths
     expect((await fetch(`${picture.url}?w=320&ar=5:1`)).status).toBe(400)
 

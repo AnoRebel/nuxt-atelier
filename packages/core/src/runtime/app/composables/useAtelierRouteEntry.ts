@@ -1,4 +1,4 @@
-import type { CollectionName, TypedEntry } from '../../shared/query'
+import type { CollectionName, MediaSummary, TypedEntry } from '../../shared/query'
 import { useAsyncData, useRequestFetch, useRoute } from '#imports'
 
 /** What `GET /api/_atelier/routes` answers for a path: the entry served there and how to render it. */
@@ -13,6 +13,8 @@ export interface AtelierRoute<N extends CollectionName = CollectionName> {
   /** The entry's blocks fields, rendered in this order when there's no component. */
   blocks: string[]
   entry: TypedEntry<N>
+  /** The media items the entry uses, by id. */
+  media?: Record<string, MediaSummary>
 }
 
 /**

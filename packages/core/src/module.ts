@@ -50,6 +50,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     }
     config.public.atelier = {
       siteUrl: '', // NUXT_PUBLIC_ATELIER_SITE_URL
+      mediaWidths: resolved.media.widths, // the image variant widths, for srcset
       ...config.public.atelier as object | undefined,
     }
 

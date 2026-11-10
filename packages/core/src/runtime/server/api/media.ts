@@ -19,6 +19,7 @@ import { caller, countWrite, limits, segments } from '../content-access'
 import { apiError, readValid, validated } from '../errors'
 import { assertMigrated, toHttpError, useAtelierMedia, useAtelierServerConfig } from '../index'
 import { ADMIN_ROLE } from '../../shared/policy'
+import { forgetCached } from '../cache'
 import { imageSize } from '../media/images'
 import { ChunkError, UploadError } from '../media/library'
 
@@ -151,6 +152,7 @@ export default defineEventHandler(async (event) => {
       manage()
       const changes = await readValid(event, Changes)
       await countWrite(event, who)
+      forgetCached() // pages show its details
       return shown((await library.update(item.id, changes))!)
     }
     if (method === 'DELETE') {
@@ -161,6 +163,7 @@ export default defineEventHandler(async (event) => {
         throw apiError(409, `${item.filename} is used in ${usages.length} place${usages.length === 1 ? '' : 's'}; delete it anyway with ?force=true`, { usages }, 'referenced')
       await countWrite(event, who)
       await library.delete(item.id)
+      forgetCached()
       return { ok: true }
     }
     throw apiError(405, `${method} isn't allowed here`)
