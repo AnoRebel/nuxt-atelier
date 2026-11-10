@@ -14,7 +14,7 @@ import { and, asc, eq, inArray, lt, lte, notInArray, sql } from 'drizzle-orm'
 import { validateEntry } from '../../shared/fields'
 import { REDIRECT_STATUSES, redirectLoop, sourceProblem, targetProblem } from '../redirects'
 import { entryPaths, MAX_PATH, patterns, presentPaths } from '../routes'
-import { UnsupportedOperationError } from './driver'
+import { deadlocked, UnsupportedOperationError } from './driver'
 import { fromRow, getRow, isUnique, toRow } from './entries'
 import { afterCursor, compileFilter, compileSort, decodeCursor, encodeCursor, orderBy } from './query'
 import { buildTables, collectionTable, published } from './tables'
@@ -220,6 +220,20 @@ function renamed(fields: Record<string, Field>, data: Record<string, unknown>): 
 
 const entryKey = (source: string, sourceId: string) => `${source}:${sourceId}`
 
+/** Runs `fn` again (up to 4 times, after a short random wait) when the database reports a deadlock. */
+async function retryingDeadlocks<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn()
+    }
+    catch (error) {
+      if (attempt >= 4 || !deadlocked(error))
+        throw error
+      await new Promise(resolve => setTimeout(resolve, Math.random() * 25 * attempt))
+    }
+  }
+}
+
 /** Rows a statement changed, whatever the driver's result shape. */
 export function affected(result: unknown): number {
   const r = (Array.isArray(result) ? result[0] : result) as { rowsAffected?: number, rowCount?: number, affectedRows?: number, meta?: { changes?: number } }
@@ -298,6 +312,16 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
   const tables = buildTables(driver.dialect, schema)
   const db = driver.db as Db
   const { atelier_redirects: redirectsTable, atelier_revisions: revisions } = tables
+  /** Cloudflare D1: no transactions, and at most 100 bound parameters per statement. */
+  const d1 = !driver.capabilities.transactions
+  /** Inserts of `rows`, as few statements as the engine's parameter limit allows (D1: 100 per statement). */
+  const insertsOf = (q: Db, table: Db, rows: Record<string, unknown>[]): unknown[] => {
+    if (!rows.length)
+      return []
+    const size = d1 ? Math.max(1, Math.floor(100 / Object.keys(rows[0]!).length)) : 1000
+    return Array.from({ length: Math.ceil(rows.length / size) }, (_, i) => q.insert(table).values(rows.slice(i * size, (i + 1) * size)))
+  }
+
   /** Drafts are kept apart from what the site serves; other types publish every save. */
   const versioned = (source: string) => !!(schema.collections[source] ?? schema.singletons[source])?.versioned
 
@@ -337,7 +361,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       return definition
     }
 
-    const CHUNK = 500 // ids per IN list, well under every engine's parameter limit
+    const CHUNK = d1 ? 90 : 500 // ids per IN list, under every engine's parameter limit (D1's is 100)
 
     /** Entries by id, with their relations: two queries per 500 ids. Missing ids are absent. */
     async function readMany(q: Db, name: string, ids: string[]): Promise<Map<string, Entry>> {
@@ -736,7 +760,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       return [
         target.write(q, data, version, now),
         ...expected === undefined ? [] : [q.delete(relations).where(and(eq(relations.source, source), eq(relations.sourceId, sourceId)))],
-        ...links.length ? [q.insert(relations).values(links.map(l => ({ source, sourceId, ...l })))] : [],
+        ...insertsOf(q, relations, links.map(l => ({ source, sourceId, ...l }))),
         ...pathStatements(q, plan),
         // unique per (source, version): a stale save always collides with the winning save's revision
         q.insert(revisions).values({ id: crypto.randomUUID(), source, sourceId, version, data, createdAt: now, authorId: target.authorId ?? null, published: publishing }),
@@ -811,7 +835,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       return [
         ...row,
         q.delete(live.relations).where(mine(live.relations)),
-        ...links.length ? [q.insert(live.relations).values(links.map(l => ({ source, sourceId, ...l })))] : [],
+        ...insertsOf(q, live.relations, links.map(l => ({ source, sourceId, ...l }))),
         ...live.pathStatements(q, plan),
         q.update(revisions).set({ published: true }).where(and(eq(revisions.source, source), eq(revisions.sourceId, sourceId), eq(revisions.version, version))),
       ]
@@ -928,7 +952,8 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
           await db.batch([...statements(db, target, data, now, plan, publishing), ...live, ...await mirrors(db, target, data, now)])
           return await target.read(db)
         }
-        return await db.transaction(async (tx: Db) => {
+        // InnoDB can deadlock two saves on its gap locks; a deadlock rolls back, so try again
+        return await retryingDeadlocks(() => db.transaction(async (tx: Db) => {
           const { data, plan, live } = await validate(tx)
           const others = await mirrors(tx, target, data, now) // reads the links before this save replaces them
           const [write, ...rest] = statements(tx, target, data, now, plan, publishing)
@@ -937,7 +962,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
           for (const statement of [...rest, ...live, ...others])
             await statement
           return target.read(tx)
-        })
+        }))
       }
       catch (error) {
       // on D1, or when two first saves race, a lost race shows up as a failed write: report it as a conflict

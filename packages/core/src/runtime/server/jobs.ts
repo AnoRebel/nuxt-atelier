@@ -8,6 +8,7 @@
 import type { AtelierDriver } from './db/driver'
 import type { Db } from './db/entries'
 import { and, asc, desc, eq, inArray, lt, lte, or, sql } from 'drizzle-orm'
+import { deadlocked } from './db/driver'
 import { affected } from './db/store'
 import { buildTables } from './db/tables'
 
@@ -69,11 +70,6 @@ export function defineJob<P = Record<string, unknown>>(name: string, handler: Jo
 }
 
 const iso = (time: Date | string | number) => new Date(time).toISOString()
-/** A deadlock or serialization failure (MySQL 1213, SQLSTATE 40001, Postgres 40P01): safe to retry. */
-const deadlocked = (error: unknown): boolean => {
-  const e = error as { code?: string, errno?: number, cause?: unknown } | undefined
-  return !!e && (e.errno === 1213 || e.code === 'ER_LOCK_DEADLOCK' || e.code === '40001' || e.code === '40P01' || deadlocked(e.cause))
-}
 /** The delay before attempt `attempts + 1`: 30 s, 1 min, 2 min … at most an hour. */
 export const backoff = (attempts: number) => Math.min(BACKOFF_MS * 2 ** Math.max(0, attempts - 1), MAX_BACKOFF_MS)
 
