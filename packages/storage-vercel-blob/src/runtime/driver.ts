@@ -9,7 +9,7 @@ export interface VercelBlobOptions {
 }
 
 /** The SDK functions the driver uses: the real ones, or a stand-in in tests. */
-export type BlobSdk = Pick<typeof blob, 'put' | 'get' | 'head' | 'del' | 'BlobNotFoundError'>
+export type BlobSdk = Pick<typeof blob, 'put' | 'get' | 'head' | 'del' | 'list' | 'BlobNotFoundError'>
 
 export function createVercelBlobDriver(options: VercelBlobOptions, sdk: BlobSdk = blob): StorageDriver {
   const { token } = options
@@ -45,6 +45,15 @@ export function createVercelBlobDriver(options: VercelBlobOptions, sdk: BlobSdk 
     },
     async delete(key) {
       await del(key, { token })
+    },
+    async deletePrefix(prefix) {
+      let cursor: string | undefined
+      do {
+        const page = await sdk.list({ prefix, token, cursor })
+        if (page.blobs.length)
+          await del(page.blobs.map(b => b.url), { token })
+        cursor = page.hasMore ? page.cursor : undefined
+      } while (cursor)
     },
   }
 }

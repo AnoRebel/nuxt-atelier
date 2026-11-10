@@ -28,9 +28,15 @@ const sdk = {
       throw new BlobNotFoundError()
     return { size: blob.bytes.length }
   },
-  async del(key: string, options: Record<string, unknown>) {
-    calls.push({ op: 'del', key, options })
-    blobs.delete(key)
+  async del(keys: string | string[], options: Record<string, unknown>) {
+    for (const key of [keys].flat()) {
+      calls.push({ op: 'del', key, options })
+      blobs.delete(key.replace('https://store.private.blob.vercel-storage.com/', ''))
+    }
+  },
+  async list({ prefix }: { prefix: string }) {
+    const keys = [...blobs.keys()].filter(key => key.startsWith(prefix))
+    return { blobs: keys.map(key => ({ url: `https://store.private.blob.vercel-storage.com/${key}`, pathname: key })), hasMore: false }
   },
 } as unknown as BlobSdk
 
@@ -57,5 +63,9 @@ describe('Vercel Blob storage driver', () => {
     await driver.put('a/b.png', new Response('x').body!, { contentType: 'image/png' })
     await driver.delete('a/b.png')
     expect(blobs.has('a/b.png')).toBe(false)
+    for (const key of ['id1/photo.png', 'id1/variants/w320.webp', 'id2/keep.png'])
+      await driver.put(key, new Response('x').body!, { contentType: 'image/png' })
+    await driver.deletePrefix!('id1/')
+    expect([...blobs.keys()]).toEqual(['id2/keep.png'])
   })
 })

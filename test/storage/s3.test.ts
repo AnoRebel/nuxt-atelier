@@ -57,6 +57,19 @@ describe.skipIf(!url)('S3 storage driver (MinIO)', () => {
     await driver.delete(key)
   }, 180_000)
 
+  it('deletes everything under a prefix: an item\'s original and its variants', async () => {
+    const id = crypto.randomUUID()
+    for (const key of [`${id}/photo.png`, `${id}/variants/w320.webp`, `${id}/variants/w640-1x1.webp`])
+      await driver.put(key, stream(bytes(100)), { contentType: 'image/png' })
+    const other = `${crypto.randomUUID()}/keep.png`
+    await driver.put(other, stream(bytes(10)), { contentType: 'image/png' })
+    await driver.deletePrefix!(`${id}/`)
+    expect(await driver.head(`${id}/photo.png`)).toBeUndefined()
+    expect(await driver.head(`${id}/variants/w640-1x1.webp`)).toBeUndefined()
+    expect(await driver.head(other)).toEqual({ size: 10 })
+    await driver.delete(other)
+  })
+
   it('keeps nothing from an upload whose stream fails', async () => {
     const key = `test/${crypto.randomUUID()}/broken.bin`
     let sent = 0

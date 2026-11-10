@@ -19,6 +19,7 @@ import { caller, countWrite, limits, segments } from '../content-access'
 import { apiError, readValid, validated } from '../errors'
 import { assertMigrated, toHttpError, useAtelierMedia, useAtelierServerConfig } from '../index'
 import { ADMIN_ROLE } from '../../shared/policy'
+import { imageSize } from '../media/images'
 import { ChunkError, UploadError } from '../media/library'
 
 const count = (name: string) => v.optional(v.pipe(v.string(), v.regex(/^\d+$/, `${name}: expected a whole number`), v.transform(Number)))
@@ -79,6 +80,12 @@ export default defineEventHandler(async (event) => {
       throw apiError(403, 'Your role can\'t manage media')
   }
 
+  /** An image with its width and height recorded, when sharp can read them. */
+  async function measured(item: MediaItem): Promise<MediaItem> {
+    const size = await imageSize(library.storage, item)
+    return size ? (await library.setDimensions(item.id, size))! : item
+  }
+
   /** Resumable uploads (`/uploads/…`): each belongs to whoever started it. */
   async function uploadRequest() {
     manage()
@@ -103,7 +110,7 @@ export default defineEventHandler(async (event) => {
     }
     if (action === 'complete' && method === 'POST') {
       await countWrite(event, who)
-      return shown(await library.completeUpload(session.id, who.principal.id))
+      return shown(await measured(await library.completeUpload(session.id, who.principal.id)))
     }
     if (!action && method === 'DELETE') {
       await library.discardUpload(session.id)
@@ -129,7 +136,7 @@ export default defineEventHandler(async (event) => {
       if (!event.req.body)
         throw apiError(400, 'Send the file as the request body')
       await countWrite(event, who)
-      return shown(await library.upload({ body: event.req.body, filename: params.filename, folder: params.folder, private: params.private === 'true', createdBy: who.principal.id }))
+      return shown(await measured(await library.upload({ body: event.req.body, filename: params.filename, folder: params.folder, private: params.private === 'true', createdBy: who.principal.id })))
     }
     const item = id ? await library.get(id) : undefined
     if (!item)

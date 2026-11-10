@@ -320,6 +320,12 @@ export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver
       return stale.length
     },
 
+    /** Records an image's width and height (measured after it's stored). */
+    async setDimensions(id: string, size: { width: number, height: number }): Promise<MediaItem | undefined> {
+      await db.update(media).set({ width: size.width, height: size.height }).where(eq(media._id, id))
+      return this.get(id)
+    },
+
     async get(id: string): Promise<MediaItem | undefined> {
       const [row] = await db.select().from(media).where(eq(media._id, id)).limit(1)
       return row && toItem(row)
@@ -371,7 +377,8 @@ export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver
       if (!item)
         return false
       await db.delete(media).where(eq(media._id, id))
-      await storage.delete(item.key)
+      // the original and its image variants share its folder
+      await (storage.deletePrefix ? storage.deletePrefix(`${item.id}/`) : storage.delete(item.key))
       return true
     },
   }

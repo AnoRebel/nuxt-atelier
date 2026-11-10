@@ -33,6 +33,11 @@ export const optionsSchema = v.strictObject({
       v.array(v.pipe(v.string(), v.regex(/^[a-z]+\/(?:\*|[\w.+-]+)$/, 'expected MIME types like "image/*" or "application/pdf"')), 'expected a list of MIME types'),
       v.description('File types that may be uploaded, judged by their content: MIME types, with `type/*` for a whole family. Types only recognisable by name (SVG, plain text) can\'t be checked, so aren\'t accepted.'),
     ), ['image/*', 'video/*', 'audio/*', 'application/pdf']),
+    widths: v.optional(v.pipe(
+      v.array(v.pipe(v.number(), v.integer(), v.minValue(16), v.maxValue(8192)), 'expected a list of widths in pixels'),
+      v.minLength(1),
+      v.description('The widths image variants are made at (with `sharp` installed), and the only ones served: other sizes would let anyone fill your storage with variants.'),
+    ), [320, 640, 960, 1280, 1920, 2560]),
   }), {}),
   storage: v.optional(v.strictObject({
     driver: v.optional(v.pipe(v.picklist(['local', 's3', 'vercel-blob'], 'accepted: "local", "s3", "vercel-blob"'), v.description('Where media files are stored: `local` (the server\'s disk, `storage.dir`), `s3` (S3-compatible storage and Cloudflare R2: install `@nuxt-atelier/storage-s3`) or `vercel-blob` (install `@nuxt-atelier/storage-vercel-blob`).')), 'local'),

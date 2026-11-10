@@ -38,7 +38,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     config.atelier = {
       databaseUrl: resolved.database.url, // NUXT_ATELIER_DATABASE_URL
       dbPoolSize: resolved.limits.dbPoolSize,
-      media: { accept: resolved.media.accept },
+      media: { accept: resolved.media.accept, widths: resolved.media.widths },
       limits: { maxUploadSize: resolved.limits.maxUploadSize, maxPageSize: resolved.limits.maxPageSize, maxRelationDepth: resolved.limits.maxRelationDepth, maxNestingDepth: resolved.limits.maxNestingDepth, writesPerMinute: resolved.limits.writesPerMinute, cacheSize: resolved.limits.cacheSize, jobConcurrency: resolved.limits.jobConcurrency },
       jobs: { secret: '', triggerBudget: resolved.jobs.triggerBudget }, // NUXT_ATELIER_JOBS_SECRET
       revisions: { keep: resolved.revisions.keep, days: resolved.revisions.days },

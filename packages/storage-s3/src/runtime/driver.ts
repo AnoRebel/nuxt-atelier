@@ -109,5 +109,16 @@ export function createS3Driver(options: S3Options): StorageDriver {
     async delete(key) {
       await send(url(key), { method: 'DELETE' }, s => (s >= 200 && s < 300) || s === 404)
     },
+    async deletePrefix(prefix) {
+      for (let token: string | undefined, page = 0; page < 100; page++) {
+        const list = await (await send(`${base}?list-type=2&prefix=${encodeURIComponent(prefix)}${token ? `&continuation-token=${encodeURIComponent(token)}` : ''}`, { method: 'GET' })).text()
+        const keys = [...list.matchAll(/<Key>([^<]+)<\/Key>/g)].map(m => m[1]!.replaceAll('&amp;', '&'))
+        for (const key of keys)
+          await this.delete(key)
+        token = /<NextContinuationToken>([^<]+)<\/NextContinuationToken>/.exec(list)?.[1]
+        if (!token)
+          return
+      }
+    },
   }
 }

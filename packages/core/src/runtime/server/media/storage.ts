@@ -21,6 +21,8 @@ export interface StorageDriver {
   head: (key: string) => Promise<{ size: number } | undefined>
   /** Removes it; nothing happens when it's already gone. */
   delete: (key: string) => Promise<void>
+  /** Removes every file whose key starts with `prefix` (an item's folder: its original and variants). */
+  deletePrefix?: (prefix: string) => Promise<void>
 }
 
 /** A storage key: `<id>/<file name>`, the name reduced to safe characters. */
@@ -74,6 +76,9 @@ export function createLocalDriver(dir: string): StorageDriver {
       const file = path(key)
       await rm(file, { force: true })
       await rmdir(dirname(file)).catch(() => {}) // the id's folder, when that left it empty
+    },
+    async deletePrefix(prefix) {
+      await rm(path(prefix.replace(/\/$/, '')), { recursive: true, force: true })
     },
   }
 }

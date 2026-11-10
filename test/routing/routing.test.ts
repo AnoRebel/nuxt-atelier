@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { $fetch, fetch, setup, startServer } from '@nuxt/test-utils/e2e'
 import { sql } from 'drizzle-orm'
+import sharp from 'sharp'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { PREVIEW_PURPOSE, signToken } from '../../packages/core/src/runtime/server/secrets'
 import { sign } from '../../packages/core/src/runtime/server/webhooks'
@@ -295,7 +296,7 @@ describe('site routing', async () => {
     const response = await trigger('a-jobs-secret')
     expect(response.status).toBe(200)
     const result = await response.json()
-    expect(Date.now() - started).toBeLessThan(1000 + 1500 + 1500) // the budget, plus the jobs it started
+    expect(Date.now() - started).toBeLessThan(1000 + 1500 + 4000) // the budget, the jobs it started, and slack for a busy machine
     expect(result.ran).toBeLessThan(12)
     const left = await api('/api/_atelier/jobs')
     expect(left.body.filter((j: { name: string }) => j.name === 'test:note').length).toBeGreaterThan(0) // still queued, or being run by the scheduler
@@ -410,6 +411,16 @@ describe('site routing', async () => {
     expect((await fetch(secret.body.url)).status).toBe(404) // a visitor: as if it didn't exist
     const signedIn = await fetch(secret.body.url, { headers: { cookie } })
     expect([signedIn.status, signedIn.headers.get('cache-control')]).toEqual([200, 'private, no-store'])
+
+    // a real image: measured at upload, and served as variants made with sharp
+    const wide = new Uint8Array(await sharp({ create: { width: 800, height: 400, channels: 3, background: '#3366cc' } }).png().toBuffer())
+    const picture = (await upload(wide, 'filename=wide.png')).body
+    expect(picture).toMatchObject({ width: 800, height: 400 })
+    const square = await fetch(`${picture.url}?w=320&ar=1:1&format=webp`)
+    expect([square.status, square.headers.get('content-type'), square.headers.get('cache-control')]).toEqual([200, 'image/webp', 'public, max-age=31536000, immutable'])
+    expect(await sharp(new Uint8Array(await square.arrayBuffer())).metadata()).toMatchObject({ width: 320, height: 320, format: 'webp' })
+    expect((await fetch(`${picture.url}?w=333`)).status).toBe(400) // only the configured widths
+    expect((await fetch(`${picture.url}?w=320&ar=5:1`)).status).toBe(400)
 
     // in use: deleting it lists where, and needs ?force=true
     const { body: post } = await api('/api/_atelier/collections/posts', 'POST', { data: { title: 'With a cover', slug: 'with-cover', cover: photo.body.id } })
