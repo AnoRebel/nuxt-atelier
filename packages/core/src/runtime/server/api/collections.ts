@@ -22,7 +22,7 @@ import { apiError, readValid, validated } from '../errors'
 import { audit, toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
 import { scheduleRequest } from '../scheduling'
 import { shadowed } from '../shadowing'
-import { allow, assertInversesWritable, assertMigrated, assertWritable, caller, countWrite, limits, present, restorable, segments, select, stageFor } from '../content-access'
+import { allow, assertInversesWritable, assertMigrated, assertWritable, caller, countWrite, limits, mediaOf, present, restorable, segments, select, stageFor } from '../content-access'
 
 const PREFIX = '/api/_atelier/collections'
 const list = (text: string) => text.split(',').map(s => s.trim()).filter(Boolean)
@@ -65,8 +65,11 @@ export default defineEventHandler(async (event) => {
   const who = await caller(event, method === 'GET')
   const entries = await useAtelierEntries()
   const depthOf = (depth: number | undefined) => Math.min(depth ?? 0, limits().maxRelationDepth)
-  const shape = async (entry: Entry, fields?: string[]) =>
-    ({ ...entry, ...shadowed(entry), data: select(await present(who, definition.fields, name, entry.data), fields) })
+  const shape = async (entry: Entry, fields?: string[]) => {
+    const data = select(await present(who, definition.fields, name, entry.data), fields)
+    const media = await mediaOf(who, definition.fields, data)
+    return { ...entry, ...shadowed(entry), data, ...Object.keys(media).length ? { media } : {} }
+  }
   /** The entry's draft (what writes start from), or what the site serves. */
   const load = async (depth = 0, stage: 'draft' | 'published' = 'draft') => {
     const entry = await entries.get(name, id!, { depth, stage })

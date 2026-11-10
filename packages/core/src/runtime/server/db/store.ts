@@ -168,6 +168,10 @@ function mediaRows(fields: Record<string, Field>, data: Record<string, unknown> 
   return rows
 }
 
+/** The ids of the media items an entry's data uses, anywhere in it (see mediaRows). */
+export const mediaIds = (fields: Record<string, Field>, data: Record<string, unknown>, blocks?: Record<string, BlockSchema>) =>
+  [...new Set(mediaRows(fields, data, blocks).map(row => row.targetId))]
+
 /** Relation values anywhere in the entry, nested ones under their dot path (`faq.2.author`). */
 function relationRows(fields: Record<string, Field>, data: Record<string, unknown> | undefined, prefix = ''): RelationRow[] {
   const rows: RelationRow[] = []

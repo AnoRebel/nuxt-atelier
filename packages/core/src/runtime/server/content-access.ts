@@ -6,7 +6,9 @@ import type { Entry, EntryStore } from './db/store'
 import { getRequestHeader, getRequestURL } from 'nuxt/server'
 import { createPolicy, PUBLIC_ROLE } from '../shared/policy'
 import { apiError } from './errors'
-import { assertMigrated, useAtelierAuth, useAtelierPolicy, useAtelierRateLimiter, useAtelierRoles, useAtelierSchema, useAtelierServerConfig, useAtelierTokens } from './index'
+import type { MediaSummary } from '../shared/query'
+import { mediaIds } from './db/store'
+import { assertMigrated, useAtelierAuth, useAtelierMedia, useAtelierPolicy, useAtelierRateLimiter, useAtelierRoles, useAtelierSchema, useAtelierServerConfig, useAtelierTokens } from './index'
 
 export interface Caller {
   principal: PolicyUser
@@ -143,6 +145,31 @@ export function restorable(who: Caller, resource: string, revision: Record<strin
     ...Object.entries(revision).filter(([key]) => !kept.has(key)),
     ...Object.entries(current).filter(([key]) => kept.has(key)),
   ])
+}
+
+/**
+ * The media items an entry's (presented) data uses, by id, for rendering it: `entry.media[entry.data.cover]`.
+ * Private ones only for signed-in callers; missing ones left out.
+ */
+export async function mediaOf(who: Caller, fields: Record<string, Field>, data: Record<string, unknown>): Promise<Record<string, MediaSummary>> {
+  const ids = mediaIds(fields, data, (await useAtelierSchema()).blocks)
+  if (!ids.length)
+    return {}
+  const items = await (await useAtelierMedia()).getMany(ids)
+  const visitor = who.principal.role === PUBLIC_ROLE
+  return Object.fromEntries(items.filter(item => !item.private || !visitor).map(item => [item.id, {
+    id: item.id,
+    url: `/_atelier/media/${item.id}/${encodeURIComponent(item.filename)}`,
+    filename: item.filename,
+    mime: item.mime,
+    width: item.width,
+    height: item.height,
+    title: item.title,
+    alt: item.alt,
+    caption: item.caption,
+    credits: item.credits,
+    focal: item.focal,
+  }]))
 }
 
 /** Only the named fields of `data`; all of it without a selection. */

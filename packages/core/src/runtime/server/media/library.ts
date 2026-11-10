@@ -7,7 +7,7 @@ import type { Db } from '../db/entries'
 import type { Filter, ListQuery } from '../db/query'
 import type { StorageDriver } from './storage'
 import { fileTypeFromBuffer } from 'file-type'
-import { and, eq, lt, sql } from 'drizzle-orm'
+import { and, eq, inArray, lt, sql } from 'drizzle-orm'
 import { afterCursor, compileFilter, compileSort, decodeCursor, encodeCursor, orderBy } from '../db/query'
 import { affected, MEDIA_TARGET } from '../db/store'
 import { buildTables } from '../db/tables'
@@ -324,6 +324,14 @@ export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver
     async setDimensions(id: string, size: { width: number, height: number }): Promise<MediaItem | undefined> {
       await db.update(media).set({ width: size.width, height: size.height }).where(eq(media._id, id))
       return this.get(id)
+    },
+
+    /** Items by id; missing ones are left out. */
+    async getMany(ids: string[]): Promise<MediaItem[]> {
+      if (!ids.length)
+        return []
+      const rows: Record<string, unknown>[] = await db.select().from(media).where(inArray(media._id, ids.slice(0, 500)))
+      return rows.map(toItem)
     },
 
     async get(id: string): Promise<MediaItem | undefined> {
