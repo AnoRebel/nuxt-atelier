@@ -153,3 +153,47 @@ export async function applyMigrations(driver: AtelierDriver, folder: string): Pr
     await (await import('drizzle-orm/mysql2/migrator')).migrate(driver.db, options)
   return pending
 }
+
+/** A rehearsed migration: it ran, it failed (with the database's error), or an earlier one failed first. */
+export type Rehearsal = { name: string, result: 'ok' } | { name: string, result: 'failed', error: string } | { name: string, result: 'skipped' }
+
+class RolledBack extends Error {}
+
+/**
+ * Runs the pending migrations in one transaction that's always rolled back: what `apply` would do, kept
+ * nowhere. Stops at the first failure. Refused where DDL can't be rolled back: MySQL and MariaDB commit
+ * it implicitly, and Cloudflare D1 has no transactions.
+ */
+export async function rehearseMigrations(driver: AtelierDriver, folder: string): Promise<Rehearsal[]> {
+  if (driver.dialect === 'mysql')
+    throw new Error('[nuxt-atelier] A dry run needs DDL that rolls back: MySQL and MariaDB commit schema changes as they run, so rehearsing would apply them. Rehearse on a copy of the database instead.')
+  if (!driver.capabilities.transactions)
+    throw new Error('[nuxt-atelier] A dry run needs a transaction, which Cloudflare D1 doesn\'t have. Rehearse on a local copy of the database instead.')
+  const { pending } = await migrationStatus(driver, localMigrationNames(folder))
+  const results: Rehearsal[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the dialects' transaction objects differ
+  await (driver.db as any).transaction(async (tx: any) => {
+    for (const name of pending) {
+      if (results.some(r => r.result === 'failed')) {
+        results.push({ name, result: 'skipped' })
+        continue
+      }
+      const migration = readFileSync(join(folder, name, 'migration.sql'), 'utf8')
+      try {
+        assertConfirmed(name, migration)
+        for (const statement of migration.split('--> statement-breakpoint').map(s => s.trim()).filter(Boolean))
+          await (driver.dialect === 'sqlite' ? tx.run(sql.raw(statement)) : tx.execute(sql.raw(statement)))
+        results.push({ name, result: 'ok' })
+      }
+      catch (error) {
+        const cause = (error as { cause?: Error }).cause
+        results.push({ name, result: 'failed', error: (cause?.message ?? (error as Error).message).replace(/^\[nuxt-atelier\] /, '') })
+      }
+    }
+    throw new RolledBack() // never kept
+  }).catch((error: unknown) => {
+    if (!(error instanceof RolledBack))
+      throw error
+  })
+  return results
+}

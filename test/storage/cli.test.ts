@@ -37,6 +37,7 @@ describe('the atelier CLI', () => {
 
   beforeAll(async () => {
     expect((await atelier(['migrate', 'apply', '--root', root])).code).toBe(0)
+    expect(await atelier(['migrate', 'apply', '--dry-run', '--root', root])).toMatchObject({ code: 0, stdout: 'Nothing to rehearse: the database is up to date.\n' })
     driver = await connectEngine(url)
   }, 180_000)
   afterAll(() => driver?.close())
