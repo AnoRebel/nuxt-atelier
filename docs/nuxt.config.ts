@@ -9,6 +9,10 @@ export default defineNuxtConfig({
         : [],
     },
   },
+  vue: {
+    // Video.js 10's custom elements (DocsVideo), left to the browser rather than resolved as Vue components
+    compilerOptions: { isCustomElement: tag => tag === 'video-player' || tag === 'video-skin' },
+  },
   site: {
     name: 'Nuxt Atelier',
     url: 'https://nuxt-atelier.anorebel.net',

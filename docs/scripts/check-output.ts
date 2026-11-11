@@ -3,6 +3,7 @@
 // - an MDC component that doesn't exist renders as a PascalCase tag (`::foo-bar` → <FooBar>),
 //   which never appears in valid SSR output
 // - a content page the crawler never reached, so neither check ran on it
+// - app.config.ts not loaded (it belongs in app/ once that directory exists): no "edit this page" links
 import { existsSync, globSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -21,6 +22,9 @@ for (const file of globSync('**/*.html', { cwd: out })) {
   for (const tag of tags)
     errors.push(`${file}: unknown MDC component <${tag}>`)
 }
+
+if (!readFileSync(join(out, 'getting-started/introduction.html'), 'utf8').includes('/edit/main/docs/'))
+  errors.push('getting-started/introduction.html: no "edit this page" link, so app/app.config.ts wasn\'t loaded')
 
 if (errors.length) {
   console.error(`Docs check failed:\n${errors.map(e => `  ${e}`).join('\n')}`)
