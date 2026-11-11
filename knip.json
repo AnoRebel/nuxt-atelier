@@ -30,10 +30,16 @@
       ]
     },
     "packages/storage-s3": {
-      "entry": ["src/module.ts", "src/runtime/plugin.ts"]
+      "entry": [
+        "src/module.ts",
+        "src/runtime/plugin.ts"
+      ]
     },
     "packages/storage-vercel-blob": {
-      "entry": ["src/module.ts", "src/runtime/plugin.ts"]
+      "entry": [
+        "src/module.ts",
+        "src/runtime/plugin.ts"
+      ]
     },
     "packages/auth-better-auth": {
       "entry": [
@@ -46,6 +52,10 @@
     "docs": {
       "ignoreDependencies": [
         "@takumi-rs/core"
+      ],
+      "entry": [
+        "app/components/content/*.vue",
+        "scripts/*.ts"
       ]
     },
     "test/fixtures/types": {
@@ -153,13 +163,21 @@
       ]
     },
     "test/fixtures/jobs-presets": {
-      "ignoreDependencies": ["nuxt"]
+      "ignoreDependencies": [
+        "nuxt"
+      ]
     },
     "test/fixtures/plugin-events": {
-      "entry": ["runtime/*.ts", "content/**/*.{ts,vue}"]
+      "entry": [
+        "runtime/*.ts",
+        "content/**/*.{ts,vue}"
+      ]
     },
     "test/fixtures/plugin-host": {
-      "entry": ["server/**/*.ts", "app/**/*.vue"]
+      "entry": [
+        "server/**/*.ts",
+        "app/**/*.vue"
+      ]
     }
   },
   "ignoreUnresolved": [

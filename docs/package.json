@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@takumi-rs/core": "catalog:docs",
+    "@videojs/html": "catalog:docs",
     "docus": "catalog:docs",
     "nuxt": "catalog:",
     "nuxt-atelier": "workspace:*",
