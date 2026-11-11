@@ -99,7 +99,8 @@
     "docs:build": "bun run --filter @nuxt-atelier/docs build",
     "docs:dev": "bun run --filter @nuxt-atelier/docs dev",
     "dev": "bun run --filter @nuxt-atelier/playground dev",
-    "docs:config": "bun scripts/config-reference.ts"
+    "docs:config": "bun scripts/config-reference.ts",
+    "licenses": "bun scripts/check-licenses.ts"
   },
   "devDependencies": {
     "@nuxt/eslint-config": "catalog:quality",
@@ -138,7 +139,8 @@
     "*.{js,mjs,cjs,ts,mts,cts,vue}": [
       "oxlint --fix",
       "eslint --fix"
-    ]
+    ],
+    "bun.lock": "bun scripts/check-licenses.ts"
   },
   "overrides": {
     "nuxt-og-image": "7.0.7",
