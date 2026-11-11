@@ -55,6 +55,7 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
+      - run: bun run licenses
       - run: bun run lint
       # before typecheck and test: the layer and its fixtures load the module's dist/
       - run: bun run build

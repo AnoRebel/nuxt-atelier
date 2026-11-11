@@ -44,6 +44,7 @@ bun run build
 | `bun run build` | builds every package |
 | `bun run check:pkg` | `publint` and `@arethetypeswrong/cli` on every package |
 | `bun run knip` | unused files, exports, dependencies and catalog entries |
+| `bun run licenses` | every package in `bun.lock` has an allowed license |
 
 ### Database tests
 
@@ -77,6 +78,8 @@ All dependency versions are defined once in the root `package.json` as [Bun cata
 Catalog entries that published packages depend on at runtime use caret ranges (`^1.5.0`), so users don't end up with duplicate copies. Tooling, test and docs entries are exact, and so is Drizzle while it's a release candidate. `bun.lock` pins everything for this repo.
 
 The catalogs only list dependencies something uses (`bun run knip` fails on unused entries). To add a dependency, add it to the right catalog, creating that catalog if needed, and explain in your PR why it's needed. Every runtime dependency has to justify its weight.
+
+Every dependency, including transitive and dev-only ones, must have a license compatible with distributing Nuxt Atelier under MIT. `bun run licenses` checks every package in `bun.lock` against an allowlist of permissive licenses; run it after adding or updating a dependency. It also runs in CI and on commits that change `bun.lock`. If a package fails, pick another one, or add an entry to `EXCEPTIONS` in `scripts/check-licenses.ts` saying why its license is acceptable for how we use it (build-only, unmodified, not shipped, …).
 
 ## Public APIs only
 
