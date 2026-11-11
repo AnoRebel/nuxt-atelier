@@ -26,3 +26,5 @@ coverage/
 
 # temporary compiled modules from tests
 test/**/.tmp-*
+.packs
+packages/*/jsr.json
