@@ -45,6 +45,7 @@ bun run build
 | `bun run check:pkg` | `publint` and `@arethetypeswrong/cli` on every package |
 | `bun run knip` | unused files, exports, dependencies and catalog entries |
 | `bun run licenses` | every package in `bun.lock` has an allowed license |
+| `bun run pack` | packs the packages into `.packs/`, as they would be published, and checks them |
 
 ### Database tests
 
@@ -112,6 +113,12 @@ bunx changeset
 ```
 
 Pick the affected packages and the bump type, and write the summary for users (it ends up in the changelog). Docs-only and CI-only changes don't need one.
+
+## Releasing
+
+Maintainers release from GitHub: **Actions → Release → Run workflow**, on `main`. It applies the pending changesets (versions and changelogs), commits and tags `<package>@<version>`, then publishes the packages to npm and JSR and creates a GitHub release per tag. It starts as a dry run, which versions and packs without pushing or publishing; untick it to release. 0.x versions go out under the `next` dist-tag.
+
+Packages are packed with `bun pm pack`, which resolves `catalog:` and `workspace:` versions, and published with npm through [trusted publishing](https://docs.npmjs.com/trusted-publishers): an OIDC token from the workflow, with provenance, so no npm or JSR token is stored in the repository. `bun run pack` checks the tarballs locally and in CI: each one must resolve every version and include the LICENSE.
 
 ## AI-assisted contributions
 

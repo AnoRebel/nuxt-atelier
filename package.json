@@ -101,7 +101,8 @@
     "docs:dev": "bun run --filter @nuxt-atelier/docs dev",
     "dev": "bun run --filter @nuxt-atelier/playground dev",
     "docs:config": "bun scripts/config-reference.ts",
-    "licenses": "bun scripts/check-licenses.ts"
+    "licenses": "bun scripts/check-licenses.ts",
+    "pack": "bun scripts/pack.ts"
   },
   "devDependencies": {
     "@nuxt/eslint-config": "catalog:quality",

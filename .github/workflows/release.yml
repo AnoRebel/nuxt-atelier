@@ -1,0 +1,178 @@
+# Releases, started by hand (Actions → Release → Run workflow):
+# 1. version: applies the pending changesets (versions and changelogs), commits, tags `<package>@<version>`,
+#    pushes. A dry run stops before pushing and shows what it would release.
+# 2. npm: packs each package with `bun pm pack` (resolving `catalog:`) and publishes the tarballs with npm
+#    through trusted publishing: an OIDC token from this workflow, with provenance, no npm token stored here.
+# 3. jsr: publishes the same builds to JSR, also through OIDC. It can't block npm.
+# 4. github: a GitHub release per tag, with that version's changelog.
+# The publish jobs are called from here, not triggered by the tags or releases: events raised with the
+# default GITHUB_TOKEN start no workflows.
+#
+# Once, before the first release: link each package to this repository and workflow (release.yml) as a
+# trusted publisher on npmjs.com and on jsr.io, and create the `release` environment in the repository's
+# settings, limited to the main branch (optionally with required reviewers).
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      npm_tag:
+        description: npm dist-tag (`next` for 0.x pre-releases)
+        type: choice
+        options: [next, latest]
+        default: next
+      dry_run:
+        description: Dry run (version and pack, publish nothing)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  # no git hooks in the release checkout: its commit is the bot's version bump
+  SKIP_SIMPLE_GIT_HOOKS: 1
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    outputs:
+      tags: ${{ steps.tag.outputs.tags }}
+      sha: ${{ steps.tag.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run licenses
+      - name: Apply changesets
+        run: |
+          if [ -z "$(find .changeset -name '*.md' ! -name README.md)" ]; then
+            echo "::error::No changesets to release."
+            exit 1
+          fi
+          bunx changeset version
+          bun install --lockfile-only
+      - run: bun run build
+      - run: bun run check:pkg
+      - run: bun run pack
+      - name: Commit and tag
+        id: tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore(release): version packages"
+          bunx changeset tag
+          tags=$(git tag --points-at HEAD | tr '\n' ' ')
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Versions"
+            for t in $tags; do echo "- \`$t\`"; done
+            git show --stat --format= HEAD
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Push
+        if: ${{ !inputs.dry_run }}
+        run: git push --follow-tags origin HEAD:main
+
+  npm:
+    needs: version
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bun run pack
+      # trusted publishing needs npm 11.5+
+      - run: npm install -g npm@11
+      - name: Publish
+        env:
+          NPM_TAG: ${{ inputs.npm_tag }}
+        run: |
+          for tarball in .packs/*.tgz; do
+            id=$(tar -xOzf "$tarball" package/package.json | node -p 'const p = JSON.parse(require("fs").readFileSync(0)); p.name + "@" + p.version')
+            if npm view "$id" version >/dev/null 2>&1; then
+              echo "$id is already on npm"
+            else
+              npm publish "$tarball" --tag "$NPM_TAG" --provenance --access public
+            fi
+          done
+
+  jsr:
+    needs: [version, npm]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bun scripts/jsr.ts
+      - name: Publish
+        run: |
+          for dir in packages/*/; do
+            [ -f "$dir/jsr.json" ] && (cd "$dir" && bunx jsr@0.14.3 publish --allow-dirty --allow-slow-types)
+          done
+
+  github:
+    needs: [version, npm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+      - name: Create releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAGS: ${{ needs.version.outputs.tags }}
+          PRERELEASE: ${{ inputs.npm_tag != 'latest' && '--prerelease' || '' }}
+        run: |
+          for tag in $TAGS; do
+            name=${tag%@*}
+            version=${tag##*@}
+            dir=$(grep -l "\"name\": \"$name\"" packages/*/package.json | xargs dirname)
+            # this version's section of the package's changelog
+            awk -v v="$version" '$0 == "## " v {on=1; next} /^## / {on=0} on' "$dir/CHANGELOG.md" > notes.md
+            gh release create "$tag" --title "$tag" --notes-file notes.md ${PRERELEASE:+"$PRERELEASE"}
+          done
