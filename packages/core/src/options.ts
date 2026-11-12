@@ -69,6 +69,10 @@ export const optionsSchema = v.strictObject({
       v.check(t => t.includes('%s'), 'expected %s where the page title goes, like "%s · My site"'),
       v.description('The title of CMS pages, `%s` standing for the page\'s own: `"%s · My site"`.'),
     ), '%s'),
+    jsonLd: v.optional(v.pipe(
+      v.record(v.string(), v.unknown(), 'expected a JSON-LD object'),
+      v.description('Structured data on every CMS page, like your organization: `{ "@type": "Organization", "name": "…", "url": "…" }`. `@context` is added.'),
+    )),
   }), {}),
   i18n: v.optional(v.strictObject({
     module: v.optional(v.pipe(

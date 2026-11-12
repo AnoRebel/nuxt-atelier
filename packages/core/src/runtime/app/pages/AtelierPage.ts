@@ -16,7 +16,7 @@ export default defineComponent({
     const route = useAtelierRouteEntry()
     // search and social metadata, rendered on the server (shared/seo.ts). Registered before the await: after
     // it, outside an SFC, there's no Nuxt context to register them with.
-    const config = useRuntimeConfig().public.atelier as { siteUrl?: string, seo?: { titleTemplate?: string }, i18n?: I18nAdapter | null } | undefined
+    const config = useRuntimeConfig().public.atelier as { siteUrl?: string, seo?: { titleTemplate?: string, jsonLd?: Record<string, unknown> | null }, i18n?: I18nAdapter | null } | undefined
     const site = (path: string) => config?.siteUrl ? `${config.siteUrl.replace(/\/$/, '')}${path}` : path
     const path = useRoute().path
     const seo = computed(() => route.data.value ? resolveSeo({ data: route.data.value.entry.data as Record<string, unknown>, media: route.data.value.media }, { path, siteUrl: config?.siteUrl }) : undefined)
@@ -28,6 +28,11 @@ export default defineComponent({
         // each translation, as the site's i18n module prefixes it
         ...Object.entries(route.data.value?.alternates ?? {}).map(([locale, path]) => ({ rel: 'alternate', hreflang: locale, href: site(config?.i18n ? localePath(config.i18n, path, locale) : path) })),
       ],
+      // JSON-LD: the site's, then the type's. `<` escaped, so no value can close the script element
+      script: [config?.seo?.jsonLd, ...[route.data.value?.jsonLd ?? []].flat()].filter(Boolean).map(data => ({
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({ '@context': 'https://schema.org', ...data }).replaceAll('<', '\\u003c'),
+      })),
     }))
     useSeoMeta({
       title: () => seo.value?.title,

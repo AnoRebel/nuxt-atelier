@@ -19,6 +19,8 @@ export interface AtelierRoute<N extends CollectionName = CollectionName> {
   media?: Record<string, MediaSummary>
   /** A localized entry published in more than one locale: its path in each (without a locale prefix). */
   alternates?: Record<string, string>
+  /** Structured data from the type's `route.jsonLd`. */
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[]
 }
 
 /**

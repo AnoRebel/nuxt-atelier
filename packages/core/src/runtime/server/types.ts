@@ -18,6 +18,11 @@ export interface RouteDefinition {
   component?: string
   /** The layout its pages use (the app's default layout when omitted). */
   layout?: string
+  /**
+   * Structured data for its pages, as JSON-LD (https://schema.org), from the entry: runs on the server for
+   * each page. `({ data, url, createdAt, updatedAt }) => ({ '@type': 'Article', headline: data.title, … })`.
+   */
+  jsonLd?: (entry: { data: Record<string, unknown>, url: string, createdAt?: string, updatedAt: string }) => Record<string, unknown> | Record<string, unknown>[] | undefined
 }
 
 export interface CollectionDefinition {

@@ -5,7 +5,7 @@
 // `preview` is a shared preview link's token for the entry at that path: its draft, for anyone, until it
 // expires (410 after).
 import * as v from 'valibot'
-import { defineEventHandler, getQuery } from 'nuxt/server'
+import { defineEventHandler, getQuery, useRuntimeConfig } from 'nuxt/server'
 import { apiError, validated } from '../errors'
 import { toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
 import type { PreviewToken } from '../secrets'
@@ -77,6 +77,9 @@ export default defineEventHandler(async (event) => {
       if (path)
         alternates[locale] = path
     }
+    // structured data from the type's route.jsonLd, run here: it's code, and may read any field
+    const siteUrl = (useRuntimeConfig().public as { atelier?: { siteUrl?: string } }).atelier?.siteUrl?.replace(/\/$/, '') ?? ''
+    const jsonLd = definition.route!.jsonLd?.({ data, url: `${siteUrl}${route.path}`, createdAt: (entry as { createdAt?: string }).createdAt, updatedAt: entry.updatedAt })
     const answer = {
       ...route,
       component: component ?? null,
@@ -86,6 +89,7 @@ export default defineEventHandler(async (event) => {
       entry: { ...entry, path: route.path, data },
       ...Object.keys(media).length ? { media } : {},
       ...Object.keys(alternates).length > 1 ? { alternates } : {},
+      ...jsonLd ? { jsonLd } : {},
     }
     if (shared && path !== undefined)
       remember(key, answer)
