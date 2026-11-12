@@ -6,7 +6,9 @@
     "dev": "nuxt dev"
   },
   "dependencies": {
+    "@nuxt-atelier/admin": "workspace:*",
     "@nuxt-atelier/layer": "workspace:*",
-    "nuxt": "catalog:"
+    "nuxt": "catalog:",
+    "nuxt-atelier": "workspace:*"
   }
 }

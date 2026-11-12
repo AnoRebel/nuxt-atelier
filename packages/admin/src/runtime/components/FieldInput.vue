@@ -17,6 +17,7 @@ import CnInput from '../crystal-neuo/components/Input.vue'
 import CnSelect from '../crystal-neuo/components/Select.vue'
 import CnTextarea from '../crystal-neuo/components/Textarea.vue'
 import CnToggle from '../crystal-neuo/components/Toggle.vue'
+import { pascal, useOverrides } from '../overrides'
 import Icon from './Icon'
 
 defineOptions({ name: 'AtelierAdminFieldInput' })
@@ -80,6 +81,8 @@ const relatedOptions = computed(() => {
   const key = titleField(target.value)
   return (related.data.value?.items ?? []).map(e => ({ value: e.id, label: String((key && e.data[key]) || e.id) }))
 })
+// the app's input for this field type (app/atelier-admin/Field<Type>.vue), if it has one
+const fieldOverride = useOverrides()(`Field${pascal(props.field.type === 'custom' ? props.field.fieldType : props.field.type)}`)
 const custom = computed(() => props.field.type === 'custom' && props.field.input ? resolveComponent(props.field.input) : undefined)
 const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', color: 'color' } as Record<string, string>
 </script>
@@ -165,8 +168,18 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
     >
       <template #default="{ field: f }">
         <div class="cn-field">
+          <component
+            :is="fieldOverride"
+            v-if="fieldOverride"
+            :model-value="f.state.value"
+            :field="field"
+            :label="label"
+            :error="errorOf(f)"
+            :disabled="readOnly"
+            @update:model-value="f.handleChange"
+          />
           <CnToggle
-            v-if="field.type === 'boolean'"
+            v-else-if="field.type === 'boolean'"
             :checked="!!f.state.value"
             :label="label"
             :disabled="readOnly"

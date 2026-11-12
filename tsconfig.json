@@ -10,6 +10,9 @@
       ],
       "#atelier/shared/*": [
         "./packages/core/src/runtime/shared/*"
+      ],
+      "#atelier-admin-pages": [
+        "./test/admin/stubs/pages.ts"
       ]
     }
   },

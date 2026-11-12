@@ -9,7 +9,7 @@
     "directory": "packages/layer"
   },
   "homepage": "https://nuxt-atelier.anorebel.net",
-  "description": "Optional starter layer for Nuxt Atelier with overridable admin pages and theme files",
+  "description": "Optional starter layer for Nuxt Atelier: the module and the admin, with admin pages to make your own",
   "main": "./nuxt.config.mjs",
   "exports": {
     ".": "./nuxt.config.mjs",
@@ -24,6 +24,7 @@
   },
   "peerDependencies": {
     "nuxt": ">=4.6.0",
-    "nuxt-atelier": "workspace:*"
+    "nuxt-atelier": "workspace:*",
+    "@nuxt-atelier/admin": "workspace:*"
   }
 }

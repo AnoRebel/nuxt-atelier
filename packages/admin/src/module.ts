@@ -7,9 +7,10 @@
 // adopted by the shadow root, and icons are inline SVG from a set bundled at build time (no icon module,
 // nothing fetched from an icon API).
 import type { NuxtModule } from '@nuxt/schema'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { addImports, addTemplate, createResolver, defineNuxtModule, extendPages, hasNuxtModule } from '@nuxt/kit'
+import { join } from 'node:path'
+import { addComponentsDir, addImports, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, extendPages, getLayerDirectories, hasNuxtModule, resolvePath } from '@nuxt/kit'
 
 /** Lucide icons the kit uses (https://lucide.dev), bundled into the admin. */
 export const ICONS = [
@@ -33,14 +34,47 @@ function iconsTemplate(names: readonly string[]): string {
   return `export default ${JSON.stringify(picked)}\n`
 }
 
-const module: NuxtModule = defineNuxtModule({
+/** An admin page of the app or a plugin, in the admin's navigation. */
+export interface AdminPage {
+  /** Its path under the admin's base: `settings` is `/admin/settings`. */
+  path: string
+  label: string
+  /** A Lucide icon name (`settings`); it must be one the admin bundles, or listed in `icons`. */
+  icon?: string
+  /** Navigation group; pages without one go under "Tools". */
+  group?: string
+  /** Lower first. */
+  order?: number
+  /** Admin areas a user must manage to see the page (any one of them). */
+  requires?: string | string[]
+  /** The page component: a path, `~/` for the app. */
+  component: string
+}
+
+export interface ModuleOptions {
+  /** Pages added to the admin. Plugins add theirs with the `atelier:admin:pages` hook. */
+  pages?: AdminPage[]
+  /** More Lucide icons to bundle, for custom pages and content types. */
+  icons?: string[]
+}
+
+declare module '@nuxt/schema' {
+  interface NuxtHooks {
+    /** Add or change admin pages: plugins push theirs. */
+    'atelier:admin:pages': (pages: AdminPage[]) => void | Promise<void>
+  }
+}
+
+const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
   meta: {
     name: '@nuxt-atelier/admin',
+    configKey: 'atelierAdmin',
     compatibility: {
       nuxt: '>=4.6.0',
     },
   },
-  setup(_, nuxt) {
+  defaults: { pages: [], icons: [] },
+  setup(options, nuxt) {
     const { resolve } = createResolver(import.meta.url)
     // the core's options as written, so the order of the two modules doesn't matter
     const core = (nuxt.options as { atelier?: { admin?: { base?: string }, auth?: { passkeys?: boolean } } }).atelier
@@ -59,7 +93,47 @@ const module: NuxtModule = defineNuxtModule({
 
     // passkey sign-in code only when passkeys are on: otherwise @simplewebauthn/browser isn't even resolved
     nuxt.options.alias['#atelier-admin-passkeys'] = resolve(core?.auth?.passkeys === true ? './runtime/passkeys' : './runtime/passkeys-off')
-    nuxt.options.alias['#atelier-admin-icons'] = addTemplate({ filename: 'atelier/admin-icons.mjs', getContents: () => iconsTemplate(ICONS) }).dst
+    // icons: the kit's, the pages', and `icons` (for content types' `admin.icon`, say)
+    const pages: AdminPage[] = [...options.pages ?? []]
+    nuxt.hook('modules:done', () => nuxt.callHook('atelier:admin:pages', pages))
+    nuxt.options.alias['#atelier-admin-icons'] = addTemplate({
+      filename: 'atelier/admin-icons.mjs',
+      getContents: () => iconsTemplate([...new Set([...ICONS, ...options.icons ?? [], ...pages.flatMap(p => p.icon ? [p.icon] : [])])]),
+    }).dst
+
+    // custom pages, loaded when opened
+    nuxt.options.alias['#atelier-admin-pages'] = addTemplate({
+      filename: 'atelier/admin-pages.mjs',
+      getContents: async () => {
+        const entries = await Promise.all(pages.map(async ({ component, ...page }) =>
+          `  { ...${JSON.stringify({ ...page, requires: [page.requires ?? []].flat() })}, component: () => import(${JSON.stringify(await resolvePath(component))}) },`))
+        return `export default [\n${entries.join('\n')}\n]\n`
+      },
+    }).dst
+    addTypeTemplate({
+      filename: 'types/atelier-admin.d.ts',
+      getContents: () => `declare module '#atelier-admin-pages' {
+  const pages: { path: string, label: string, icon?: string, group?: string, order?: number, requires: string[], component: () => Promise<{ default: import('vue').Component }> }[]
+  export default pages
+}
+declare module '#atelier-admin-icons' {
+  const icons: Record<string, { body: string, width: number, height: number }>
+  export default icons
+}
+declare module '#atelier-admin-passkeys' {
+  export function signInWithPasskey(): Promise<unknown>
+}
+`,
+    })
+
+    // overrides: app/atelier-admin/<Name>.vue in the app or a layer replaces the kit's <Name> (a view, or a
+    // field input like FieldDate), registered as the global component AtelierAdmin<Name>; the app wins
+    const layers = getLayerDirectories(nuxt)
+    layers.forEach((layer, i) => {
+      const dir = join(layer.app, 'atelier-admin')
+      if (existsSync(dir))
+        addComponentsDir({ path: dir, prefix: 'AtelierAdmin', global: true, priority: layers.length - i })
+    })
 
     extendPages((pages) => {
       pages.push({ name: 'atelier-admin', path: `${base}/:path(.*)*`, file: resolve('./runtime/pages/AdminPage.vue'), meta: { layout: false, atelier: 'admin' } })
@@ -76,6 +150,7 @@ const module: NuxtModule = defineNuxtModule({
       'useAtelierEntryForm',
       'useAtelierUsers',
       'useAtelierRoles',
+      'useAtelierAdminPortal',
     ].map(name => ({ name, from: resolve(`./runtime/composables/${name}`) })))
   },
 })

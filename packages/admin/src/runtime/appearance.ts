@@ -106,11 +106,29 @@ function load(): Appearance {
 
 // one state for the whole admin
 const state = ref<Appearance>(load())
+let chosen = (() => {
+  try {
+    return localStorage.getItem(STORAGE) !== null
+  }
+  catch {
+    return false
+  }
+})()
+
+let appDefaults: Appearance = { ...DEFAULT_APPEARANCE }
+
+/** The app's default appearance (app config), used until the viewer picks their own, and on reset. */
+export function setDefaultAppearance(defaults: Partial<Appearance>) {
+  appDefaults = parseAppearance({ ...DEFAULT_APPEARANCE, ...defaults })
+  if (!chosen)
+    state.value = { ...appDefaults }
+}
 const modalOpen = ref(false)
 
 export function useAppearance() {
   function set(patch: Partial<Appearance>) {
     state.value = parseAppearance({ ...state.value, ...patch })
+    chosen = true
     try {
       localStorage.setItem(STORAGE, JSON.stringify(state.value))
     }
@@ -119,7 +137,8 @@ export function useAppearance() {
     }
   }
   function reset() {
-    state.value = { ...DEFAULT_APPEARANCE }
+    state.value = { ...appDefaults }
+    chosen = false
     try {
       localStorage.removeItem(STORAGE)
     }

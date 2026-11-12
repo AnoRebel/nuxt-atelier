@@ -189,6 +189,7 @@
       "name": "@nuxt-atelier/layer",
       "version": "0.0.0",
       "peerDependencies": {
+        "@nuxt-atelier/admin": "workspace:*",
         "nuxt": ">=4.6.0",
         "nuxt-atelier": "workspace:*",
       },
@@ -328,15 +329,19 @@
     "test/fixtures/layer": {
       "name": "@nuxt-atelier/fixture-layer",
       "dependencies": {
+        "@nuxt-atelier/admin": "workspace:*",
         "@nuxt-atelier/layer": "workspace:*",
         "nuxt": "catalog:",
+        "nuxt-atelier": "workspace:*",
       },
     },
     "test/fixtures/layer-override": {
       "name": "@nuxt-atelier/fixture-layer-override",
       "dependencies": {
+        "@nuxt-atelier/admin": "workspace:*",
         "@nuxt-atelier/layer": "workspace:*",
         "nuxt": "catalog:",
+        "nuxt-atelier": "workspace:*",
       },
     },
     "test/fixtures/migrate": {

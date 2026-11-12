@@ -11,7 +11,8 @@ export default () => {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
   // Cloudflare Workers hand secrets over per request (bindings): none is set yet at startup
   const workers = (globalThis as { navigator?: { userAgent?: string } }).navigator?.userAgent === 'Cloudflare-Workers'
-  if (import.meta.dev || env?.[TEST] || workers)
+  // prerendering at build time signs nobody in: the server that runs later is checked when it starts
+  if (import.meta.dev || import.meta.prerender || env?.[TEST] || workers)
     return
   const problem = appSecretProblem((useRuntimeConfig() as { appSecret?: unknown }).appSecret)
   if (problem)

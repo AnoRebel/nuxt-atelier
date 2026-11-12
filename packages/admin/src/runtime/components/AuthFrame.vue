@@ -2,9 +2,12 @@
      card beside it (the licenses app's auth layout). -->
 <script setup lang="ts">
 import { useAppearance } from '../appearance'
+import { useOverrides } from '../overrides'
+import Brand from './Brand.vue'
 import Icon from './Icon'
 
 const { openModal } = useAppearance()
+const brand = useOverrides()('Brand', Brand)
 </script>
 
 <template>
@@ -14,7 +17,7 @@ const { openModal } = useAppearance()
       aria-label="About"
     >
       <div class="app-auth__brand-top">
-        <span class="app-brand"><span class="app-brand__name">Nuxt Atelier</span></span>
+        <component :is="brand" />
         <button
           type="button"
           class="app-icon-button"
