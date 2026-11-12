@@ -62,6 +62,12 @@ export default createConfigForNuxt({
     rules: { '@typescript-eslint/no-explicit-any': 'off' },
   },
   {
-    ignores: ['openspec/**', '**/dist/**', '**/.output/**', '**/.nuxt/**', '**/.data/**', '**/*.fixture.ts'],
+    // the admin's components are named after their role in the kit (App, Shell, Page)
+    files: ['packages/admin/src/runtime/components/**/*.vue'],
+    rules: { 'vue/multi-word-component-names': 'off' },
+  },
+  {
+    // the vendored crystal-neuo copy is replaced by scripts/sync-crystal-neuo.ts, never edited
+    ignores: ['openspec/**', '**/dist/**', '**/.output/**', '**/.nuxt/**', '**/.data/**', '**/*.fixture.ts', 'packages/admin/src/runtime/crystal-neuo/**'],
   },
 )

@@ -24,7 +24,7 @@ bun run build
 | Path | What it is |
 |---|---|
 | `packages/core` | `nuxt-atelier`: the module (schema, server, renderer, CLI) |
-| `packages/admin` | `@nuxt-atelier/admin`: headless admin + Nuxt UI kit |
+| `packages/admin` | `@nuxt-atelier/admin`: headless admin + crystal-neuo kit |
 | `packages/editor` | `@nuxt-atelier/editor`: visual editor |
 | `packages/layer` | `@nuxt-atelier/layer`: optional starter layer |
 | `packages/auth-*`, `i18n-*`, `storage-*`, `ai` | adapter packages |

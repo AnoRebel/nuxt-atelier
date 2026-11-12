@@ -127,6 +127,21 @@ export function contentApiSuite(label: string, rootDir: string) {
       expect((await api('intern', 'GET', `/collections/articles/${theirs.body.id}`)).status).toBe(403)
     })
 
+    it('describes the content types to the admin, as the caller may see and use them', async () => {
+      expect((await api(null, 'GET', '/schema')).status).toBe(401)
+      const all = (await api('admin', 'GET', '/schema')).body
+      expect(all.capabilities).toContain('users')
+      expect(all.collections.map((c: { name: string }) => c.name)).toEqual(expect.arrayContaining(['articles', 'authors', 'products']))
+      const writer = (await api('writer', 'GET', '/schema')).body
+      expect(writer.capabilities).toEqual([])
+      const articles = writer.collections.find((c: { name: string }) => c.name === 'articles')
+      expect(articles).toMatchObject({ can: { create: true, read: true, update: true, publish: false }, ownOnly: ['update', 'delete'], readOnly: ['slug'] })
+      expect(articles.fields).not.toHaveProperty('internalNotes')
+      expect(articles.fields.title).toMatchObject({ type: 'text' })
+      expect(writer.collections.find((c: { name: string }) => c.name === 'authors').fields).not.toHaveProperty('email')
+      expect((await api('intern', 'GET', '/schema')).body.collections.map((c: { name: string }) => c.name)).toEqual(['articles'])
+    })
+
     it('reads a singleton\'s defaults before its first save, then saves it', async () => {
       expect((await api('writer', 'GET', '/singletons/settings')).body).toMatchObject({ version: null, data: { siteName: 'My site' } })
       const saved = await api('writer', 'PATCH', '/singletons/settings', { version: null, data: { footer: '© Atelier' } })

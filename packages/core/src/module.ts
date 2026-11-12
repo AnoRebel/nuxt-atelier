@@ -56,6 +56,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       mediaProvider: resolved.media.provider ?? '', // an image service's URL template, when variants aren't made here
       locales: resolveLocales(resolved.locales), // the content locales, for the admin and query helpers
       seo: { titleTemplate: resolved.seo.titleTemplate, jsonLd: resolved.seo.jsonLd ?? null },
+      admin: { base: resolved.admin.base, passkeys: resolved.auth.passkeys },
+      i18n: null as unknown, // the site's i18n module, set once every module is set up (below)
       ...config.public.atelier as object | undefined,
     }
 
@@ -72,6 +74,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     } as typeof nuxt.options.routeRules
 
     nuxt.options.alias['#atelier/server'] = resolve('./runtime/server')
+    nuxt.options.alias['#atelier/shared'] = resolve('./runtime/shared') // field schemas and policy, for the admin
     nuxt.options.alias['#atelier'] = resolve('./runtime/app')
 
     addImports({ name: 'useAtelierConfig', from: resolve('./runtime/app/composables/useAtelierConfig') })
@@ -179,6 +182,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ route: '/api/_atelier/health/live', method: 'get', handler: resolve('./runtime/server/api/health-live') })
     addServerHandler({ route: '/api/_atelier/health/ready', method: 'get', handler: resolve('./runtime/server/api/health-ready') })
     addServerHandler({ route: '/api/_atelier/setup', handler: resolve('./runtime/server/api/setup') })
+    addServerHandler({ route: '/api/_atelier/schema', handler: resolve('./runtime/server/api/schema') })
     for (const resource of ['users', 'roles', 'tokens', 'collections', 'singletons', 'redirects']) {
       addServerHandler({ route: `/api/_atelier/${resource}`, handler: resolve(`./runtime/server/api/${resource}`) })
       addServerHandler({ route: `/api/_atelier/${resource}/**`, handler: resolve(`./runtime/server/api/${resource}`) })
