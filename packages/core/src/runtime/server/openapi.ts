@@ -229,6 +229,7 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
             component: { type: ['string', 'null'] },
             layout: { type: ['string', 'null'] },
             blocks: { type: 'array', items: { type: 'string' }, description: 'The type\'s blocks fields, rendered in this order without a component' },
+            alternates: { type: 'object', additionalProperties: { type: 'string' }, description: 'A localized entry published in more than one locale: its path in each, for hreflang links' },
             entry: { type: 'object', description: 'The entry or singleton, as its own endpoint returns it' },
           },
           required: ['path', 'locale', 'kind', 'name', 'id', 'component', 'layout', 'blocks', 'entry'],

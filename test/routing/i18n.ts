@@ -31,6 +31,11 @@ export function i18nSuite(label: string, rootDir: string) {
       expect(german.html).toContain('Sit down') // the subtitle, from English
       expect(german.html).toContain('de {&quot;subtitle&quot;:&quot;en&quot;}')
       expect(german.html).toContain('href="/de/produkte/stuhl"') // useAtelierLocalePath
+      // both pages link both translations, prefixed as the i18n module wants
+      for (const html of [english.html, german.html]) {
+        expect(html).toMatch(/<link[^>]*hreflang="en"[^>]*href="\/products\/chair"|<link[^>]*href="\/products\/chair"[^>]*hreflang="en"/)
+        expect(html).toMatch(/<link[^>]*hreflang="de"[^>]*href="\/de\/produkte\/stuhl"|<link[^>]*href="\/de\/produkte\/stuhl"[^>]*hreflang="de"/)
+      }
     })
 
     it('answers 404 for a version under another locale\'s prefix', async () => {
