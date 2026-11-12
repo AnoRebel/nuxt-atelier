@@ -57,7 +57,7 @@ describe('module options', () => {
   })
 
   it('rejects unknown options (typos)', () => {
-    expect(error({ databse: {} })).toContain('atelier.databse: unknown option; accepted: database, migrations, media, locales, i18n, storage, auth, admin, revisions, jobs, webhooks, limits')
+    expect(error({ databse: {} })).toContain('atelier.databse: unknown option; accepted: database, migrations, media, locales, seo, i18n, storage, auth, admin, revisions, jobs, webhooks, limits')
     expect(error({ limits: { pageSize: 5 } })).toContain('atelier.limits.pageSize: unknown option; accepted: maxBodySize,')
   })
 })

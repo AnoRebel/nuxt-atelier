@@ -148,6 +148,24 @@ export const object = <const O extends Options<ObjectField>>(options: O): Object
 export const repeater = <const O extends Options<RepeaterField>>(options: O): RepeaterField & O => ({ type: 'repeater', ...options })
 export const blocks = helper<BlocksField>('blocks')
 
+/**
+ * Search and social metadata for a routable type's pages: `fields: { seo: seo() }`. Each part falls back
+ * when empty: the title to the entry's `title` (or `name`), the description to its `description` (or
+ * `excerpt`, `summary`), the image to its `image` (or `cover`), the canonical URL to the page's own.
+ */
+export const seo = (options: Omit<Options<ObjectField>, 'fields'> = {}) => object({
+  label: 'SEO',
+  ...options,
+  fields: {
+    title: text({ label: 'Title', maxLength: 120, help: 'Shown in search results and browser tabs. The page\'s title when empty.' }),
+    description: textarea({ label: 'Description', maxLength: 320, help: 'Shown under the title in search results and link previews.' }),
+    image: media({ label: 'Sharing image', help: 'Shown when the page is shared: about 1200 × 630.' }),
+    canonical: url({ label: 'Canonical URL', help: 'Only when this page copies another: the original\'s URL.' }),
+    noindex: boolean({ label: 'Hide from search engines' }),
+    nofollow: boolean({ label: 'Tell search engines not to follow its links' }),
+  },
+})
+
 export interface FieldTypeDefinition<S extends StandardSchema> {
   /** Lowercase letters, digits and `-`, e.g. `geo-point`. */
   name: string

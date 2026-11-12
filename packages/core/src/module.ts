@@ -55,6 +55,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       mediaWidths: resolved.media.widths, // the image variant widths, for srcset
       mediaProvider: resolved.media.provider ?? '', // an image service's URL template, when variants aren't made here
       locales: resolveLocales(resolved.locales), // the content locales, for the admin and query helpers
+      seo: { titleTemplate: resolved.seo.titleTemplate },
       ...config.public.atelier as object | undefined,
     }
 

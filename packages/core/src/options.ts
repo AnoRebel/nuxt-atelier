@@ -63,6 +63,13 @@ export const optionsSchema = v.strictObject({
     v.check(l => l.default === undefined || l.codes.includes(l.default), 'locales.default must be one of locales.codes'),
     v.check(l => Object.entries(l.fallback).every(([from, to]) => [from, ...to].every(code => l.codes.includes(code))), 'locales.fallback may only name locales in locales.codes'),
   ), {}),
+  seo: v.optional(v.strictObject({
+    titleTemplate: v.optional(v.pipe(
+      v.string('expected a template like "%s · My site"'),
+      v.check(t => t.includes('%s'), 'expected %s where the page title goes, like "%s · My site"'),
+      v.description('The title of CMS pages, `%s` standing for the page\'s own: `"%s · My site"`.'),
+    ), '%s'),
+  }), {}),
   i18n: v.optional(v.strictObject({
     module: v.optional(v.pipe(
       v.union([v.picklist(['auto', 'nuxt-i18n-micro', '@nuxtjs/i18n']), v.literal(false)], 'accepted: "auto", "nuxt-i18n-micro", "@nuxtjs/i18n", false'),

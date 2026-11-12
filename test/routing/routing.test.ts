@@ -81,6 +81,20 @@ describe('site routing', async () => {
     expect(list.body.items.map((e: { path: string }) => e.path)).toEqual(['/about-us'])
   })
 
+  it('renders search and social metadata on the server, from the seo field or the entry', async () => {
+    const plain = (await page('/about-us', false)).html // the first test's page: title only
+    expect(plain).toContain('<title>About · Atelier</title>')
+    expect(plain).toContain('<link rel="canonical" href="/about-us">')
+    expect(plain).toMatch(/<meta property="og:title" content="About">/)
+    const post = await api('/api/_atelier/collections/posts', 'POST', { publish: true, data: { title: 'Launch', slug: 'launch', seo: { title: 'We launched', description: 'All about the launch', noindex: true } } })
+    expect(post.status).toBe(200)
+    const html = (await page('/blog/launch', false)).html
+    expect(html).toContain('<title>We launched · Atelier</title>')
+    expect(html).toMatch(/<meta name="description" content="All about the launch">/)
+    expect(html).toMatch(/<meta property="og:description" content="All about the launch">/)
+    expect(html).toMatch(/<meta name="robots" content="noindex">/)
+  })
+
   it('serves each locale\'s pattern with the type\'s component and layout (Pruvious #73)', async () => {
     const { body } = await api('/api/_atelier/collections/projects', 'POST', { data: { name: 'Harbour', slug: 'harbour' } })
     expect(body.path).toBe('/projects/harbour')
