@@ -1,16 +1,39 @@
 // The catch-all page (`/:path(.*)*`, ranked below every page of the app): renders the entry whose URL
 // this is, with its type's component and layout, or the host's 404 error page.
 import type { Component } from 'vue'
-import { defineComponent, h, resolveDynamicComponent } from 'vue'
-import { createError } from '#imports'
+import { computed, defineComponent, h, resolveDynamicComponent } from 'vue'
+import { createError, useHead, useRoute, useRuntimeConfig, useSeoMeta } from '#imports'
 import { NuxtLayout } from '#components'
 import AtelierBlocks from '../components/Blocks'
+import { resolveSeo } from '../../shared/seo'
 import { useAtelierRouteEntry } from '../composables/useAtelierRouteEntry'
 
 export default defineComponent({
   name: 'AtelierPage',
   async setup() {
-    const { data, error } = await useAtelierRouteEntry()
+    const route = useAtelierRouteEntry()
+    // search and social metadata, rendered on the server (shared/seo.ts). Registered before the await: after
+    // it, outside an SFC, there's no Nuxt context to register them with.
+    const config = useRuntimeConfig().public.atelier as { siteUrl?: string, seo?: { titleTemplate?: string } } | undefined
+    const path = useRoute().path
+    const seo = computed(() => route.data.value ? resolveSeo({ data: route.data.value.entry.data as Record<string, unknown>, media: route.data.value.media }, { path, siteUrl: config?.siteUrl }) : undefined)
+    const template = config?.seo?.titleTemplate ?? '%s'
+    useHead(() => ({
+      titleTemplate: (title?: string) => title ? template.replace('%s', title) : null,
+      link: seo.value ? [{ rel: 'canonical', href: seo.value.canonical }] : [],
+    }))
+    useSeoMeta({
+      title: () => seo.value?.title,
+      description: () => seo.value?.description,
+      ogTitle: () => seo.value?.title,
+      ogDescription: () => seo.value?.description,
+      ogImage: () => seo.value?.image,
+      ogUrl: () => seo.value?.canonical,
+      ogType: 'website',
+      twitterCard: () => seo.value?.image ? 'summary_large_image' : 'summary',
+      robots: () => seo.value?.robots,
+    })
+    const { data, error } = await route
     const page = data.value
     if (error.value || !page) {
       // not found, or not readable by this visitor: the same 404, so it doesn't tell which.

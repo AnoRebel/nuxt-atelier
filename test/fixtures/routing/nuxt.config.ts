@@ -4,5 +4,5 @@
 export default defineNuxtConfig({
   modules: ['../../../packages/core/src/module'],
   compatibilityDate: '2026-10-01',
-  atelier: { migrations: { autoApply: true }, jobs: { schedule: '*/2 * * * * *', triggerBudget: 1 }, webhooks: { allow: ['127.0.0.1'] } },
+  atelier: { migrations: { autoApply: true }, jobs: { schedule: '*/2 * * * * *', triggerBudget: 1 }, webhooks: { allow: ['127.0.0.1'] }, seo: { titleTemplate: '%s · Atelier' } },
 })
