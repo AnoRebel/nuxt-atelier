@@ -131,9 +131,11 @@ export function contentApiSuite(label: string, rootDir: string) {
       expect((await api(null, 'GET', '/schema')).status).toBe(401)
       const all = (await api('admin', 'GET', '/schema')).body
       expect(all.capabilities).toContain('users')
+      expect(all.roles.map((r: { name: string }) => r.name)).toEqual(expect.arrayContaining(['admin', 'writer', 'intern']))
       expect(all.collections.map((c: { name: string }) => c.name)).toEqual(expect.arrayContaining(['articles', 'authors', 'products']))
       const writer = (await api('writer', 'GET', '/schema')).body
       expect(writer.capabilities).toEqual([])
+      expect(writer).not.toHaveProperty('roles')
       const articles = writer.collections.find((c: { name: string }) => c.name === 'articles')
       expect(articles).toMatchObject({ can: { create: true, read: true, update: true, publish: false }, ownOnly: ['update', 'delete'], readOnly: ['slug'] })
       expect(articles.fields).not.toHaveProperty('internalNotes')

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
 const storage = 'test/storage/**/*.test.ts'
@@ -5,6 +6,13 @@ const storage = 'test/storage/**/*.test.ts'
 const compat = 'test/compat/**/*.test.ts'
 
 export default defineConfig({
+  // the admin's composables import Nuxt's and the core's aliases: unit tests get stand-ins
+  resolve: {
+    alias: {
+      '#imports': fileURLToPath(new URL('./test/admin/stubs/imports.ts', import.meta.url)),
+      '#atelier/shared': fileURLToPath(new URL('./packages/core/src/runtime/shared', import.meta.url)),
+    },
+  },
   test: {
     testTimeout: 120_000,
     hookTimeout: 300_000,

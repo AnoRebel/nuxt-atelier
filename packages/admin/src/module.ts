@@ -74,6 +74,8 @@ const module: NuxtModule = defineNuxtModule({
       'useAtelierNavigation',
       'useAtelierCollection',
       'useAtelierEntryForm',
+      'useAtelierUsers',
+      'useAtelierRoles',
     ].map(name => ({ name, from: resolve(`./runtime/composables/${name}`) })))
   },
 })

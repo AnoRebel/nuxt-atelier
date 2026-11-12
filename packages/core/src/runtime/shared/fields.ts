@@ -291,7 +291,8 @@ const builders: { [T in Field['type']]: (field: Extract<Field, { type: T }>) => 
   relation: f => f.many ? pipe(v.array(id, 'expected a list of ids'), unique, ...items(f)) : id,
   object: f => entrySchema(f.fields, true),
   repeater: f => pipe(v.arrayAsync(entrySchema(f.fields, true), 'expected a list'), ...items(f)),
-  custom: f => pipe(stored[f.storage], standard(f.schema)),
+  // the field type's schema is server-only: in the admin (serialised fields) only the storage shape is checked
+  custom: f => f.schema ? pipe(stored[f.storage], standard(f.schema)) : stored[f.storage],
   blocks: f => pipe(v.array(v.object({
     id,
     type: f.allow ? v.picklist(f.allow, `expected one of: ${f.allow.join(', ')}`) : v.pipe(v.string('expected a block type'), v.nonEmpty('expected a block type')),

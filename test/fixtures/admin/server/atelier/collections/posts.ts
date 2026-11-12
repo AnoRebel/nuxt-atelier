@@ -1,4 +1,5 @@
 import { boolean, date, defineCollection, multiSelect, number, object, relation, repeater, richText, select, slug, text, textarea } from '#atelier/server'
+import { geoPoint } from '../fields'
 
 export default defineCollection({
   labels: { singular: 'Post', plural: 'Posts' },
@@ -16,6 +17,7 @@ export default defineCollection({
     publishedOn: date(),
     author: relation({ to: 'authors', onDelete: 'nullify' }),
     seo: object({ fields: { title: text(), noindex: boolean() } }),
+    location: geoPoint(),
     faq: repeater({ fields: { question: text({ required: true }), answer: textarea() } }),
   },
 })

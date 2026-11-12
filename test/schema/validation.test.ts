@@ -139,3 +139,12 @@ describe('limits', () => {
     ])
   })
 })
+
+describe('fields as the admin has them (serialised, without server-only validators)', () => {
+  it('checks a custom field\'s storage shape only', async () => {
+    const point = f.defineFieldType({ name: 'point', storage: 'json', schema: { '~standard': { version: 1, vendor: 't', validate: () => ({ issues: [{ message: 'never' }] }) } } as f.StandardSchema })
+    const serialised = JSON.parse(f.serialiseFields({ where: point() })) as f.Fields
+    expect(await errors(serialised, { where: { lat: 1, lng: 2 } })).toEqual([])
+    expect(await errors({ where: point() }, { where: { lat: 1, lng: 2 } })).toEqual([{ path: 'where', message: 'never' }])
+  })
+})

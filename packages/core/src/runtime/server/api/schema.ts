@@ -1,13 +1,13 @@
 // What the admin builds itself from: the content types the caller may read, with their fields (validators
 // left out, fields the caller can't read removed), what the caller may do with each, the blocks, the
-// locales and the admin areas the caller manages.
+// locales and the admin areas the caller manages (with the role names, to those who manage users or roles).
 //   GET /api/_atelier/schema
 import type { Capability, ContentAction } from '../../shared/policy'
 import { defineEventHandler } from 'nuxt/server'
 import { serialiseFields } from '../../shared/fields'
 import { caller } from '../content-access'
 import { apiError } from '../errors'
-import { useAtelierSchema } from '../index'
+import { useAtelierRoles, useAtelierSchema } from '../index'
 
 const ACTIONS: ContentAction[] = ['create', 'read', 'update', 'delete', 'publish']
 const CAPABILITIES: Capability[] = ['users', 'roles', 'settings', 'media', 'redirects']
@@ -35,9 +35,16 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const capabilities = CAPABILITIES.filter(capability => policy.can(user, 'manage', capability))
+  // the roles a user can be given, for those who manage users or roles
+  const roles = capabilities.includes('users') || capabilities.includes('roles')
+    ? (await (await useAtelierRoles()).list()).filter(r => r.name !== 'public').map(r => ({ name: r.name, ...r.role.label ? { label: r.role.label } : {} }))
+    : undefined
+
   return {
     user: { id: user.id, role: user.role },
-    capabilities: CAPABILITIES.filter(capability => policy.can(user, 'manage', capability)),
+    capabilities,
+    ...roles ? { roles } : {},
     locales,
     collections: Object.entries(collections)
       .filter(([name]) => policy.can(user, 'read', name))

@@ -3,7 +3,15 @@
   "compilerOptions": {
     "types": [
       "bun"
-    ]
+    ],
+    "paths": {
+      "#imports": [
+        "./test/admin/stubs/imports.ts"
+      ],
+      "#atelier/shared/*": [
+        "./packages/core/src/runtime/shared/*"
+      ]
+    }
   },
   "include": [
     "scripts/**/*.ts",

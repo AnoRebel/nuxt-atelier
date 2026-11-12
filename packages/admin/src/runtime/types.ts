@@ -24,6 +24,8 @@ export interface SingletonType extends ContentType { label?: string }
 export interface AdminSchema {
   user: { id: string, role: string }
   capabilities: Capability[]
+  /** The roles a user can be given; sent to those who manage users or roles. */
+  roles?: { name: string, label?: string }[]
   locales: { codes: string[], default: string, fallback: Record<string, string[]> }
   collections: CollectionType[]
   singletons: SingletonType[]
@@ -56,3 +58,17 @@ export interface AdminApiError {
   /** Fields the user isn't allowed to change. */
   fields?: string[]
 }
+
+export interface ContentPermission {
+  actions: ContentAction[]
+  ownOnly?: ContentAction[]
+  hidden?: string[]
+  readOnly?: string[]
+}
+export interface Role {
+  label?: string
+  capabilities?: Capability[]
+  content?: Record<string, ContentPermission>
+}
+/** `code` roles come from server/atelier/roles.ts and can't be edited in the admin; `admin` is built in. */
+export interface RoleEntry { name: string, role: Role, source: 'builtin' | 'code' | 'database' }
