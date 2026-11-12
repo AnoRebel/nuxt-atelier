@@ -1050,3 +1050,15 @@ button:not(:disabled),
   max-block-size: 2rem;
   max-inline-size: 10rem;
 }
+.app-widgets {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+}
+.app-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

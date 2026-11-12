@@ -144,6 +144,18 @@ export function contentApiSuite(label: string, rootDir: string) {
       expect((await api('intern', 'GET', '/schema')).body.collections.map((c: { name: string }) => c.name)).toEqual(['articles'])
     })
 
+    it('gives each user their own dashboard: their drafts, and the administrators\' widgets only to them', async () => {
+      const mine = (await api('writer', 'POST', '/collections/articles', { data: { title: 'Dashboard draft' } })).body
+      const writer = (await api('writer', 'GET', '/dashboard')).body
+      expect(writer).not.toHaveProperty('failedJobs')
+      expect(writer).not.toHaveProperty('activity')
+      expect(writer.drafts.every((d: { id: string }) => d.id !== undefined)).toBe(true)
+      expect((await api('admin', 'GET', '/dashboard')).body).toMatchObject({ failedJobs: expect.any(Array), activity: expect.any(Array), pendingMigrations: 0 })
+      // the articles type isn't versioned here: every save is published, so it's no draft
+      expect(writer.drafts.map((d: { id: string }) => d.id)).not.toContain(mine.id)
+      expect((await api(null, 'GET', '/dashboard')).status).toBe(401)
+    })
+
     it('reads a singleton\'s defaults before its first save, then saves it', async () => {
       expect((await api('writer', 'GET', '/singletons/settings')).body).toMatchObject({ version: null, data: { siteName: 'My site' } })
       const saved = await api('writer', 'PATCH', '/singletons/settings', { version: null, data: { footer: '© Atelier' } })
