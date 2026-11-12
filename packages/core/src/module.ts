@@ -58,6 +58,18 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       ...config.public.atelier as object | undefined,
     }
 
+    // Security headers: the admin may only be framed by itself (its preview frames the site, not the reverse),
+    // and nothing under it or the CMS API is sniffed into another type. A rule the host sets for the same path wins.
+    const base = resolved.admin.base
+    const common = { 'x-content-type-options': 'nosniff', 'referrer-policy': 'same-origin' }
+    const admin = { headers: { ...common, 'x-frame-options': 'SAMEORIGIN', 'content-security-policy': 'frame-ancestors \'self\'; base-uri \'self\'; object-src \'none\'; form-action \'self\'' } }
+    nuxt.options.routeRules = {
+      [base]: admin,
+      [`${base}/**`]: admin,
+      '/api/_atelier/**': { headers: { ...common, 'x-frame-options': 'DENY' } },
+      ...nuxt.options.routeRules,
+    } as typeof nuxt.options.routeRules
+
     nuxt.options.alias['#atelier/server'] = resolve('./runtime/server')
     nuxt.options.alias['#atelier'] = resolve('./runtime/app')
 
@@ -97,6 +109,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerTemplate({ filename: '#atelier-drivers', getContents: () => driversTemplate(nuxt.options.rootDir, resolved.database.url) })
     addServerTemplate({ filename: '#atelier-migrations', getContents: () => migrationsTemplate(nuxt.options.rootDir) })
     addServerPlugin(resolve('./runtime/server/plugins/limits'))
+    addServerPlugin(resolve('./runtime/server/plugins/secret'))
     addServerPlugin(resolve('./runtime/server/plugins/migrations'))
     addServerPlugin(resolve('./runtime/server/plugins/shutdown'))
     addServerPlugin(resolve('./runtime/server/plugins/jobs'))
@@ -157,6 +170,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       addServerHandler({ route: `/api/_atelier/auth/${route}`, method, handler: resolve(`./runtime/server/api/auth/${route}.${method}`) })
     if (resolved.auth.passkeys) // off: no passkey routes, so they 404 and nothing of @simplewebauthn is bundled
       addServerHandler({ route: '/api/_atelier/auth/passkeys/**', handler: resolve('./runtime/server/api/auth/passkeys') })
+    addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/request-id') })
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/csrf') })
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/redirects') })
     addServerHandler({ route: '/api/_atelier/audit', method: 'get', handler: resolve('./runtime/server/api/audit') })

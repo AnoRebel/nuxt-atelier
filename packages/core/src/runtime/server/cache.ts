@@ -5,6 +5,7 @@
 import type { LifecycleHook, LifecycleHooks } from './db/store'
 import { useServerHooks } from 'nuxt/server'
 import { useAtelierServerConfig } from './index'
+import { logger } from './logger'
 
 /** A committed content write. `live` when what the site serves changed (a publish, or a save that publishes). */
 export interface ContentChange {
@@ -68,6 +69,6 @@ export async function contentChanged(change: ContentChange): Promise<void> {
     await useServerHooks().callHook('atelier:content:changed', change)
   }
   catch (error) {
-    console.error('[nuxt-atelier] An atelier:content:changed hook failed:', error)
+    logger.error('An atelier:content:changed hook failed', { error })
   }
 }

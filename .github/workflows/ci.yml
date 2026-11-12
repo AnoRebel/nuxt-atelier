@@ -56,6 +56,10 @@ jobs:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: bun run licenses
+      # known vulnerabilities in what the published packages install (dev tooling isn't shipped)
+      - run: bun audit --omit=dev --audit-level=high
+      - run: bun run deps
+      - run: bun run knip
       - run: bun run lint
       # before typecheck and test: the layer and its fixtures load the module's dist/
       - run: bun run build
