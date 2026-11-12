@@ -19,6 +19,10 @@ export const humanize = (name: string) => {
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
+/** One entry of a collection: `labels.singular`, else its name without a plural "s" (`authors` → `Author`). */
+export const singularLabel = (type: { name: string, labels?: { singular?: string } }) =>
+  type.labels?.singular ?? humanize(type.name.replace(/(?<=[^s])s$/, ''))
+
 /** Admin areas shown to those who manage them. */
 const AREAS: { capability: Capability, label: string, icon: string, path: string }[] = [
   { capability: 'users', label: 'Users', icon: 'users', path: 'users' },

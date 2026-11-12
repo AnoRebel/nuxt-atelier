@@ -5,12 +5,12 @@
 <script setup lang="ts">
 import type { Field } from '../types'
 import { useQuery } from '@tanstack/vue-query'
-import { computed, resolveComponent } from 'vue'
+import { computed, ref, resolveComponent } from 'vue'
 import { applies } from '#atelier/shared/fields'
 import { atelierFetch } from '../composables/useAtelierAdmin'
 import { titleField } from '../composables/useAtelierCollection'
 import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
-import { humanize } from '../composables/useAtelierNavigation'
+import { humanize, singularLabel } from '../composables/useAtelierNavigation'
 import CnButton from '../crystal-neuo/components/Button.vue'
 import CnCheckbox from '../crystal-neuo/components/Checkbox.vue'
 import CnInput from '../crystal-neuo/components/Input.vue'
@@ -19,6 +19,7 @@ import CnTextarea from '../crystal-neuo/components/Textarea.vue'
 import CnToggle from '../crystal-neuo/components/Toggle.vue'
 import { pascal, useOverrides } from '../overrides'
 import Icon from './Icon'
+import RelatedCreate from './RelatedCreate.vue'
 
 defineOptions({ name: 'AtelierAdminFieldInput' })
 
@@ -77,6 +78,7 @@ const related = useQuery({
   queryFn: () => atelierFetch<{ items: { id: string, data: Record<string, unknown> }[] }>(`/collections/${encodeURIComponent(target.value!.name)}`, { query: { limit: 100, draft: 'true' } }),
   enabled: computed(() => !!target.value),
 })
+const creating = ref(false)
 const relatedOptions = computed(() => {
   const key = titleField(target.value)
   return (related.data.value?.items ?? []).map(e => ({ value: e.id, label: String((key && e.data[key]) || e.id) }))
@@ -300,6 +302,23 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
             @update:model-value="(v: string) => f.handleChange(v || null)"
             @blur="f.handleBlur"
           />
+          <template v-if="field.type === 'relation' && target?.can.create && !readOnly">
+            <div>
+              <CnButton
+                variant="ghost"
+                size="sm"
+                @click="creating = true"
+              >
+                <Icon name="plus" />
+                New {{ singularLabel(target).toLowerCase() }}
+              </CnButton>
+            </div>
+            <RelatedCreate
+              v-model:open="creating"
+              :collection="target.name"
+              @created="(id: string) => f.handleChange(field.many ? [...((f.state.value as string[] | null) ?? []), id] : id)"
+            />
+          </template>
         </div>
       </template>
     </form.Field>
