@@ -57,7 +57,9 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run licenses
       # known vulnerabilities in what the published packages install (dev tooling isn't shipped)
-      - run: bun audit --omit=dev --audit-level=high
+      # GHSA-mrhx-c7xc-m3w5 (zod <4.6.6): published packages get 4.6.7 (root overrides); only @nuxt/content in
+      # the private docs site and UI fixture still has zod 3, which has no fixed release. Drop when it moves to 4.
+      - run: bun audit --omit=dev --audit-level=high --ignore=GHSA-mrhx-c7xc-m3w5
       - run: bun run deps
       - run: bun run knip
       - run: bun run lint
