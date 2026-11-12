@@ -163,6 +163,22 @@ describe('admin', async () => {
     expect(await page.locator('[data-recovery]').count()).toBe(0) // saved: no copy left
   })
 
+  it('creates a related entry from a relation field, keeping the form\'s unsaved changes', async () => {
+    const page = await signIn()
+    await page.goto(url('/admin/collections/posts/new'))
+    await page.getByLabel('Title *').fill('With an author')
+    await page.getByRole('button', { name: 'New author' }).click()
+    const dialog = page.getByRole('dialog', { name: 'New author' })
+    await dialog.getByLabel('Name *').fill('Grace')
+    await dialog.getByRole('button', { name: 'Create author' }).click()
+    await dialog.waitFor({ state: 'hidden' })
+    expect(await page.getByLabel('Title *').inputValue()).toBe('With an author') // kept
+    const author = page.getByLabel('Author', { exact: true })
+    await expect.poll(async () => author.locator('option:checked').textContent()).toBe('Grace')
+    await page.getByRole('button', { name: 'Save draft' }).click()
+    await page.waitForURL(/\/admin\/collections\/posts\/(?!new)[^/]+$/)
+  })
+
   it('keeps the site\'s CSS out of the admin, and the admin\'s CSS off the site\'s pages', async () => {
     const page = await createPage(url('/admin'))
     await page.getByLabel('Email').waitFor()
