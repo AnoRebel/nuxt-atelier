@@ -37,14 +37,16 @@ const readOnly = (key: string) => !canSave.value || (type.value?.readOnly.includ
 
 async function save() {
   error.value = ''
-  await form.handleSubmit()
-  if (edit.save.error.value) {
-    const failure = edit.save.error.value as unknown as AdminApiError
+  try {
+    await edit.submit()
+  }
+  catch (e) {
+    const failure = e as AdminApiError
     error.value = failure.status === 409 ? 'Someone saved this entry after you opened it. Reload to see their changes.' : failure.message
     return
   }
-  if (!form.state.isValid)
-    return
+  if (!form.state.isSubmitSuccessful)
+    return // invalid: the fields show why
   toast.add({ color: 'success', title: type.value?.versioned ? 'Draft saved' : 'Saved' })
   if (edit.isNew.value && edit.save.data.value)
     await navigateTo(to('collections', props.name, edit.save.data.value.id), { replace: true })

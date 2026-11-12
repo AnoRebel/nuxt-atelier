@@ -42,6 +42,8 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
 
   const form = useForm({
     defaultValues: {} as Record<string, unknown>,
+    // validation runs again on every submit (see submit()): a failed one mustn't block the next
+    canSubmitWhenInvalid: true,
     validators: {
       // the server validates too (and checks uniqueness); this only saves a round trip
       onSubmitAsync: async ({ value }) => {
@@ -89,9 +91,20 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
   const unpublish = useMutation({ mutationFn: () => atelierFetch<Saved>(`${url.value}/unpublish`, { method: 'POST' }), onSuccess: invalidate })
   const remove = useMutation({ mutationFn: () => atelierFetch(url.value, { method: 'DELETE' }), onSuccess: invalidate })
 
+  /**
+   * Validates and saves. Errors from the previous submit and from the server are cleared first, so fields a
+   * kit doesn't bind (or binds without validators) don't keep stale ones.
+   */
+  async function submit() {
+    for (const key of Object.keys(form.state.fieldMeta))
+      form.setFieldMeta(key as never, meta => ({ ...meta, errorMap: { ...meta?.errorMap, onSubmit: undefined, onServer: undefined } }) as never)
+    await form.handleSubmit()
+  }
+
   return {
     type,
     form,
+    submit,
     entry: computed(() => entry.data.value),
     isNew,
     loading: computed(() => !isNew.value && entry.isPending.value),

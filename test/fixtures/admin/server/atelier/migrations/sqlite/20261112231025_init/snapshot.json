@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "ca1d28d2-a884-4b11-be35-1b0f7c9a4f92",
+  "id": "6ea03515-e65f-4417-8783-feebe151776a",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1354,6 +1354,16 @@
     },
     {
       "table": "atelier_c_posts",
+      "name": "location",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_posts",
       "name": "faq",
       "type": "text",
       "notNull": false,
@@ -1505,6 +1515,16 @@
     {
       "table": "atelier_p_posts",
       "name": "seo",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_posts",
+      "name": "location",
       "type": "text",
       "notNull": false,
       "autoincrement": false,

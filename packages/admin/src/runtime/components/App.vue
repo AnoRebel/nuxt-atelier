@@ -12,10 +12,13 @@ import EntryEdit from './EntryEdit.vue'
 import Home from './Home.vue'
 import Icon from './Icon'
 import NotFound from './NotFound.vue'
+import RoleEdit from './RoleEdit.vue'
+import Roles from './Roles.vue'
 import Setup from './Setup.vue'
 import Shell from './Shell.vue'
 import SignIn from './SignIn.vue'
 import Toaster from './Toaster.vue'
+import Users from './Users.vue'
 
 const props = defineProps<{ root: HTMLElement }>()
 
@@ -76,6 +79,13 @@ const session = useAtelierSession()
       :key="segments[1]"
       kind="singleton"
       :name="segments[1]!"
+    />
+    <Users v-else-if="segments[0] === 'users' && segments.length === 1" />
+    <Roles v-else-if="segments[0] === 'roles' && segments.length === 1" />
+    <RoleEdit
+      v-else-if="segments[0] === 'roles' && segments.length === 2"
+      :key="segments[1]"
+      :name="segments[1] === 'new' ? undefined : segments[1]"
     />
     <NotFound v-else />
   </Shell>

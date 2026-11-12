@@ -18,8 +18,11 @@ export const humanize = (name: string) => {
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
-/** Admin areas shown to those who manage them (users and roles screens: task 15.4). */
-const AREAS: { capability: Capability, label: string, icon: string, path: string }[] = []
+/** Admin areas shown to those who manage them. */
+const AREAS: { capability: Capability, label: string, icon: string, path: string }[] = [
+  { capability: 'users', label: 'Users', icon: 'users', path: 'users' },
+  { capability: 'roles', label: 'Roles', icon: 'shield', path: 'roles' },
+]
 
 export function useAtelierNavigation() {
   const { to } = useAtelierAdmin()

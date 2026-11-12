@@ -1034,3 +1034,14 @@ button:not(:disabled),
   clip-path: inset(50%);
   white-space: nowrap;
 }
+.app-actions-cell {
+  text-align: end;
+  white-space: nowrap;
+}
+.app-permissions td,
+.app-permissions th {
+  text-align: center;
+}
+.app-permissions :is(td, th):first-child {
+  text-align: start;
+}

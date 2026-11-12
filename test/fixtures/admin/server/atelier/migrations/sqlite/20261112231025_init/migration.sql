@@ -170,6 +170,7 @@ CREATE TABLE `atelier_c_posts` (
 	`featured` integer,
 	`publishedOn` text,
 	`seo` text,
+	`location` text,
 	`faq` text
 );
 --> statement-breakpoint
@@ -189,6 +190,7 @@ CREATE TABLE `atelier_p_posts` (
 	`featured` integer,
 	`publishedOn` text,
 	`seo` text,
+	`location` text,
 	`faq` text
 );
 --> statement-breakpoint

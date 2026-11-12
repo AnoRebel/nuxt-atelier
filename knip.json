@@ -223,7 +223,6 @@
     }
   },
   "ignoreUnresolved": [
-    "#imports",
     "#atelier",
     "#atelier-schema",
     "#atelier/server",
@@ -233,7 +232,6 @@
     "#atelier-blocks",
     "#components",
     "#atelier-host-pages",
-    "#atelier/shared/fields",
     "#atelier-admin-icons",
     "#atelier-admin-passkeys"
   ]
