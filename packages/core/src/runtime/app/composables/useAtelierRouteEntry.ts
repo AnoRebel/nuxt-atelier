@@ -17,6 +17,8 @@ export interface AtelierRoute<N extends CollectionName = CollectionName> {
   entry: TypedEntry<N>
   /** The media items the entry uses, by id. */
   media?: Record<string, MediaSummary>
+  /** A localized entry published in more than one locale: its path in each (without a locale prefix). */
+  alternates?: Record<string, string>
 }
 
 /**

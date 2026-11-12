@@ -69,6 +69,14 @@ export default defineEventHandler(async (event) => {
     const { component, layout } = definition.route!
     const data = await present(who, definition.fields, route.name, entry.data)
     const media = await mediaOf(who, definition.fields, data)
+    // a localized entry's URL in each locale it's published in (drafts: has a draft in), for hreflang links
+    const translations = (entry as { translations?: Record<string, string> }).translations
+    const alternates: Record<string, string> = {}
+    for (const [locale, id] of Object.entries(translations ?? {})) {
+      const path = id === route.id ? route.path : (await entries.get(route.name, id, { stage }))?.path
+      if (path)
+        alternates[locale] = path
+    }
     const answer = {
       ...route,
       component: component ?? null,
@@ -77,6 +85,7 @@ export default defineEventHandler(async (event) => {
       blocks: Object.entries(definition.fields).filter(([, f]) => f.type === 'blocks').map(([key]) => key),
       entry: { ...entry, path: route.path, data },
       ...Object.keys(media).length ? { media } : {},
+      ...Object.keys(alternates).length > 1 ? { alternates } : {},
     }
     if (shared && path !== undefined)
       remember(key, answer)
