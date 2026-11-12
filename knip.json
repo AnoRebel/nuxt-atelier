@@ -26,7 +26,8 @@
         "src/runtime/app/components/*.ts",
         "src/runtime/app/pages/*.ts",
         "src/adapter.ts",
-        "src/storage.ts"
+        "src/storage.ts",
+        "src/runtime/app/composables/*.ts"
       ]
     },
     "packages/storage-s3": {
@@ -177,6 +178,23 @@
       "entry": [
         "server/**/*.ts",
         "app/**/*.vue"
+      ]
+    },
+    "test/fixtures/i18n-micro": {
+      "entry": [
+        "app/components/global/*.vue",
+        "server/**/*.ts"
+      ]
+    },
+    "test/fixtures/i18n-nuxtjs": {
+      "entry": [
+        "app/components/global/*.vue",
+        "server/**/*.ts"
+      ]
+    },
+    "test/fixtures/i18n-micro-v5": {
+      "ignoreDependencies": [
+        "nuxt-i18n-micro"
       ]
     }
   },

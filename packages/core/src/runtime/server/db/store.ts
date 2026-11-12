@@ -10,12 +10,13 @@ import type { AtelierDriver } from './driver'
 import type { Db } from './entries'
 import type { ContentSchema, Stage } from './tables'
 import type { ListQuery } from './query'
-import { and, asc, eq, inArray, lt, lte, notInArray, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, lt, lte, notInArray, or, sql } from 'drizzle-orm'
 import { validateEntry } from '../../shared/fields'
+import { fallbackChain, resolveLocales } from '../../shared/locales'
 import { REDIRECT_STATUSES, redirectLoop, sourceProblem, targetProblem } from '../redirects'
 import { entryPaths, MAX_PATH, patterns, presentPaths } from '../routes'
 import { deadlocked, UnsupportedOperationError } from './driver'
-import { fromRow, getRow, isUnique, toRow } from './entries'
+import { fromRow, getRow, isEmpty, isUnique, toRow } from './entries'
 import { afterCursor, compileFilter, compileSort, decodeCursor, encodeCursor, orderBy } from './query'
 import { buildTables, collectionTable, published } from './tables'
 
@@ -61,6 +62,11 @@ export interface GetOptions {
   depth?: number
   /** What the site serves (the default), or the drafts editors work on. */
   stage?: Stage
+  /**
+   * Localized collections: the version in this locale. Missing, the first of its fallback locales that
+   * has one; translated fields left empty are filled from the next ones (see `Entry.fallbacks`).
+   */
+  locale?: string
 }
 
 export interface Entry {
@@ -76,6 +82,12 @@ export interface Entry {
   paths?: Record<string, string>
   /** The version the site serves, or null when it isn't published. Below `version`: unpublished changes. */
   publishedVersion: number | null
+  /** Localized collections: this version's locale. */
+  locale?: string
+  /** Localized collections: the ids of its translations (itself included), by locale. */
+  translations?: Record<string, string>
+  /** Read in a locale: the fields filled from another locale's version, with that locale. */
+  fallbacks?: Record<string, string>
   data: Record<string, unknown>
 }
 
@@ -98,6 +110,11 @@ export interface ListOptions extends ListQuery {
   stage?: Stage
   /** Only entries this user created (own-entries-only permissions). */
   createdBy?: string
+  /**
+   * Localized collections: the entries in this locale (the default locale when omitted). Given, their empty
+   * translated fields are filled from the fallback locales, as for `get`.
+   */
+  locale?: string
 }
 
 export interface EntryList {
@@ -129,6 +146,10 @@ export interface SaveInput {
   authorId?: string
   /** Publish the saved version too. Types that aren't `versioned` always do. */
   publish?: boolean
+  /** Creating in a localized collection: the new version's locale (the default locale when omitted). */
+  locale?: string
+  /** Creating in a localized collection: an entry this one translates, linking the two. */
+  translationOf?: string
 }
 
 interface RelationRow { field: string, position: number, target: string, targetId: string }
@@ -207,6 +228,44 @@ function withoutRefs(fields: Record<string, Field>, data: Record<string, unknown
   return out
 }
 
+interface Block { id: string, type: string, props?: Record<string, unknown> }
+const isBlockList = (x: unknown): x is Block[] => Array.isArray(x) && x.every(b => b && typeof b === 'object' && typeof b.id === 'string' && typeof b.type === 'string')
+
+/**
+ * Shared block structure: `source`'s blocks (which, their order, nesting and options), each keeping the
+ * translated fields of the block with its id in `translation` (anywhere in it: a moved block keeps its
+ * text). A block new to the translation has the source's text, to be translated. Fields marked `shared`
+ * follow the source too.
+ */
+function sameStructure(source: unknown, translation: unknown, blocks: Record<string, BlockSchema>): Block[] | null {
+  if (!isBlockList(source))
+    return null
+  const own = new Map<string, Block>()
+  const collect = (list: unknown) => {
+    if (!isBlockList(list))
+      return
+    for (const block of list) {
+      own.set(block.id, block)
+      for (const area of Object.keys(blocks[block.type]?.areas ?? {}))
+        collect(block.props?.[area])
+    }
+  }
+  collect(translation)
+  const build = (list: Block[]): Block[] => list.map((block) => {
+    const schema = blocks[block.type]
+    const mine = own.get(block.id)
+    const props: Record<string, unknown> = { ...block.props }
+    for (const [key, field] of Object.entries(schema?.fields ?? {})) {
+      if (!field.shared && mine?.type === block.type && mine.props && key in mine.props)
+        props[key] = mine.props[key]
+    }
+    for (const area of Object.keys(schema?.areas ?? {}))
+      props[area] = isBlockList(block.props?.[area]) ? build(block.props[area] as Block[]) : block.props?.[area]
+    return { ...block, props }
+  })
+  return build(source)
+}
+
 /** Data saved under a field's previous key reads under its new one. */
 function renamed(fields: Record<string, Field>, data: Record<string, unknown>): Record<string, unknown> {
   const from = new Map(Object.entries(fields).flatMap(([key, f]) => f.renamedFrom === undefined ? [] : [[f.renamedFrom, key]]))
@@ -255,6 +314,10 @@ interface Target<T> {
   fields: Record<string, Field>
   source: string
   sourceId: string
+  /** A localized entry's locale: given when creating, else looked up when needed. */
+  locale?: string
+  /** Creating a translation: the group of the entry it translates. */
+  group?: string
   /** The version the client read; undefined creates. */
   expected: number | undefined
   authorId: string | undefined
@@ -321,6 +384,40 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     const size = d1 ? Math.max(1, Math.floor(100 / Object.keys(rows[0]!).length)) : 1000
     return Array.from({ length: Math.ceil(rows.length / size) }, (_, i) => q.insert(table).values(rows.slice(i * size, (i + 1) * size)))
   }
+  const locales = resolveLocales(schema.locales)
+  const localized = (source: string) => !!schema.collections[source]?.localized
+  /** The fields one value of which serves every locale of a localized collection. */
+  const sharedKeys = (source: string) => localized(source) ? Object.entries(schema.collections[source]!.fields).filter(([, f]) => f.shared).map(([key]) => key) : []
+  /** Blocks fields whose structure every locale shares (`localized: { blocks: 'shared' }`). */
+  const sharedBlockKeys = (source: string) => {
+    const option = schema.collections[source]?.localized
+    return typeof option === 'object' && option.blocks === 'shared'
+      ? Object.entries(schema.collections[source]!.fields).filter(([, f]) => f.type === 'blocks' && !f.shared).map(([key]) => key)
+      : []
+  }
+  /** A localized entry's locale and translation group, from its draft row (which every entry has). */
+  const placeOf = async (q: Db, source: string, id: string): Promise<{ _locale: string, _group: string | null } | undefined> => {
+    const table = tables[collectionTable(source)]
+    return (await q.select({ _locale: table._locale, _group: table._group }).from(table).where(eq(table._id, id)).limit(1))[0]
+  }
+  /** A localized entry's locale: undefined when the collection isn't localized, or there's no such entry. */
+  const entryLocale = async (q: Db, source: string, id: string): Promise<string | undefined> =>
+    localized(source) ? (await placeOf(q, source, id))?._locale : undefined
+  /** The translations of the entries in `groups` (a group is its first entry's id): ids by locale, per group. */
+  const translationsOf = async (q: Db, table: Db, groups: string[]): Promise<Map<string, Record<string, string>>> => {
+    const byGroup = new Map<string, Record<string, string>>()
+    const size = d1 ? 45 : 500 // each id is bound twice
+    for (let i = 0; i < groups.length; i += size) {
+      const chunk = groups.slice(i, i + size)
+      const rows: { id: string, locale: string, group: string | null }[] = await q.select({ id: table._id, locale: table._locale, group: table._group })
+        .from(table).where(or(inArray(table._group, chunk), inArray(table._id, chunk)))
+      for (const row of rows) {
+        const group = row.group ?? row.id
+        byGroup.set(group, { ...byGroup.get(group), [row.locale]: row.id })
+      }
+    }
+    return byGroup
+  }
 
   /** Drafts are kept apart from what the site serves; other types publish every save. */
   const versioned = (source: string) => !!(schema.collections[source] ?? schema.singletons[source])?.versioned
@@ -377,6 +474,8 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
           .orderBy(asc(relations.sourceId), asc(relations.field), asc(relations.position))
         const urls = await storedPaths(q, name, definition.route, rows.map(r => r._id as string))
         const live = stage === 'draft' ? await publishedVersions(q, name, rows.map(r => r._id as string)) : undefined
+        const groupOf = (row: Record<string, unknown>) => (row._group ?? row._id) as string
+        const translations = definition.localized ? await translationsOf(q, table, [...new Set(rows.map(groupOf))]) : undefined
         for (const row of rows) {
           const id = row._id as string
           const data = fromRow(definition.fields, row)
@@ -393,8 +492,10 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
             createdAt: row._createdAt as string,
             updatedAt: row._updatedAt as string,
             createdBy: (row._createdBy as string | null) ?? null,
-            ...definition.route && presentPaths(definition.route, urls.get(id) ?? []),
+            // a localized entry has its own locale's URL only
+            ...definition.route && (translations ? { path: urls.get(id)?.[0]?.path ?? null } : presentPaths(definition.route, urls.get(id) ?? [])),
             publishedVersion: live ? live.get(id) ?? null : row._version as number,
+            ...translations && { locale: row._locale as string, translations: translations.get(groupOf(row)) ?? {} },
             data,
           })
         }
@@ -508,15 +609,24 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
           return { locale, path: base === undefined ? path : `${base === '/' ? '' : base}${path}` }
         })
 
+    /** An entry's own paths; a localized one's only in its locale, under that locale even for a pattern every locale shares. */
+    const ownPaths = (source: string, data: Record<string, unknown>, locale: string | undefined): EntryPath[] => {
+      const paths = entryPaths(routeOf(source), data)
+      return locale === undefined ? paths : paths.filter(p => p.locale === '' || p.locale === locale).map(p => ({ locale, path: p.path }))
+    }
+
     /**
      * The route rows for saving `data` to an entry: its paths, under its parent's for a nested route, and
      * when it already exists, the recomputed paths of every entry below it. 422 when it would be its own ancestor.
+     * `locale`: a localized entry's, looked up when it exists.
      */
-    async function planPaths(q: Db, source: string, sourceId: string, data: Record<string, unknown>, existing: boolean): Promise<PathPlan | undefined> {
+    async function planPaths(q: Db, source: string, sourceId: string, data: Record<string, unknown>, existing: boolean, locale?: string): Promise<PathPlan | undefined> {
       const route = routeOf(source)
       if (!route)
         return undefined
-      let own = entryPaths(route, data)
+      if (localized(source))
+        locale ??= await entryLocale(q, source, sourceId) ?? locales.default
+      let own = ownPaths(source, data, locale)
       const key = route.parent
       if (key && typeof data[key] === 'string') {
       // walk up to refuse a cycle; the parent's stored paths are the base
@@ -539,7 +649,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
           for (const child of await childrenOf(q, source, key, id)) {
             if (plan.ids.includes(child.id) || depth >= MAX_DEPTH)
               continue
-            const childPaths = under(entryPaths(route, child.data), paths)
+            const childPaths = under(ownPaths(source, child.data, child.locale), paths)
             plan.ids.push(child.id)
             plan.rows.push(...childPaths.map(p => ({ ...p, source, sourceId: child.id })))
             await walk(child.id, childPaths, depth + 1)
@@ -678,6 +788,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const filters = [
         ...options.filter ? [compileFilter(context, options.filter)] : [],
         ...options.createdBy === undefined ? [] : [eq(table._createdBy, options.createdBy)],
+        ...definition.localized ? [eq(table._locale, options.locale ?? locales.default)] : [],
       ]
       const where = filters.length ? and(...filters) : undefined
       const keys = compileSort(context, options.sort)
@@ -695,7 +806,9 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const more = rows.length > limit
       const pageRows = rows.slice(0, limit)
       const found = await readMany(db, name, pageRows.map(r => r.id as string))
-      const items = pageRows.map(r => found.get(r.id as string)!).filter(Boolean)
+      let items = pageRows.map(r => found.get(r.id as string)!).filter(Boolean)
+      if (definition.localized && options.locale !== undefined)
+        items = await inLocale(db, name, items, options.locale)
       const populated = await linked(await populate(db, definition.fields, items.map(e => e.data), options.depth ?? 0))
       const last = pageRows.at(-1)
       return {
@@ -705,22 +818,33 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       }
     }
 
-    function entryTarget(name: string, id: string, expected: number | undefined, authorId?: string): Target<Entry> {
+    /**
+     * The save of an entry. Creating in a localized collection: `placement` is the new version's locale, and
+     * the group of the entry it translates (none for a new entry).
+     */
+    function entryTarget(name: string, id: string, expected: number | undefined, authorId?: string, placement?: { locale: string, group?: string }): Target<Entry> {
       const { definition, table } = collection(name)
-      return {
+      const target: Target<Entry> = {
         what: `entry "${id}" in "${name}"`,
         fields: definition.fields,
         source: name,
         sourceId: id,
+        locale: placement?.locale,
+        group: placement?.group,
         expected,
         authorId,
-        isUnique: (q, publishing) => async (field, value) => await isUnique(q, table, field, value, id)
-          && (!publishing || await isUnique(q, tables[published(collectionTable(name))], field, value, id)),
+        isUnique: (q, publishing) => async (field, value) => {
+          // a localized entry's values are unique within its locale
+          target.locale ??= await entryLocale(q, name, id)
+          return await isUnique(q, table, field, value, id, target.locale)
+            && (!publishing || await isUnique(q, tables[published(collectionTable(name))], field, value, id, target.locale))
+        },
         currentVersion: async q => (await q.select({ version: table._version }).from(table).where(eq(table._id, id)))[0]?.version,
         write: (q, data, version, now) => {
           const row = toRow(definition.fields, data)
+          const place = definition.localized ? { _locale: placement?.locale ?? locales.default, _group: placement?.group ?? null } : {}
           return expected === undefined
-            ? q.insert(table).values({ _id: id, _version: version, _createdAt: now, _updatedAt: now, _createdBy: authorId ?? null, ...row })
+            ? q.insert(table).values({ _id: id, _version: version, _createdAt: now, _updatedAt: now, _createdBy: authorId ?? null, ...place, ...row })
           // only the version the client read is updated: a concurrent save makes this match nothing
             : q.update(table).set({ ...row, _version: version, _updatedAt: now }).where(and(eq(table._id, id), eq(table._version, expected)))
         },
@@ -730,6 +854,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         },
         read: async q => (await read(q, name, id))!,
       }
+      return target
     }
 
     function singletonTarget(name: string, expected: number | undefined, authorId?: string): Target<SingletonEntry> {
@@ -775,7 +900,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     async function publication(q: Db, target: Target<unknown>, data: Record<string, unknown>): Promise<unknown[]> {
       const live = stages.published
       const { source, sourceId } = target
-      const plan = await live.planPaths(q, source, sourceId, data, true)
+      const plan = await live.planPaths(q, source, sourceId, data, true, target.locale)
       await live.assertPathsFree(q, plan)
       const mine = (t: Db) => and(eq(t.source, source), eq(t.sourceId, sourceId))
       return [
@@ -803,14 +928,15 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const singletonPin = source in schema.singletons
       const fields = singletonPin ? singleton(source).fields : collection(source).definition.fields
       const publishedTable = singletonPin ? undefined : tables[published(collectionTable(source))]
+      const locale = await entryLocale(q, source, sourceId)
       const result = await validateEntry(fields, data, {
-        isUnique: publishedTable && ((field, value) => isUnique(q, publishedTable, field, value, sourceId)),
+        isUnique: publishedTable && ((field, value) => isUnique(q, publishedTable, field, value, sourceId, locale)),
         blocks: schema.blocks,
         maxNestingDepth: options.maxNestingDepth,
       })
       if (!result.success)
         throw new ValidationError(result.errors)
-      const plan = await live.planPaths(q, source, sourceId, result.value, true)
+      const plan = await live.planPaths(q, source, sourceId, result.value, true, locale)
       await live.assertPathsFree(q, plan)
       const now = new Date().toISOString()
       const links = [...relationRows(fields, result.value), ...mediaRows(fields, result.value, schema.blocks)]
@@ -822,7 +948,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
           throw new NotFoundError(`No entry "${sourceId}" in "${source}"`)
         row = [
           q.delete(publishedTable).where(eq(publishedTable._id, sourceId)),
-          q.insert(publishedTable).values({ _id: sourceId, _version: version, _createdAt: draft.createdAt, _updatedAt: now, _createdBy: draft.createdBy, ...toRow(fields, result.value) }),
+          q.insert(publishedTable).values({ _id: sourceId, _version: version, _createdAt: draft.createdAt, _updatedAt: now, _createdBy: draft.createdBy, ...localized(source) && await placeOf(q, source, sourceId), ...toRow(fields, result.value) }),
         ]
       }
       else {
@@ -918,6 +1044,75 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     }
 
     /**
+     * Keeps shared fields the same in every translation of a localized entry: each other locale's version
+     * whose shared values differ from `data`'s gets them, as a new version (and revision) of it, published
+     * too when the type publishes every save. Not validated, like a mirrored relation.
+     */
+    async function shares(q: Db, target: Target<unknown>, data: Record<string, unknown>, now: string): Promise<unknown[]> {
+      const keys = sharedKeys(target.source)
+      const structured = sharedBlockKeys(target.source)
+      if (!keys.length && !structured.length)
+        return []
+      const { source, sourceId } = target
+      const place = target.expected === undefined ? undefined : await placeOf(q, source, sourceId)
+      const group = target.expected === undefined ? target.group : place && (place._group ?? sourceId)
+      if (!group)
+        return [] // a new entry: no translations yet
+      const ids = Object.values((await translationsOf(q, collection(source).table, [group])).get(group) ?? {}).filter(id => id !== sourceId)
+      // key order aside: JSON columns come back with their keys reordered on some engines
+      const canonical = (x: unknown): unknown => Array.isArray(x)
+        ? x.map(canonical)
+        : x && typeof x === 'object' ? Object.fromEntries(Object.keys(x).toSorted().map(k => [k, canonical((x as Record<string, unknown>)[k])])) : x ?? null
+      const same = (a: unknown, b: unknown) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b))
+      const result: unknown[] = []
+      for (const entry of (await readMany(q, source, ids)).values()) {
+        const next = {
+          ...entry.data,
+          ...Object.fromEntries(keys.map(key => [key, data[key] ?? null])),
+          ...Object.fromEntries(structured.map(key => [key, sameStructure(data[key], entry.data[key], schema.blocks ?? {})])),
+        }
+        if ([...keys, ...structured].every(key => same(entry.data[key], next[key])))
+          continue
+        result.push(...await sideSave(q, entryTarget(source, entry.id, entry.version, target.authorId, { locale: entry.locale! }), next, now))
+      }
+      return result
+    }
+
+    /**
+     * Entries of a localized collection as read in `locale`: each replaced by its translation in the first
+     * locale of the fallback chain that has one, and its empty translated fields filled from the versions in
+     * the locales after that (named in `fallbacks`).
+     */
+    async function inLocale(q: Db, name: string, entries: Entry[], locale: string): Promise<Entry[]> {
+      const { fields } = collection(name).definition
+      const chain = fallbackChain(locales, locale)
+      const pick = (entry: Entry) => chain.map(l => entry.translations?.[l]).find(Boolean) ?? entry.id
+      const swapped = await readMany(q, name, entries.map(pick).filter((id, i) => id !== entries[i]!.id))
+      const located = entries.map(entry => swapped.get(pick(entry)) ?? entry)
+      // the versions further down the chain, for the fields left empty
+      const after = (entry: Entry) => !chain.includes(entry.locale!) ? [] : chain.slice(chain.indexOf(entry.locale!) + 1)
+      const others = await readMany(q, name, located.flatMap(e => after(e).map(l => e.translations?.[l]).filter((id): id is string => !!id)))
+      const translated = Object.entries(fields).filter(([, f]) => !f.shared).map(([key]) => key)
+      return located.map((entry) => {
+        const data = { ...entry.data }
+        const fallbacks: Record<string, string> = {}
+        for (const key of translated) {
+          if (!isEmpty(data[key]))
+            continue
+          for (const l of after(entry)) {
+            const value = others.get(entry.translations?.[l] ?? '')?.data[key]
+            if (!isEmpty(value)) {
+              data[key] = value
+              fallbacks[key] = l
+              break
+            }
+          }
+        }
+        return { ...entry, data, fallbacks }
+      })
+    }
+
+    /**
      * Saves validated data, its relation rows and a revision atomically: in a transaction, or on D1 as
      * one batch whose revision insert (unique per source and version) doubles as the version check.
      */
@@ -930,7 +1125,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         const result = await validateEntry(target.fields, input, { isUnique: target.isUnique?.(q, publishing), blocks: schema.blocks, maxNestingDepth: options.maxNestingDepth })
         if (!result.success)
           throw new ValidationError(result.errors)
-        const plan = await planPaths(q, target.source, target.sourceId, result.value, !creating)
+        const plan = await planPaths(q, target.source, target.sourceId, result.value, !creating, target.locale)
         await assertPathsFree(q, plan)
         // planned before the write, from the published tables as they are
         const live = publishing ? await publication(q, target, result.value) : []
@@ -949,13 +1144,13 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         if (!driver.capabilities.transactions) {
           const { data, plan, live } = await validate(db)
           await refuseStale(db)
-          await db.batch([...statements(db, target, data, now, plan, publishing), ...live, ...await mirrors(db, target, data, now)])
+          await db.batch([...statements(db, target, data, now, plan, publishing), ...live, ...await mirrors(db, target, data, now), ...await shares(db, target, data, now)])
           return await target.read(db)
         }
         // InnoDB can deadlock two saves on its gap locks; a deadlock rolls back, so try again
         return await retryingDeadlocks(() => db.transaction(async (tx: Db) => {
           const { data, plan, live } = await validate(tx)
-          const others = await mirrors(tx, target, data, now) // reads the links before this save replaces them
+          const others = [...await mirrors(tx, target, data, now), ...await shares(tx, target, data, now)] // read before this save's write
           const [write, ...rest] = statements(tx, target, data, now, plan, publishing)
           if (!affected(await write))
             await refuseStale(tx)
@@ -1052,7 +1247,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       return result
     }
 
-    return { relations, routes, collection, singleton, readMany, read, readSingleton, linked, populate, list, planPaths, assertPathsFree, pathStatements, entryTarget, singletonTarget, persist, deletion, unpublication, pinnedPublication }
+    return { relations, routes, collection, singleton, readMany, read, readSingleton, linked, populate, list, inLocale, planPaths, assertPathsFree, pathStatements, entryTarget, singletonTarget, persist, deletion, unpublication, pinnedPublication }
   }
 
   const { collection, singleton, entryTarget, singletonTarget, persist, deletion, unpublication, pinnedPublication } = stages.draft
@@ -1107,6 +1302,30 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     return entry
   }
 
+  /**
+   * Where a new entry goes in a localized collection: its locale, and the translation group of the entry it
+   * translates. 422 for a locale that isn't configured, one the entry already has, or for either option on
+   * a collection that isn't localized.
+   */
+  const placement = async (name: string, input: SaveInput): Promise<{ locale: string, group?: string } | undefined> => {
+    if (!localized(name)) {
+      if (input.locale !== undefined || input.translationOf !== undefined)
+        throw new ValidationError([{ path: 'locale', message: `"${name}" isn't localized` }])
+      return undefined
+    }
+    const locale = input.locale ?? locales.default
+    if (!locales.codes.includes(locale))
+      throw new ValidationError([{ path: 'locale', message: `"${locale}" isn't one of the locales: ${locales.codes.join(', ')}` }])
+    if (input.translationOf === undefined)
+      return { locale }
+    const original = await stages.draft.read(db, name, input.translationOf)
+    if (!original)
+      throw new NotFoundError(`No entry "${input.translationOf}" in "${name}" to translate`)
+    if (original.translations?.[locale])
+      throw new ValidationError([{ path: 'locale', message: `Entry "${input.translationOf}" already has a ${locale} version: "${original.translations[locale]}"` }])
+    return { locale, group: (await placeOf(db, name, original.id))!._group ?? original.id }
+  }
+
   /** 422 for a type that publishes every save: it has nothing to publish or unpublish. */
   const assertVersioned = (name: string) => {
     if (!versioned(name))
@@ -1136,7 +1355,9 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const stageName = options.stage ?? 'published'
       const stage = stages[stageName]
       const [found] = await reading<Entry>({ type: name, id, stage: stageName }, async () => {
-        const entry = await stage.read(db, name, id)
+        let entry = await stage.read(db, name, id)
+        if (entry && localized(name) && options.locale !== undefined)
+          [entry] = await stage.inLocale(db, name, [entry], options.locale)
         return entry ? [{ ...entry, data: (await stage.linked(await stage.populate(db, collection(name).definition.fields, [entry.data], options.depth ?? 0)))[0]! }] : []
       })
       return found
@@ -1161,11 +1382,12 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
      * that isn't versioned). Throws ValidationError (422), ConflictError (409) when `version` isn't the
      * current one, or NotFoundError (404).
      */
-    save(name: string, input: SaveInput): Promise<Entry> {
+    async save(name: string, input: SaveInput): Promise<Entry> {
       collection(name)
       if (input.id !== undefined && input.version === undefined)
         throw new Error('Updating an entry needs the version it was read at')
-      const target = entryTarget(name, input.id ?? crypto.randomUUID(), input.id === undefined ? undefined : input.version, input.authorId)
+      const creating = input.id === undefined
+      const target = entryTarget(name, input.id ?? crypto.randomUUID(), creating ? undefined : input.version, input.authorId, creating ? await placement(name, input) : undefined)
       const live = !!input.publish || !versioned(name)
       return hooked(target, input.data, input.publish, data => persist(target, data, input.publish).finally(forgetRedirects)
         .then(committed({ type: name, id: target.sourceId, action: live ? 'published' : 'saved', live })))

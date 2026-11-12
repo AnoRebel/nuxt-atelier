@@ -1,5 +1,6 @@
 import * as v from 'valibot'
 import { LIMIT_RANGES } from './runtime/shared/limits'
+import { LOCALE_CODE } from './runtime/shared/locales'
 
 const DB_SCHEMES = ['file', 'libsql', 'd1', 'postgres', 'postgresql', 'mysql', 'mariadb']
 
@@ -44,6 +45,29 @@ export const optionsSchema = v.strictObject({
       v.check(t => t.includes('{src}') && t.includes('{w}'), 'expected a URL template with {src} and {w}'),
       v.description('An image service that makes the variants instead of this server, for hosts without `sharp`: a URL template with `{src}` (the file\'s absolute URL), `{w}`, and optionally `{h}` (for a ratio), `{fx}` and `{fy}` (the focal point, 0–1). Cloudflare: `/cdn-cgi/image/width={w},height={h},fit=cover,gravity={fx}x{fy},format=auto/{src}`.'),
     )),
+  }), {}),
+  locales: v.optional(v.pipe(
+    v.strictObject({
+      codes: v.optional(v.pipe(
+        v.array(v.pipe(v.string(), v.regex(LOCALE_CODE, 'expected locale codes like "en" or "pt-br"')), 'expected a list of locale codes'),
+        v.minLength(1, 'expected at least one locale'),
+        v.check(codes => new Set(codes).size === codes.length, 'expected each locale once'),
+        v.description('The content locales. Types declared `localized` keep one version of each entry per locale. With one locale, the admin shows no translation controls.'),
+      ), ['en']),
+      default: v.optional(v.pipe(v.string('expected a locale code'), v.description('The default locale: new entries\' locale when none is given, and the last fallback. The first of `locales.codes` when omitted.'))),
+      fallback: v.optional(v.pipe(
+        v.record(v.string(), v.array(v.string())),
+        v.description('Where reads look when an entry or a translated field is missing in the requested locale, per locale: `{ "de-at": ["de", "en"] }`. Every other locale falls back to the default locale.'),
+      ), {}),
+    }),
+    v.check(l => l.default === undefined || l.codes.includes(l.default), 'locales.default must be one of locales.codes'),
+    v.check(l => Object.entries(l.fallback).every(([from, to]) => [from, ...to].every(code => l.codes.includes(code))), 'locales.fallback may only name locales in locales.codes'),
+  ), {}),
+  i18n: v.optional(v.strictObject({
+    module: v.optional(v.pipe(
+      v.union([v.picklist(['auto', 'nuxt-i18n-micro', '@nuxtjs/i18n']), v.literal(false)], 'accepted: "auto", "nuxt-i18n-micro", "@nuxtjs/i18n", false'),
+      v.description('The i18n module whose locales and URL strategy the site\'s pages follow: `/de/produkte/stuhl` is the German entry at `/produkte/stuhl`. `auto` uses nuxt-i18n-micro when it\'s installed, otherwise @nuxtjs/i18n, otherwise none: locales then come from the `locale` query parameter only.'),
+    ), 'auto'),
   }), {}),
   storage: v.optional(v.strictObject({
     driver: v.optional(v.pipe(v.picklist(['local', 's3', 'vercel-blob'], 'accepted: "local", "s3", "vercel-blob"'), v.description('Where media files are stored: `local` (the server\'s disk, `storage.dir`), `s3` (S3-compatible storage and Cloudflare R2: install `@nuxt-atelier/storage-s3`) or `vercel-blob` (install `@nuxt-atelier/storage-vercel-blob`).')), 'local'),

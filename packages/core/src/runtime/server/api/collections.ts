@@ -1,7 +1,9 @@
 // Collection entries:
-//   GET     /api/_atelier/collections/<name>                       list: ?filter=<JSON>&sort=-date,title&fields=title,date&limit&offset&cursor&depth&draft
-//   POST    /api/_atelier/collections/<name>                       { data, publish? }
-//   GET     /api/_atelier/collections/<name>/<id>                  ?depth&fields&draft
+//   GET     /api/_atelier/collections/<name>                       list: ?filter=<JSON>&sort=-date,title&fields=title,date&limit&offset&cursor&depth&draft&locale
+//   POST    /api/_atelier/collections/<name>                       { data, publish?, locale? }
+//   GET     /api/_atelier/collections/<name>/<id>                  ?depth&fields&draft&locale
+//   POST    /api/_atelier/collections/<name>/<id>/translations     { locale, data?, publish? }: a new version in that locale,
+//                                                                  prefilled with this one's data and linked to it
 //   PATCH   /api/_atelier/collections/<name>/<id>                  { version, data, publish? }: merged into the draft
 //   DELETE  /api/_atelier/collections/<name>/<id>
 //   POST    /api/_atelier/collections/<name>/<id>/publish          { version }: the draft at that version goes live
@@ -14,6 +16,7 @@
 //   POST    /api/_atelier/collections/<name>/<id>/revisions/<version>/restore   { version }: that version's data becomes the next draft
 // Reads return what the site serves; `draft=true` returns drafts to callers who can edit the type. Visitors
 // who aren't signed in read with the public role. Writes save drafts; types that aren't versioned publish them.
+// Localized collections: `locale` reads that locale's versions, falling back as configured (see `fallbacks`).
 import type { Filter } from '../db/query'
 import type { Entry } from '../db/store'
 import * as v from 'valibot'
@@ -45,12 +48,14 @@ const ListParams = v.object({
   cursor: v.optional(v.string()),
   depth: count('depth'),
   draft: v.optional(v.string()),
+  locale: v.optional(v.string()),
 })
 const publishFlag = v.optional(v.boolean('publish: expected true or false'))
-const Create = v.object({ data: v.record(v.string(), v.unknown()), publish: publishFlag })
+const Create = v.object({ data: v.record(v.string(), v.unknown()), publish: publishFlag, locale: v.optional(v.string('locale: expected a locale code')) })
+const Translate = v.object({ locale: v.string('locale: expected a locale code'), data: v.optional(v.record(v.string(), v.unknown()), {}), publish: publishFlag })
 const Update = v.object({ version: v.number('version: expected the version you read'), data: v.record(v.string(), v.unknown()), publish: publishFlag })
 const AtVersion = v.object({ version: v.number('version: expected the version you read') })
-const SUBS = new Set(['revisions', 'publish', 'unpublish', 'schedule'])
+const SUBS = new Set(['revisions', 'publish', 'unpublish', 'schedule', 'translations'])
 
 export default defineEventHandler(async (event) => {
   const [name, id, sub, version, action, ...rest] = segments(event, PREFIX)
@@ -65,14 +70,20 @@ export default defineEventHandler(async (event) => {
   const who = await caller(event, method === 'GET')
   const entries = await useAtelierEntries()
   const depthOf = (depth: number | undefined) => Math.min(depth ?? 0, limits().maxRelationDepth)
+  /** A requested locale: 400 for one that isn't configured, or on a collection that isn't localized. */
+  const localeOf = (locale: string | undefined) => {
+    if (locale !== undefined && (!definition.localized || !schema.locales.codes.includes(locale)))
+      throw apiError(400, definition.localized ? `locale: expected one of ${schema.locales.codes.join(', ')}` : `locale: "${name}" isn't localized`)
+    return locale
+  }
   const shape = async (entry: Entry, fields?: string[]) => {
     const data = select(await present(who, definition.fields, name, entry.data), fields)
     const media = await mediaOf(who, definition.fields, data)
     return { ...entry, ...shadowed(entry), data, ...Object.keys(media).length ? { media } : {} }
   }
   /** The entry's draft (what writes start from), or what the site serves. */
-  const load = async (depth = 0, stage: 'draft' | 'published' = 'draft') => {
-    const entry = await entries.get(name, id!, { depth, stage })
+  const load = async (depth = 0, stage: 'draft' | 'published' = 'draft', locale?: string) => {
+    const entry = await entries.get(name, id!, { depth, stage, locale })
     if (!entry)
       throw apiError(404, `No entry "${id}" in "${name}"`)
     return entry
@@ -94,23 +105,24 @@ export default defineEventHandler(async (event) => {
         stage: stageFor(who, name, query.draft),
         limit,
         depth: depthOf(query.depth),
+        locale: localeOf(query.locale),
         ...who.policy.ownOnly(who.principal, 'read', name) ? { createdBy: who.principal.id } : {},
       })
       return { items: await Promise.all(page.items.map(e => shape(e, query.fields))), total: page.total, limit, next: page.next }
     }
     if (!id && method === 'POST') {
       allow(who, 'create', name)
-      const { data, publish } = await readValid(event, Create)
+      const { data, publish, locale } = await readValid(event, Create)
       if (publish)
         allow(who, 'publish', name)
       assertWritable(who, name, data)
       await assertInversesWritable(who, entries, name, undefined, definition.fields, data)
       await countWrite(event, who)
-      return published(await entries.save(name, { data, publish, authorId: who.principal.id }), publish)
+      return published(await entries.save(name, { data, publish, locale: localeOf(locale), authorId: who.principal.id }), publish)
     }
     if (id && !sub && method === 'GET') {
-      const query = validated(v.pick(ListParams, ['depth', 'fields', 'draft']), getQuery(event))
-      const entry = await load(depthOf(query.depth), stageFor(who, name, query.draft))
+      const query = validated(v.pick(ListParams, ['depth', 'fields', 'draft', 'locale']), getQuery(event))
+      const entry = await load(depthOf(query.depth), stageFor(who, name, query.draft), localeOf(query.locale))
       allow(who, 'read', name, entry)
       return shape(entry, query.fields)
     }
@@ -124,6 +136,20 @@ export default defineEventHandler(async (event) => {
       await assertInversesWritable(who, entries, name, id, definition.fields, data, stored.data)
       await countWrite(event, who)
       return published(await entries.save(name, { id, version, data: { ...stored.data, ...data }, publish, authorId: who.principal.id }), publish)
+    }
+    if (id && sub === 'translations' && !version && method === 'POST') {
+      const original = await load()
+      allow(who, 'read', name, original)
+      allow(who, 'create', name)
+      const { locale, data, publish } = await readValid(event, Translate)
+      if (publish)
+        allow(who, 'publish', name)
+      // prefilled with the original's data: what the caller may write of it, and their changes
+      const prefilled = { ...restorable(who, name, original.data, {}), ...data }
+      assertWritable(who, name, prefilled)
+      await assertInversesWritable(who, entries, name, undefined, definition.fields, prefilled)
+      await countWrite(event, who)
+      return published(await entries.save(name, { data: prefilled, publish, locale: localeOf(locale), translationOf: id, authorId: who.principal.id }), publish)
     }
     if (id && sub === 'publish' && method === 'POST') {
       const stored = await load()

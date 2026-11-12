@@ -27,8 +27,13 @@ export interface CollectionDefinition {
   labels?: { singular?: string, plural?: string }
   /** Entries get URLs and are served by the site's catch-all page. */
   route?: RouteDefinition
-  /** Entries have one version per locale. */
-  localized?: boolean
+  /**
+   * Entries have one version per locale (the `locales` module option), linked as translations. Mark fields
+   * that aren't translated `shared`. `{ blocks: 'shared' }`: blocks fields keep one structure in every
+   * locale (which blocks, their order, nesting and options), only their translated fields differ; by
+   * default (`'independent'`) each locale has its own blocks.
+   */
+  localized?: boolean | { blocks?: 'independent' | 'shared' }
   /**
    * Drafts and publishing: saves change a draft, and the site serves the version last published. Without
    * it, every save is published at once. Every type keeps a revision history either way.
@@ -42,6 +47,7 @@ export interface SingletonDefinition {
   label?: string
   /** The singleton gets a URL and is served by the site's catch-all page. */
   route?: RouteDefinition
+  /** Not supported yet: refused when the schema loads. Use a localized collection holding one entry. */
   localized?: boolean
   /** Drafts and publishing, as for collections. */
   versioned?: boolean

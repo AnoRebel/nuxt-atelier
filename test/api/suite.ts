@@ -61,6 +61,24 @@ export function contentApiSuite(label: string, rootDir: string) {
       expect(log[0]).toMatchObject({ actorId: ids.admin, target: { type: 'articles', id: doomed.body.id } })
     })
 
+    it('creates translations prefilled from the original, and reads a locale with fallbacks', async () => {
+      const en = (await api('admin', 'POST', '/collections/products', { data: { title: 'Chair', subtitle: 'Sit down', sku: 'C-1' } })).body
+      expect(en).toMatchObject({ locale: 'en', translations: { en: en.id } })
+      const de = await api('admin', 'POST', `/collections/products/${en.id}/translations`, { locale: 'de', data: { title: 'Stuhl', subtitle: null } })
+      expect(de).toMatchObject({ status: 200, body: { locale: 'de', data: { title: 'Stuhl', sku: 'C-1' }, translations: { en: en.id } } })
+      expect((await api('admin', 'POST', `/collections/products/${en.id}/translations`, { locale: 'de' })).status).toBe(422)
+      expect((await api('admin', 'POST', `/collections/products/${en.id}/translations`, { locale: 'xx' })).status).toBe(400)
+      // a shared field saved in German changes in English too
+      await api('admin', 'PATCH', `/collections/products/${de.body.id}`, { version: 1, data: { sku: 'C-2' } })
+      expect((await api('admin', 'GET', `/collections/products/${en.id}`)).body.data.sku).toBe('C-2')
+      // German, its empty subtitle from English; French missing altogether: English
+      expect((await api('admin', 'GET', `/collections/products/${en.id}${q({ locale: 'de' })}`)).body)
+        .toMatchObject({ id: de.body.id, data: { subtitle: 'Sit down' }, fallbacks: { subtitle: 'en' } })
+      expect((await api('admin', 'GET', `/collections/products/${en.id}${q({ locale: 'fr' })}`)).body).toMatchObject({ id: en.id, locale: 'en' })
+      expect((await api('admin', 'GET', `/collections/products${q({ locale: 'de' })}`)).body.items.map((e: { id: string }) => e.id)).toEqual([de.body.id])
+      expect((await api('admin', 'GET', `/collections/articles${q({ locale: 'de' })}`)).status).toBe(400)
+    })
+
     it('lists with a filter, sort, field selection and population, capped to the largest page size', async () => {
       for (const [title, category, views] of [['Guide one', 'guides', 50], ['News two', 'news', 90], ['News three', 'news', 10], ['Guide four', 'guides', 70], ['News five', 'news', 30], ['News six', 'news', 60]] as const)
         await api('admin', 'POST', '/collections/articles', { data: { title, category, views, author: ids.ada } })

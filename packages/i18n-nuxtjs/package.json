@@ -33,12 +33,14 @@
     "check:pkg": "publint --pack bun && attw --pack . --profile esm-only"
   },
   "peerDependencies": {
-    "nuxt": ">=4.6.0"
+    "nuxt": ">=4.6.0",
+    "nuxt-atelier": "workspace:^"
   },
   "dependencies": {
     "@nuxt/kit": "catalog:"
   },
   "devDependencies": {
-    "@nuxt/schema": "catalog:"
+    "@nuxt/schema": "catalog:",
+    "nuxt-atelier": "workspace:^"
   }
 }

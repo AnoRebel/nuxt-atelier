@@ -137,12 +137,12 @@
 
 ## 13. Localization (localization)
 
-- [ ] 13.1 Implement locale config, localized content types, per-field translated/shared, translation groups, and fallback chains, including the content API's `locale` query parameter and its use in `entries.list`/`get`; verify shared-field propagation and fallback-indicator tests
-- [ ] 13.2 Implement localized block strategies (independent trees vs shared structure with translated fields); verify shared-structure reorder test
-- [ ] 13.3 Implement the `I18nAdapter` with auto-detection order (nuxt-i18n-micro → @nuxtjs/i18n → none) and adapter packages `@nuxt-atelier/i18n-micro` and `@nuxt-atelier/i18n-nuxtjs`; verify localized routes in fixtures for each and API-only locales without either
-- [ ] 13.4 Add an explicit CI job for the nuxt-i18n-micro adapter under `compatibilityVersion: 5` documenting current status; verify the job reports pass/fail without blocking other jobs
-- [ ] 13.5 Implement lazily loaded admin interface catalogs (English shipped) extensible by host/plugins; verify switching admin language independent of content locale
-- [ ] 13.6 Write docs: translating content (editors), locale configuration, i18n adapters and route strategies, adding admin languages
+- [ ] 13.1 (in progress, 2026-11-12: done for collections: `locales` option, `_locale`/`_group` rows, `shared` fields propagated as new versions, `translationOf` and `POST …/translations`, fallback chain with `fallbacks` per field, `locale` in list/get/routes, uniqueness and URLs per locale; tests on five engines and in the API suite. Remaining: localized singletons, refused at schema load until revisions, schedules and routes are keyed per locale) Implement locale config, localized content types, per-field translated/shared, translation groups, and fallback chains, including the content API's `locale` query parameter and its use in `entries.list`/`get`; verify shared-field propagation and fallback-indicator tests
+- [x] 13.2 Implement localized block strategies (independent trees vs shared structure with translated fields); verify shared-structure reorder test
+- [x] 13.3 Implement the `I18nAdapter` with auto-detection order (nuxt-i18n-micro → @nuxtjs/i18n → none) and adapter packages `@nuxt-atelier/i18n-micro` and `@nuxt-atelier/i18n-nuxtjs`; verify localized routes in fixtures for each and API-only locales without either
+- [x] 13.4 Add an explicit CI job for the nuxt-i18n-micro adapter under `compatibilityVersion: 5` documenting current status; verify the job reports pass/fail without blocking other jobs
+- [ ] 13.5 (deferred to section 15: the admin package is still empty, so the catalogs land with its UI) Implement lazily loaded admin interface catalogs (English shipped) extensible by host/plugins; verify switching admin language independent of content locale
+- [ ] 13.6 (in progress: reference/localization covers locale configuration, translations, fallbacks, i18n adapters and route strategies; the editors' translating guide and adding admin languages wait for the admin UI) Write docs: translating content (editors), locale configuration, i18n adapters and route strategies, adding admin languages
 
 ## 14. Visual editor (visual-editor)
 
@@ -240,7 +240,7 @@
 - [ ] 23.5 Verify streaming for uploads/downloads/export/import with a memory-ceiling test on a large export
 - [ ] 23.6 Implement published-content and route caching with invalidation and no shared caching for authenticated/preview responses; verify preview response cache headers test
 - [ ] 23.7 Implement security headers/CSP (admin frame-ancestors restricted to self), required production secrets check, and rich-text XSS-safe storage/rendering via schema-constrained ProseMirror JSON + `@tiptap/static-renderer`; verify missing-secret startup failure and stored-XSS tests
-- [ ] 23.8 Implement health live/ready endpoints, structured JSON logging with redaction and correlation ids, and graceful shutdown requeueing running jobs; verify DB-down readiness 503 and shutdown requeue tests
+- [ ] 23.8 (in progress, 2026-11-12: done: `/api/_atelier/health/live` and `/ready` (database, migrations, storage, failed jobs; 503 when the database is down or behind, no error details in the response), and graceful shutdown: the queue stops, waits 10 s, requeues what's still running without counting the attempt, closes the database; verified by the DB-down readiness test and the shutdown requeue test on five engines. Remaining: structured JSON logging with redaction and correlation ids) Implement health live/ready endpoints, structured JSON logging with redaction and correlation ids, and graceful shutdown requeueing running jobs; verify DB-down readiness 503 and shutdown requeue tests
 - [ ] 23.9 Add `bun audit`, `knip`, and dependency-justification check (every runtime dependency listed with purpose in docs) to CI; verify an unused dependency fails CI
 - [ ] 23.10 Write docs: performance tuning, limits reference, caching, security hardening, operations (health, logs, shutdown), dependency list with justifications
 

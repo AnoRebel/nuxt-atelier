@@ -48,8 +48,16 @@ describe('module options', () => {
     expect(message).toContain('atelier.limits.jobConcurrency = 2.5: expected an integer from 1 to 64')
   })
 
+  it('checks locales: known codes, a default and fallbacks among them', () => {
+    expect(resolveOptions({}).locales).toEqual({ codes: ['en'], fallback: {} })
+    expect(error({ locales: { codes: ['en', 'de'], default: 'fr' } })).toContain('locales.default must be one of locales.codes')
+    expect(error({ locales: { codes: ['en'], fallback: { de: ['en'] } } })).toContain('locales.fallback may only name locales in locales.codes')
+    expect(error({ locales: { codes: ['en', 'en'] } })).toContain('expected each locale once')
+    expect(error({ locales: { codes: ['English'] } })).toContain('expected locale codes like')
+  })
+
   it('rejects unknown options (typos)', () => {
-    expect(error({ databse: {} })).toContain('atelier.databse: unknown option; accepted: database, migrations, media, storage, auth, admin, revisions, jobs, webhooks, limits')
+    expect(error({ databse: {} })).toContain('atelier.databse: unknown option; accepted: database, migrations, media, locales, i18n, storage, auth, admin, revisions, jobs, webhooks, limits')
     expect(error({ limits: { pageSize: 5 } })).toContain('atelier.limits.pageSize: unknown option; accepted: maxBodySize,')
   })
 })

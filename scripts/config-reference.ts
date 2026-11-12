@@ -13,6 +13,10 @@ function typeOf(schema: Node): string {
   const [base, ...actions] = schema.pipe ?? [schema]
   if (base!.type === 'picklist')
     return base!.options!.map(o => `\`${JSON.stringify(o)}\``).join(' \\| ')
+  if (base!.type === 'union')
+    return (base!.options as Node[]).map(typeOf).join(' \\| ')
+  if (base!.type === 'literal')
+    return `\`${JSON.stringify((base as { literal?: unknown }).literal)}\``
   if (base!.type === 'number') {
     const req = (t: string) => actions.find(a => a.type === t)?.requirement
     const integer = actions.some(a => a.type === 'integer')
