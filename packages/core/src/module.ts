@@ -1,12 +1,14 @@
 import type { NuxtModule, NuxtPage } from '@nuxt/schema'
 import { resolve as resolvePath } from 'node:path'
 import type { ModuleOptions } from './options'
-import { addComponentsDir, addImports, extendPages, addServerHandler, addServerPlugin, addServerTemplate, addTemplate, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, updateTemplates } from '@nuxt/kit'
+import { addComponentsDir, addImports, extendPages, hasNuxtModule, addServerHandler, addServerPlugin, addServerTemplate, addTemplate, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, updateTemplates } from '@nuxt/kit'
 import { blockComponentsTemplate, blockDirectories, discoverBlocks } from './blocks/discover'
 import { transformBlockSfc } from './blocks/transform'
 import { setupDevMigrations } from './cli/dev'
 import { resolveOptions } from './options'
 import { collectModuleDirectories } from './sources'
+import { adapterFrom } from './runtime/shared/i18n'
+import { resolveLocales } from './runtime/shared/locales'
 import { registryTypes, schemaTemplate } from './schema/discover'
 import { driversTemplate } from './schema/drivers'
 import { migrationsTemplate } from './schema/migrations'
@@ -52,6 +54,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       siteUrl: '', // NUXT_PUBLIC_ATELIER_SITE_URL
       mediaWidths: resolved.media.widths, // the image variant widths, for srcset
       mediaProvider: resolved.media.provider ?? '', // an image service's URL template, when variants aren't made here
+      locales: resolveLocales(resolved.locales), // the content locales, for the admin and query helpers
       ...config.public.atelier as object | undefined,
     }
 
@@ -62,6 +65,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addImports(['useAtelierQuery', 'useAtelierEntry'].map(name => ({ name, from: resolve('./runtime/app/composables/useAtelierQuery') })))
     addImports({ name: 'useAtelierArea', from: resolve('./runtime/app/composables/useAtelierArea') })
     addImports({ name: 'useAtelierRouteEntry', from: resolve('./runtime/app/composables/useAtelierRouteEntry') })
+    addImports({ name: 'useAtelierLocalePath', from: resolve('./runtime/app/composables/useAtelierLocalePath') })
     addImports({ name: 'useAtelierPreview', from: resolve('./runtime/app/composables/useAtelierPreview') })
     addComponentsDir({ path: resolve('./runtime/app/components'), prefix: 'Atelier' })
     // the catch-all serving routable entries: ranked below every page of the app, so the app's own pages win.
@@ -88,11 +92,13 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     })
 
     // Collections and singletons: rescanned on every Nitro (re)build, so new files are picked up in dev
-    addServerTemplate({ filename: '#atelier-schema', getContents: schemaTemplate })
+    const locales = resolveLocales(resolved.locales)
+    addServerTemplate({ filename: '#atelier-schema', getContents: () => schemaTemplate(locales) })
     addServerTemplate({ filename: '#atelier-drivers', getContents: () => driversTemplate(nuxt.options.rootDir, resolved.database.url) })
     addServerTemplate({ filename: '#atelier-migrations', getContents: () => migrationsTemplate(nuxt.options.rootDir) })
     addServerPlugin(resolve('./runtime/server/plugins/limits'))
     addServerPlugin(resolve('./runtime/server/plugins/migrations'))
+    addServerPlugin(resolve('./runtime/server/plugins/shutdown'))
     addServerPlugin(resolve('./runtime/server/plugins/jobs'))
 
     // blocks: lazy components for the app (`#atelier-blocks`); their schemas go to the server in `#atelier-schema`
@@ -114,6 +120,21 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     nuxt.hook('modules:done', async () => {
       await collectModuleDirectories(nuxt)
       blockDirs = blockDirectories(nuxt).map(dir => `${dir}/`)
+    })
+
+    // the i18n module the site's URLs follow: its locales and strategy, read once every module is set up
+    nuxt.hook('modules:done', async () => {
+      let chosen: string | undefined
+      await nuxt.callHook('atelier:i18n', (module) => {
+        chosen = module
+      })
+      const name = resolved.i18n.module === 'auto'
+        ? chosen ?? ['nuxt-i18n-micro', '@nuxtjs/i18n'].find(module => hasNuxtModule(module, nuxt))
+        : resolved.i18n.module || undefined
+      const adapter = name ? adapterFrom(name, (nuxt.options as { i18n?: Parameters<typeof adapterFrom>[1] }).i18n) : undefined
+      if (name && !adapter)
+        console.warn(`[nuxt-atelier] i18n: ${name} has no locales configured, so pages ignore it`)
+      ;(nuxt.options.runtimeConfig.public.atelier as Record<string, unknown>).i18n = adapter ?? null
     })
     nuxt.hook('builder:watch', async (_event, path) => {
       const file = resolvePath(nuxt.options.srcDir, path)
@@ -140,6 +161,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/redirects') })
     addServerHandler({ route: '/api/_atelier/audit', method: 'get', handler: resolve('./runtime/server/api/audit') })
     addServerHandler({ route: '/api/_atelier/openapi.json', method: 'get', handler: resolve('./runtime/server/api/openapi') })
+    addServerHandler({ route: '/api/_atelier/health/live', method: 'get', handler: resolve('./runtime/server/api/health-live') })
+    addServerHandler({ route: '/api/_atelier/health/ready', method: 'get', handler: resolve('./runtime/server/api/health-ready') })
     addServerHandler({ route: '/api/_atelier/setup', handler: resolve('./runtime/server/api/setup') })
     for (const resource of ['users', 'roles', 'tokens', 'collections', 'singletons', 'redirects']) {
       addServerHandler({ route: `/api/_atelier/${resource}`, handler: resolve(`./runtime/server/api/${resource}`) })
@@ -210,6 +233,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
   export const roles: import(${JSON.stringify(resolve('./runtime/shared/policy'))}).Roles
   export const tables: Record<string, import(${JSON.stringify(resolve('./runtime/server/db/tables'))}).TableSpec>
   export const blocks: Record<string, import(${JSON.stringify(resolve('./runtime/shared/blocks'))}).BlockSchema>
+  export const locales: import(${JSON.stringify(resolve('./runtime/shared/locales'))}).Locales
 }
 declare module '#atelier-blocks' {
   export const blocks: Record<string, { component: () => Promise<import('vue').Component>, areas: string[] }>

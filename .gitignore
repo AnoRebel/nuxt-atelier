@@ -28,3 +28,6 @@ coverage/
 test/**/.tmp-*
 .packs
 packages/*/jsr.json
+
+# nuxt-i18n-micro writes its translation files at build
+test/fixtures/i18n-micro*/locales/

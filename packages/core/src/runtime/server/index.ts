@@ -2,6 +2,7 @@
 import type { AtelierDriver } from './db/driver'
 import type { TableSpec } from './db/tables'
 import type { BlockSchema } from '../shared/blocks'
+import type { Locales } from '../shared/locales'
 import type { CollectionName, CollectionQuery, TypedEntry, TypedEntryList } from '../shared/query'
 import type { ListQuery } from './db/query'
 import type { CollectionDefinition, SingletonDefinition } from './types'
@@ -95,9 +96,10 @@ export async function useAtelierSchema(): Promise<{
   singletons: Record<string, SingletonDefinition>
   tables: Record<string, TableSpec>
   blocks: Record<string, BlockSchema>
+  locales: Locales
 }> {
-  const { collections, singletons, tables, blocks } = await import('#atelier-schema')
-  return { collections, singletons, tables, blocks }
+  const { collections, singletons, tables, blocks, locales } = await import('#atelier-schema')
+  return { collections, singletons, tables, blocks, locales }
 }
 
 /** Every table of the app as Drizzle tables, by table name: content, system and extra tables. */
@@ -186,6 +188,23 @@ export function useAtelierJobs(): Promise<JobQueue> {
       throw error
     })
   return jobQueue
+}
+
+/**
+ * For shutdown: lets running jobs finish for up to `timeoutMs` (requeueing the rest, see JobQueue.stop),
+ * then closes the database connection. Only what was opened: a server that never touched the database
+ * doesn't connect to close it.
+ */
+export async function shutdownAtelier(timeoutMs = 10_000): Promise<void> {
+  const queue = await jobQueue?.catch(() => undefined)
+  if (queue) {
+    const { requeued } = await queue.stop(timeoutMs)
+    if (requeued)
+      console.warn(`[nuxt-atelier] Shutting down: ${requeued} running job${requeued === 1 ? '' : 's'} put back in the queue`)
+  }
+  const driver = await database?.catch(() => undefined)
+  database = undefined
+  await driver?.close()
 }
 
 /**
@@ -318,8 +337,8 @@ export async function queryEntries<N extends CollectionName, Q extends Collectio
 }
 
 /** One entry of a collection, typed from its definition, or undefined. No permission checks. */
-export async function getEntry<N extends CollectionName, D extends number | undefined = undefined>(name: N, id: string, options?: { depth?: D }): Promise<TypedEntry<N, D extends number ? true : false> | undefined> {
+export async function getEntry<N extends CollectionName, D extends number | undefined = undefined>(name: N, id: string, options?: { depth?: D, locale?: string }): Promise<TypedEntry<N, D extends number ? true : false> | undefined> {
   const { limits } = useAtelierServerConfig() as unknown as { limits: { maxRelationDepth: number } }
-  return await (await useAtelierEntries()).get(name, id, { depth: Math.min(options?.depth ?? 0, limits.maxRelationDepth) }) as never
+  return await (await useAtelierEntries()).get(name, id, { depth: Math.min(options?.depth ?? 0, limits.maxRelationDepth), locale: options?.locale }) as never
 }
 export type { CollectionFilter, CollectionName, CollectionQuery, Condition as FieldCondition, PopulatedEntry, RelatedEntry, SortKey, SystemField, TypedEntry, TypedEntryList } from '../shared/query'

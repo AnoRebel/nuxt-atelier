@@ -1,5 +1,7 @@
 import type { CollectionName, MediaSummary, TypedEntry } from '../../shared/query'
-import { useAsyncData, useRequestFetch, useRoute } from '#imports'
+import type { I18nAdapter } from '../../shared/i18n'
+import { useAsyncData, useRequestFetch, useRoute, useRuntimeConfig } from '#imports'
+import { splitLocalePath } from '../../shared/i18n'
 
 /** What `GET /api/_atelier/routes` answers for a path: the entry served there and how to render it. */
 export interface AtelierRoute<N extends CollectionName = CollectionName> {
@@ -28,10 +30,12 @@ export interface AtelierRoute<N extends CollectionName = CollectionName> {
 export function useAtelierRouteEntry<N extends CollectionName = CollectionName>() {
   const route = useRoute()
   const fetch = useRequestFetch() // forwards the visitor's cookies during SSR
+  // with an i18n module, `/de/produkte/stuhl` is the German entry at `/produkte/stuhl`
+  const i18n = (useRuntimeConfig().public.atelier as { i18n?: I18nAdapter | null } | undefined)?.i18n
   const query = () => {
     const token = route.query._atelier_preview
     return {
-      path: route.path,
+      ...i18n ? splitLocalePath(i18n, route.path) : { path: route.path },
       ...route.query._atelier === 'preview' ? { draft: 'true' } : {},
       ...typeof token === 'string' ? { preview: token } : {},
     }

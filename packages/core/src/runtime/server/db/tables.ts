@@ -2,7 +2,8 @@
 //
 //   atelier_c_<collection>  one row per entry: system columns (_id, _version, _created_at, _updated_at, _created_by),
 //                           one typed column per field. Scalars get native types; rich text, objects,
-//                           repeaters, blocks, multi-selects and JSON are JSON columns.
+//                           repeaters, blocks, multi-selects and JSON are JSON columns. Localized collections
+//                           have a row per locale: _locale, and _group linking the translations of an entry.
 //   atelier_singletons      one row per singleton, its data as JSON
 //   atelier_relations       relation values, normalised so references can be found from either side
 //   atelier_revisions       a JSON snapshot per saved version, and whether it was published
@@ -34,7 +35,9 @@ import type { Dialect } from './driver'
 import { bigint as myBigint, boolean as myBoolean, datetime as myDatetime, double as myDouble, index as myIndex, int as myInt, json as myJson, mysqlTable, primaryKey as myPrimaryKey, text as myText, uniqueIndex as myUniqueIndex, varchar as myVarchar } from 'drizzle-orm/mysql-core'
 import { bigint as pgBigint, boolean as pgBoolean, doublePrecision as pgDouble, timestamp as pgTimestamp, index as pgIndex, integer as pgInteger, jsonb as pgJsonb, primaryKey as pgPrimaryKey, pgTable, text as pgText, uniqueIndex as pgUniqueIndex, varchar as pgVarchar } from 'drizzle-orm/pg-core'
 import { index as liteIndex, integer as liteInteger, primaryKey as litePrimaryKey, real as liteReal, sqliteTable, text as liteText, uniqueIndex as liteUniqueIndex } from 'drizzle-orm/sqlite-core'
+import type { Locales } from '../../shared/locales'
 import { UNIQUE_MAX_LENGTH } from '../../shared/fields'
+import { resolveLocales } from '../../shared/locales'
 import { checkRoute, MAX_PATH } from '../routes'
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- column builders differ per dialect; the tables are typed by use, not here */
@@ -169,6 +172,8 @@ function checkFields(owner: Owner, fields: Record<string, Field>, path = '', top
     if (!FIELD_KEY.test(key) || key.length > IDENTIFIER_MAX)
       throw new Error(`[nuxt-atelier] ${where}: field "${key}" must be letters and digits, starting with a letter, at most ${IDENTIFIER_MAX} characters`)
     const scalar = SCALAR_TYPES.has(field.type) || (field.type === 'custom' && field.storage !== 'json')
+    if (field.shared && path)
+      throw new Error(`[nuxt-atelier] ${where}: field "${key}" can't be shared; only top-level fields can`)
     if (field.unique && (path || !scalar))
       throw new Error(`[nuxt-atelier] ${where}: field "${key}" can't be unique; only top-level ${[...SCALAR_TYPES].join(', ')} fields can`)
     if (field.renamedFrom !== undefined) {
@@ -209,6 +214,8 @@ export interface ContentSchema {
   tables?: Record<string, TableSpec>
   /** Block schemas by name, for validating blocks fields. */
   blocks?: Record<string, BlockSchema>
+  /** The content locales (the `locales` module option): one, `en`, when omitted. */
+  locales?: Partial<Locales>
 }
 
 /** A column of an extra table. JSON, so it travels through migrations like the content schema. */
@@ -266,6 +273,7 @@ function specTable(kit: Kit, tables: Record<string, Table>, name: string, spec: 
 /** Builds every Atelier table for the dialect, keyed by table name. */
 export function buildTables(dialect: Dialect, schema: ContentSchema): Record<string, Table> {
   const kit = kits[dialect]
+  const defaultLocale = resolveLocales(schema.locales).default
   for (const name of Object.keys(schema.collections)) {
     if (name in schema.singletons)
       throw new Error(`[nuxt-atelier] "${name}" is both a collection and a singleton; rename one`)
@@ -281,6 +289,9 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       checkRoute(name, definition.route, definition.fields)
   }
   for (const [name, definition] of Object.entries(schema.singletons)) {
+    // ponytail: localized singletons need per-locale revisions, schedules and routes; until then, a collection
+    if (definition.localized)
+      throw new Error(`[nuxt-atelier] Singleton "${name}" is localized, which singletons can't be yet: use a localized collection holding one entry`)
     checkFields({ name, singleton: true, collections: schema.collections }, definition.fields)
     if (definition.route)
       checkRoute(name, definition.route, definition.fields, true)
@@ -477,6 +488,11 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
         _createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
         _updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
         _createdBy: kit.key('_created_by', ID), // the user who created it, for own-entries-only permissions
+        // localized: each locale's version is a row; translations share a group, the first one's id (null: its own)
+        ...definition.localized && {
+          _locale: kit.key('_locale', 35).notNull().default(defaultLocale),
+          _group: kit.key('_group', ID),
+        },
       }
       for (const [key, field] of Object.entries(definition.fields)) {
         const column = fieldColumn(kit, key, field)
@@ -486,8 +502,13 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       return result
     }
     const unique = Object.entries(definition.fields).filter(([, f]) => f.unique).map(([key]) => key)
-    for (const table of [collectionTable(name), publishedTable(name)])
-      tables[table] = kit.table(table, columns(), t => unique.map(key => kit.uniqueIndex(indexName(table, key, 'unique')).on(t[key])))
+    // in a localized collection, values are unique within a locale: translations may share one
+    for (const table of [collectionTable(name), publishedTable(name)]) {
+      tables[table] = kit.table(table, columns(), t => [
+        ...unique.map(key => kit.uniqueIndex(indexName(table, key, 'unique')).on(...definition.localized ? [t._locale, t[key]] : [t[key]])),
+        ...definition.localized ? [kit.index(indexName(table, '_group', 'idx')).on(t._group)] : [],
+      ])
+    }
   }
   return tables
 }

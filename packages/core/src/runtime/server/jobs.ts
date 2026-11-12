@@ -77,6 +77,10 @@ export function createJobQueue(driver: AtelierDriver, options: { concurrency?: n
   const { atelier_jobs: jobs } = buildTables(driver.dialect, { collections: {}, singletons: {} })
   const db = driver.db as Db
   const concurrency = options.concurrency ?? 4
+  /** Shutting down: no more jobs start. */
+  let stopping = false
+  /** The jobs this process is running, by id, with their attempts settling. */
+  const running = new Map<string, { job: Job, done: Promise<boolean> }>()
 
   const toJob = (row: Record<string, unknown>): Job => ({
     id: row.id as string,
@@ -228,17 +232,46 @@ export function createJobQueue(driver: AtelierDriver, options: { concurrency?: n
         if (!await this.byKey(name))
           await this.enqueue(name, {}, { key: name })
       }
-      while (Date.now() < deadline) {
+      while (!stopping && Date.now() < deadline) {
         const batch = await claim(concurrency, iso(Date.now()))
         if (!batch.length)
           break
-        const outcomes = await Promise.all(batch.map(attempt))
+        const outcomes = await Promise.all(batch.map((job) => {
+          const done = attempt(job).finally(() => running.delete(job.id))
+          running.set(job.id, { job, done })
+          return done
+        }))
         result.ran += outcomes.filter(Boolean).length
         result.failed += outcomes.filter(ok => !ok).length
       }
       const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(jobs).where(due(iso(Date.now())))
       result.remaining = Number(count)
       return result
+    },
+
+    /**
+     * For shutdown: starts no more jobs, waits up to `timeoutMs` for the running ones to finish, then puts
+     * those still running back in the queue, due at once and without counting the attempt: another
+     * process (or this one, restarted) runs them, and they aren't marked failed.
+     */
+    async stop(timeoutMs = 10_000): Promise<{ finished: number, requeued: number }> {
+      stopping = true
+      const before = running.size
+      let timer: ReturnType<typeof setTimeout> | undefined
+      await Promise.race([
+        Promise.allSettled([...running.values()].map(r => r.done)),
+        new Promise((resolve) => {
+          timer = setTimeout(resolve, timeoutMs)
+        }),
+      ])
+      clearTimeout(timer)
+      let requeued = 0
+      for (const { job } of running.values()) {
+        // only while it's still this attempt: a job that finished meanwhile is left alone
+        requeued += affected(await db.update(jobs).set({ status: 'queued', attempts: job.attempts - 1, runAt: iso(Date.now()), lockedUntil: null })
+          .where(and(eq(jobs.id, job.id), eq(jobs.status, 'running'), eq(jobs.attempts, job.attempts))))
+      }
+      return { finished: before - running.size, requeued }
     },
   }
 }

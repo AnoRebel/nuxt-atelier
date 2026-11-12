@@ -46,6 +46,8 @@ export interface CollectionQuery<N extends CollectionName> {
   cursor?: string
   /** Levels of relations to replace with the entries they point to. */
   depth?: number
+  /** Localized collections: entries in this locale, missing fields filled from its fallback locales. */
+  locale?: string
 }
 
 /** A related entry, as a populated relation holds it. */
@@ -107,6 +109,12 @@ export interface TypedEntry<N extends CollectionName, Populated extends boolean 
   publishedVersion: number | null
   /** The media items its fields use, by id: `entry.media[entry.data.cover]`. Absent when there are none. */
   media?: Record<string, MediaSummary>
+  /** Localized collections: this version's locale. */
+  locale?: string
+  /** Localized collections: the ids of its translations (itself included), by locale. */
+  translations?: Record<string, string>
+  /** Read in a locale: the fields filled from another locale's version, with that locale. */
+  fallbacks?: Record<string, string>
   data: Populated extends true ? PopulatedEntry<N> : Data<N>
 }
 
@@ -129,7 +137,7 @@ export function toSearchParams(query: object = {}): Record<string, string> {
     out.sort = q.sort.join(',')
   if (Array.isArray(q.fields) && q.fields.length)
     out.fields = q.fields.join(',')
-  for (const key of ['limit', 'offset', 'cursor', 'depth'] as const) {
+  for (const key of ['limit', 'offset', 'cursor', 'depth', 'locale'] as const) {
     if (q[key] !== undefined && q[key] !== null)
       out[key] = String(q[key])
   }

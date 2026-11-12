@@ -19,6 +19,16 @@ defineJob('test:flaky', () => {
   if (failing)
     throw new Error('the service is down')
 })
+let release: () => void = () => {}
+let blocking = true
+defineJob('test:blocked', async () => {
+  if (blocking) {
+    await new Promise<void>((resolve) => {
+      release = resolve
+    })
+  }
+  calls.push('blocked')
+})
 defineJob<{ n: number }>('test:slow', async ({ n }) => {
   await new Promise(resolve => setTimeout(resolve, 60))
   calls.push(`slow ${n}`)
@@ -126,5 +136,25 @@ describe.each(engines)('%s job queue', (_, url) => {
     await query(driver, sql`update atelier_jobs set status = ${'running'}, attempts = 1, locked_until = ${'2000-01-01T00:00:00.000Z'} where _id = ${id}`)
     expect(await queue.run()).toMatchObject({ ran: 1 })
     expect(calls).toEqual(['ok 7'])
+  })
+
+  it('on shutdown, waits for running jobs, then requeues the rest without counting the attempt', async () => {
+    const stopping = createJobQueue(driver)
+    await stopping.enqueue('test:slow', { n: 1 })
+    const id = await stopping.enqueue('test:blocked')
+    blocking = true
+    const running = stopping.run()
+    await expect.poll(async () => (await stopping.get(id))?.status).toBe('running')
+    await new Promise(resolve => setTimeout(resolve, 5))
+    expect(await stopping.stop(300)).toEqual({ finished: 1, requeued: 1 }) // the slow one finished in time
+    expect(await stopping.get(id)).toMatchObject({ status: 'queued', attempts: 0, lastError: null })
+    blocking = false
+    release() // the abandoned attempt ends after the requeue: it changes nothing
+    await running
+    expect(await stopping.get(id)).toMatchObject({ status: 'queued', attempts: 0 })
+    await stopping.enqueue('test:ok', { n: 3 })
+    expect(await stopping.run()).toMatchObject({ ran: 0 }) // a stopped queue starts nothing
+    expect(await queue.run()).toMatchObject({ ran: 2 }) // another process runs both
+    expect(calls.toSorted()).toEqual(['blocked', 'blocked', 'ok 3', 'slow 1'])
   })
 })

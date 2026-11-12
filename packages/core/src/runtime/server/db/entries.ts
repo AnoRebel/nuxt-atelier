@@ -9,7 +9,8 @@ export type Db = any
 type Table = any
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-const isEmpty = (x: unknown) => x === undefined || x === null || x === '' || (Array.isArray(x) && x.length === 0)
+/** No value: undefined, null, '' or an empty list. */
+export const isEmpty = (x: unknown) => x === undefined || x === null || x === '' || (Array.isArray(x) && x.length === 0)
 
 /** The column values for entry data. Relations live in their own table; empty values are stored as NULL. */
 export function toRow(fields: Record<string, Field>, data: Record<string, unknown>): Record<string, unknown> {
@@ -40,10 +41,12 @@ export async function getRow(db: Db, table: Table, id: string): Promise<Record<s
   return row
 }
 
-/** Whether no entry other than `exceptId` has `value` in `column`: the check `validateEntry` asks for. */
-export async function isUnique(db: Db, table: Table, column: string, value: unknown, exceptId?: string): Promise<boolean> {
-  const match = eq(table[column], value)
+/**
+ * Whether no entry other than `exceptId` has `value` in `column`: the check `validateEntry` asks for.
+ * In a localized collection, within `locale`.
+ */
+export async function isUnique(db: Db, table: Table, column: string, value: unknown, exceptId?: string, locale?: string): Promise<boolean> {
   const rows = await db.select({ id: table._id }).from(table)
-    .where(exceptId === undefined ? match : and(match, ne(table._id, exceptId))).limit(1)
+    .where(and(eq(table[column], value), exceptId === undefined ? undefined : ne(table._id, exceptId), locale === undefined ? undefined : eq(table._locale, locale))).limit(1)
   return rows.length === 0
 }

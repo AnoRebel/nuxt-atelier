@@ -12,6 +12,11 @@ declare module '@nuxt/schema' {
      * Atelier to read, after the app's and its layers'. For plugins distributed as Nuxt modules.
      */
     'atelier:dirs': (dirs: string[]) => void | Promise<void>
+    /**
+     * Pick the i18n module the site's URLs follow (`nuxt-i18n-micro`, `@nuxtjs/i18n`): what the adapter
+     * packages do. The `atelier.i18n.module` option, when not `auto`, wins.
+     */
+    'atelier:i18n': (choose: (module: string) => void) => void | Promise<void>
   }
 }
 

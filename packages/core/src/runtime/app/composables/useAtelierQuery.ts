@@ -14,9 +14,12 @@ export function useAtelierQuery<N extends CollectionName, Q extends CollectionQu
   })
 }
 
-/** One entry from the content API, with SSR. `depth` populates its relations. */
-export function useAtelierEntry<N extends CollectionName, D extends number | undefined = undefined>(name: N, id: MaybeRefOrGetter<string>, options?: { depth?: D }) {
+/** One entry from the content API, with SSR. `depth` populates its relations; `locale` reads a localized one's translation. */
+export function useAtelierEntry<N extends CollectionName, D extends number | undefined = undefined>(name: N, id: MaybeRefOrGetter<string>, options?: { depth?: D, locale?: MaybeRefOrGetter<string | undefined> }) {
   return useFetch<TypedEntry<N, D extends number ? true : false>>(() => `/api/_atelier/collections/${name}/${encodeURIComponent(toValue(id))}`, {
-    query: options?.depth === undefined ? {} : { depth: String(options.depth) },
+    query: computed(() => ({
+      ...options?.depth === undefined ? {} : { depth: String(options.depth) },
+      ...toValue(options?.locale) === undefined ? {} : { locale: toValue(options?.locale) },
+    })),
   })
 }

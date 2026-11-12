@@ -2,6 +2,7 @@
 // data into its paths. Paths are stored canonical (each segment percent-encoded the same way), so a
 // request path is looked up after canonicalPath().
 import type { Field } from '../shared/fields'
+import { LOCALE_CODE as LOCALE } from '../shared/locales'
 import type { RouteDefinition } from './types'
 
 /** Longest stored path, the `atelier_routes.path` column. */
@@ -9,7 +10,6 @@ export const MAX_PATH = 255
 
 const PLACEHOLDER = /\{([a-z][a-z0-9]*)\}/gi
 const LITERAL = /^[\w.~-]*$/ // unreserved URL characters: nothing to encode
-const LOCALE = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i
 // served by Nuxt and Nitro themselves, never by the catch-all
 const RESERVED = /^\/(?:api|_nuxt|_ipx|__nuxt[\w-]*|_)(?:\/|$)/
 const PATH_FIELD_TYPES = new Set<Field['type']>(['text', 'slug', 'number', 'select', 'date'])

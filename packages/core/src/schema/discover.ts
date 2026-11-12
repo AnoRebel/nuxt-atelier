@@ -1,3 +1,4 @@
+import type { Locales } from '../runtime/shared/locales'
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Nuxt } from '@nuxt/schema'
@@ -56,7 +57,7 @@ export function layerFiles(name: 'roles' | 'tables', nuxt?: Nuxt): string[] {
 }
 
 /** The `#atelier-schema` server module: every definition, imported by name, and the code-defined roles. */
-export function schemaTemplate(): string {
+export function schemaTemplate(locales: Locales): string {
   const lines: string[] = []
   const exports: string[] = []
   // roles and tables: a higher-priority layer's replaces one with the same name
@@ -75,6 +76,7 @@ export function schemaTemplate(): string {
     exports.push(`export const ${kind} = {\n${entries.join('\n')}\n}`)
   }
   exports.push(`export const blocks = ${JSON.stringify(blockSchemas(discoverBlocks()))}`)
+  exports.push(`export const locales = ${JSON.stringify(locales)}`)
   return [...lines, '', ...exports, ''].join('\n')
 }
 

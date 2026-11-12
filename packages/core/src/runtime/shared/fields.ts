@@ -31,6 +31,11 @@ interface Base {
    */
   renamedFrom?: string
   /**
+   * In a localized type: one value for every locale, not translated. Saving it in one locale's version
+   * changes it in the others. Top-level fields only.
+   */
+  shared?: boolean
+  /**
    * Only applies while this holds: otherwise the field is hidden in the admin, not required, and not stored.
    * `field` names a sibling (in the same object or repeater item), or a top-level field with a leading `/`.
    */

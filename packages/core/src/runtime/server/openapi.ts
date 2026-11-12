@@ -4,6 +4,7 @@ import type { Field, Fields } from '../shared/fields'
 import type { ContentSchema } from './db/tables'
 import type { RouteDefinition } from './types'
 import { UNIQUE_MAX_LENGTH } from '../shared/fields'
+import { resolveLocales } from '../shared/locales'
 
 type JsonSchema = Record<string, unknown>
 const BASE = '/api/_atelier'
@@ -69,6 +70,7 @@ const param = (name: string, description: string, schema: JsonSchema = { type: '
   ({ name, in: where, required: where === 'path', description, schema })
 
 export function openApiDocument(schema: ContentSchema, info: { title?: string, version?: string } = {}): JsonSchema {
+  const locales = resolveLocales(schema.locales)
   const schemas: Record<string, JsonSchema> = {
     RelatedEntry: { type: 'object', description: 'A populated relation', properties: { id: { type: 'string' }, version: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' }, createdBy: { type: ['string', 'null'] }, publishedVersion: { type: ['integer', 'null'], description: 'The version the site serves, or null when unpublished; below `version` when the draft has unpublished changes' }, data: { type: 'object' } }, required: ['id', 'version', 'data'] },
     Block: { type: 'object', properties: { id: { type: 'string' }, type: { type: 'string' }, props: { type: 'object' } }, required: ['id', 'type', 'props'] },
@@ -102,7 +104,12 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
         shadowed: { type: 'array', description: 'URLs of the entry that a page of the app serves instead (present only when there are some)', items: { type: 'object', properties: { path: { type: 'string' }, page: { type: 'string', description: 'The app page\'s route path' } }, required: ['path', 'page'] } },
       }
   const mediaMap = { media: { type: 'object', description: 'The media items its fields use, by id: url, filename, mime, width, height, title, alt, caption, credits, focal. Absent when there are none.', additionalProperties: { type: 'object' } } }
-  const entry = (data: string, route?: RouteDefinition) => ({ type: 'object', properties: { id: { type: 'string' }, version: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' }, createdBy: { type: ['string', 'null'] }, publishedVersion: { type: ['integer', 'null'], description: 'The version the site serves, or null when unpublished; below `version` when the draft has unpublished changes' }, ...urls(route), ...mediaMap, data: ref(data) }, required: ['id', 'version', 'createdAt', 'updatedAt', 'createdBy', 'publishedVersion', 'data'] })
+  const translated = {
+    locale: { type: 'string', description: 'This version\'s locale' },
+    translations: { type: 'object', additionalProperties: { type: 'string' }, description: 'The ids of its translations (itself included), by locale' },
+    fallbacks: { type: 'object', additionalProperties: { type: 'string' }, description: 'Read with `locale`: the fields filled from another locale\'s version, with that locale' },
+  }
+  const entry = (data: string, route?: RouteDefinition, localized?: boolean) => ({ type: 'object', properties: { id: { type: 'string' }, version: { type: 'integer' }, createdAt: { type: 'string', format: 'date-time' }, updatedAt: { type: 'string', format: 'date-time' }, createdBy: { type: ['string', 'null'] }, publishedVersion: { type: ['integer', 'null'], description: 'The version the site serves, or null when unpublished; below `version` when the draft has unpublished changes' }, ...urls(route), ...localized ? translated : {}, ...mediaMap, data: ref(data) }, required: ['id', 'version', 'createdAt', 'updatedAt', 'createdBy', 'publishedVersion', 'data'] })
   const depth = param('depth', 'Levels of relations to replace with the entries they point to')
   const fields = param('fields', 'Comma-separated fields to return')
   const draft = param('draft', '`true` for drafts instead of what the site serves (callers who can edit the type)', { enum: ['true', 'false', '1', '0'] })
@@ -112,11 +119,13 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
     const type = pascal(name)
     const tag = [name]
     schemas[`${type}Data`] = dataSchema(definition.fields)
-    schemas[`${type}Entry`] = entry(`${type}Data`, definition.route)
+    schemas[`${type}Entry`] = entry(`${type}Data`, definition.route, !!definition.localized)
     schemas[`${type}List`] = { type: 'object', properties: { items: { type: 'array', items: ref(`${type}Entry`) }, total: { type: 'integer' }, limit: { type: 'integer' }, next: { type: ['string', 'null'] } }, required: ['items', 'total', 'limit', 'next'] }
     const publish = { publish: { type: 'boolean', description: 'Publish the saved version too' } }
-    const body = (required: boolean) => ({ required: true, content: { 'application/json': { schema: { type: 'object', properties: { ...required ? {} : { version: { type: 'integer' } }, data: required ? ref(`${type}Data`) : { type: 'object' }, ...publish }, required: required ? ['data'] : ['version', 'data'] } } } })
+    const localeProperty = { locale: { type: 'string', enum: locales.codes, description: 'The new entry\'s locale (the default locale when omitted)' } }
+    const body = (required: boolean) => ({ required: true, content: { 'application/json': { schema: { type: 'object', properties: { ...required ? {} : { version: { type: 'integer' } }, data: required ? ref(`${type}Data`) : { type: 'object' }, ...publish, ...required && definition.localized ? localeProperty : {} }, required: required ? ['data'] : ['version', 'data'] } } } })
     const id = param('id', 'The entry id', { type: 'string' }, 'path')
+    const locale = definition.localized ? [param('locale', 'The versions in this locale, falling back as configured', { type: 'string', enum: locales.codes })] : []
     paths[`${BASE}/collections/${name}`] = {
       get: {
         tags: tag,
@@ -130,6 +139,7 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
           param('cursor', 'The `next` of the previous page'),
           depth,
           draft,
+          ...locale,
         ],
         responses: { 200: json(ref(`${type}List`)), ...errors(400, 401, 403) },
       },
@@ -137,9 +147,20 @@ export function openApiDocument(schema: ContentSchema, info: { title?: string, v
     }
     paths[`${BASE}/collections/${name}/{id}`] = {
       parameters: [id],
-      get: { tags: tag, summary: 'Get an entry', parameters: [depth, fields, draft], responses: { 200: json(ref(`${type}Entry`)), ...errors(401, 403, 404) } },
+      get: { tags: tag, summary: 'Get an entry', parameters: [depth, fields, draft, ...locale], responses: { 200: json(ref(`${type}Entry`)), ...errors(400, 401, 403, 404) } },
       patch: { tags: tag, summary: 'Update an entry: `data` is merged into the stored data; `version` is the one you read', requestBody: body(false), responses: { 200: json(ref(`${type}Entry`)), ...errors(401, 403, 404, 409, 422, 429) } },
       delete: { tags: tag, summary: 'Delete an entry, applying its relations\' onDelete rules', responses: { 200: json({ type: 'object', properties: { ok: { const: true } } }), ...errors(401, 403, 404, 409, 429) } },
+    }
+    if (definition.localized) {
+      paths[`${BASE}/collections/${name}/{id}/translations`] = {
+        parameters: [id],
+        post: {
+          tags: tag,
+          summary: 'Create the entry\'s version in another locale: a copy of its data with `data` on top, linked as a translation',
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { ...localeProperty, data: { type: 'object' }, ...publish }, required: ['locale'] } } } },
+          responses: { 200: json(ref(`${type}Entry`)), ...errors(400, 401, 403, 404, 422, 429) },
+        },
+      }
     }
     if (definition.versioned) {
       paths[`${BASE}/collections/${name}/{id}/publish`] = {

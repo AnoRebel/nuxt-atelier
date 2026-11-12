@@ -17,6 +17,7 @@ import { buildTables, collectionTable, publishedTable } from '../runtime/server/
 import { allDrivers } from '../runtime/server/db/loaders'
 import { discoverSchema, layerFiles } from '../schema/discover'
 import { serialiseFields } from '../runtime/shared/fields'
+import { resolveLocales } from '../runtime/shared/locales'
 
 const runtime = (path: string) => fileURLToPath(new URL(`../runtime/server/${path}`, import.meta.url))
 const KIT_DIALECTS = { sqlite: 'sqlite', postgres: 'postgresql', mysql: 'mysql' } as const
@@ -43,7 +44,7 @@ export async function projectFromNuxt(nuxt: Nuxt): Promise<Project> {
     [...discoverSchema(kind, nuxt)].map(async ([name, path]) => [name, await jiti.import(path, { default: true })]),
   ))
   const tables = Object.assign({}, ...await Promise.all(layerFiles('tables', nuxt).toReversed().map(path => jiti.import(path, { default: true }))))
-  return { rootDir, buildDir, databaseUrl, schema: { collections: await load('collections'), singletons: await load('singletons'), tables } }
+  return { rootDir, buildDir, databaseUrl, schema: { collections: await load('collections'), singletons: await load('singletons'), tables, locales: resolveLocales(options.locales) } }
 }
 
 /**
