@@ -13,11 +13,14 @@ import { useAtelierNavigation } from '../composables/useAtelierNavigation'
 import { useAtelierSession } from '../composables/useAtelierSession'
 import CnDrawer from '../crystal-neuo/components/Drawer.vue'
 import CnMenu from '../crystal-neuo/components/Menu.vue'
+import { useOverrides } from '../overrides'
+import Brand from './Brand.vue'
 import Icon from './Icon'
 
 const route = useRoute()
 const { base } = useAtelierAdmin()
 const { appearance, set, openModal } = useAppearance()
+const brand = useOverrides()('Brand', Brand)
 const { items } = useAtelierNavigation()
 const { user, signOut } = useAtelierSession()
 
@@ -70,10 +73,10 @@ const account = computed(() => [
       aria-label="Admin"
     >
       <div class="app-side__head">
-        <span class="app-brand"><span
-          v-if="!rail"
-          class="app-brand__name"
-        >Nuxt Atelier</span></span>
+        <component
+          :is="brand"
+          :compact="rail"
+        />
       </div>
       <nav
         class="app-nav"
@@ -142,7 +145,7 @@ const account = computed(() => [
           <Icon :name="rail ? 'panel-left-open' : 'panel-left-close'" />
         </button>
         <template v-if="nav === 'top'">
-          <span class="app-brand"><span class="app-brand__name">Nuxt Atelier</span></span>
+          <component :is="brand" />
           <nav
             class="app-topbar__nav"
             aria-label="Admin"

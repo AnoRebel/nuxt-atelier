@@ -7,6 +7,7 @@ import { QueryClient, VUE_QUERY_CLIENT } from '@tanstack/vue-query'
 import { onBeforeUnmount, provide } from 'vue'
 import css from '../admin.css?inline'
 import AdminApp from '../components/App.vue'
+import { ADMIN_PORTAL } from '../composables/useAtelierAdminPortal'
 
 const host = document.createElement('atelier-admin')
 const shadow = host.attachShadow({ mode: 'open' })
@@ -15,8 +16,22 @@ sheet.replaceSync(css)
 shadow.adoptedStyleSheets = [sheet]
 const root = document.createElement('div')
 root.setAttribute('data-atelier-admin', '')
+const portal = document.createElement('div')
+portal.setAttribute('data-atelier-admin-portal', '')
+root.append(portal) // inside the root: overlays get the appearance and theme tokens too
 shadow.append(root)
 document.body.append(host)
+provide(ADMIN_PORTAL, portal)
+
+// in development: say so when an overlay lands on the page's <body>, outside the admin, where it's unstyled
+let watcher: MutationObserver | undefined
+if (import.meta.dev) {
+  watcher = new MutationObserver(records => records.flatMap(r => [...r.addedNodes]).forEach((node) => {
+    if (node instanceof HTMLElement && node !== host && (node.matches('[role="dialog"], [role="menu"], [role="listbox"], [popover], [data-radix-popper-content-wrapper], [data-reka-popper-content-wrapper]') || node.querySelector('[role="dialog"], [role="menu"], [role="listbox"]')))
+      console.warn('[@nuxt-atelier/admin] An overlay was added to the page\'s <body>, outside the admin, where its styles don\'t apply. Render it in the admin with useAtelierAdminPortal() as its teleport target.', node)
+  }))
+  watcher.observe(document.body, { childList: true })
+}
 const overflow = document.body.style.overflow
 document.body.style.overflow = 'hidden' // the page under the admin doesn't scroll
 
@@ -29,6 +44,7 @@ client.mount()
 provide(VUE_QUERY_CLIENT, client)
 
 onBeforeUnmount(() => {
+  watcher?.disconnect()
   client.unmount()
   host.remove()
   document.body.style.overflow = overflow

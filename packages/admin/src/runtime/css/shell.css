@@ -1045,3 +1045,8 @@ button:not(:disabled),
 .app-permissions :is(td, th):first-child {
   text-align: start;
 }
+.app-brand__logo {
+  display: block;
+  max-block-size: 2rem;
+  max-inline-size: 10rem;
+}

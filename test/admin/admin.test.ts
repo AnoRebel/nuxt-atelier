@@ -102,6 +102,42 @@ describe('admin', async () => {
     expect(await rita.getByRole('link', { name: 'Authors' }).count()).toBe(0)
   })
 
+  it('shows the app\'s branding, theme tokens, field input override and own page, the page only to those allowed', async () => {
+    const page = await signIn()
+    await page.getByText('Fixture CMS').first().waitFor()
+    const root = () => page.evaluate(() => {
+      const el = document.querySelector('atelier-admin')!.shadowRoot!.querySelector<HTMLElement>('[data-atelier-admin]')!
+      return { accent: el.style.getPropertyValue('--accent-primary-base'), material: el.dataset.material }
+    })
+    expect((await root()).accent).toBe('#c2410c')
+
+    await page.getByRole('link', { name: 'Site tools' }).first().click()
+    await page.locator('[data-site-tools]').waitFor()
+    expect(await page.evaluate(() => [!!document.querySelector('[data-portal-content]'), !!document.querySelector('atelier-admin')!.shadowRoot!.querySelector('[data-atelier-admin] [data-portal-content]')]))
+      .toEqual([false, true]) // in the admin's shadow root, not on the page
+    await page.goto(url('/admin/collections/posts/new'))
+    await page.locator('[data-app-date]').waitFor() // the app's date input, not the admin's
+
+    // the appearance a viewer picks is kept
+    await page.getByRole('button', { name: 'Appearance' }).click()
+    await page.getByRole('radio', { name: /Folio/ }).check({ force: true })
+    await page.getByRole('button', { name: 'Done' }).click()
+    await page.reload()
+    await page.getByLabel('Title *').waitFor()
+    expect((await root()).material).toBe('folio')
+
+    // Rita (a reviewer) doesn't manage settings: no link, and the page is refused
+    const rita = await createPage(url('/admin'))
+    await rita.getByLabel('Email').fill('rita@example.com')
+    await rita.getByLabel('Password').fill('password 456')
+    await rita.getByRole('button', { name: 'Sign in' }).click()
+    await rita.getByRole('heading', { name: 'Dashboard' }).waitFor()
+    expect(await rita.getByRole('link', { name: 'Site tools' }).count()).toBe(0)
+    await rita.goto(url('/admin/tools'))
+    await rita.getByRole('heading', { name: 'You can\'t open this' }).waitFor()
+    expect(await rita.locator('[data-site-tools]').count()).toBe(0)
+  })
+
   it('keeps the site\'s CSS out of the admin, and the admin\'s CSS off the site\'s pages', async () => {
     const page = await createPage(url('/admin'))
     await page.getByLabel('Email').waitFor()

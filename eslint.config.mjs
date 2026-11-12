@@ -62,8 +62,8 @@ export default createConfigForNuxt({
     rules: { '@typescript-eslint/no-explicit-any': 'off' },
   },
   {
-    // the admin's components are named after their role in the kit (App, Shell, Page)
-    files: ['packages/admin/src/runtime/components/**/*.vue'],
+    // the admin's components, and the app's replacements of them, are named after their part (Home, Shell)
+    files: ['packages/admin/src/runtime/components/**/*.vue', '**/app/atelier-admin/**/*.vue'],
     rules: { 'vue/multi-word-component-names': 'off' },
   },
   {

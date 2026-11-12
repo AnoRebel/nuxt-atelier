@@ -64,7 +64,11 @@
         "nuxt-atelier"
       ]
     },
-    "packages/layer": {},
+    "packages/layer": {
+      "entry": [
+        "app/atelier-admin/*.vue"
+      ]
+    },
     "docs": {
       "ignoreDependencies": [
         "@takumi-rs/core"
@@ -81,7 +85,7 @@
     },
     "test/fixtures/layer-override": {
       "entry": [
-        "app/components/*.vue"
+        "app/atelier-admin/*.vue"
       ]
     },
     "test/fixtures/schema": {
