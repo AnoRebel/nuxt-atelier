@@ -2,8 +2,8 @@
      publish and unpublish, delete. Fields the role can only read are shown disabled. -->
 <script setup lang="ts">
 import type { AdminApiError } from '../types'
-import { computed, ref } from 'vue'
-import { navigateTo } from '#imports'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { navigateTo, onBeforeRouteLeave, onBeforeRouteUpdate } from '#imports'
 import { useAtelierAdmin } from '../composables/useAtelierAdmin'
 import { useAtelierEntryForm } from '../composables/useAtelierEntryForm'
 import { humanize } from '../composables/useAtelierNavigation'
@@ -22,9 +22,28 @@ const toast = useAdminToast()
 const edit = useAtelierEntryForm(() => ({ kind: props.kind, name: props.name, id: props.id }))
 const { type, form } = edit
 const values = form.useStore(s => s.values)
-const dirty = form.useStore(s => s.isDirty)
+const dirty = edit.dirty
 const submitting = form.useStore(s => s.isSubmitting)
 const error = ref('')
+
+// unsaved changes: asked before leaving for another admin page, and warned by the browser on closing
+const leaving = ref<((leave: boolean) => void) | null>(null)
+const leaveOpen = computed({ get: () => !!leaving.value, set: (open: boolean) => !open && answer(false) })
+function answer(leave: boolean) {
+  leaving.value?.(leave)
+  leaving.value = null
+}
+// every admin path is the same route (its catch-all), so moving within the admin is an update
+const guard = () => !dirty.value || form.state.isSubmitting || new Promise<boolean>(resolve => leaving.value = resolve)
+onBeforeRouteLeave(guard)
+onBeforeRouteUpdate(guard)
+const onUnload = (e: BeforeUnloadEvent) => {
+  if (dirty.value)
+    e.preventDefault()
+}
+onMounted(() => addEventListener('beforeunload', onUnload))
+onBeforeUnmount(() => removeEventListener('beforeunload', onUnload))
+const savedAt = computed(() => edit.recovery.value ? new Date(edit.recovery.value.savedAt).toLocaleString() : '')
 const confirmDelete = ref(false)
 
 const typeLabel = computed(() => props.kind === 'collection'
@@ -130,6 +149,25 @@ async function remove() {
       novalidate
       @submit.prevent="save"
     >
+      <CnAlert
+        v-if="edit.recovery.value"
+        variant="warning"
+        title="Unsaved changes found"
+        data-recovery
+      >
+        Changes to this entry from {{ savedAt }} weren't saved.
+        <span class="app-row">
+          <CnButton
+            size="sm"
+            @click="edit.restoreRecovery()"
+          >Restore them</CnButton>
+          <CnButton
+            size="sm"
+            variant="ghost"
+            @click="edit.discardRecovery()"
+          >Discard</CnButton>
+        </span>
+      </CnAlert>
       <FieldInput
         v-for="(field, key) in type.fields"
         :key="key"
@@ -160,6 +198,15 @@ async function remove() {
       </div>
     </form>
 
+    <CnDialog
+      v-model:open="leaveOpen"
+      title="Leave without saving?"
+      description="Your changes aren't saved. A copy stays in this browser, offered when you open the entry again."
+      confirm-label="Leave"
+      cancel-label="Stay"
+      variant="destructive"
+      @confirm="answer(true)"
+    />
     <CnDialog
       v-model:open="confirmDelete"
       title="Delete this entry?"
