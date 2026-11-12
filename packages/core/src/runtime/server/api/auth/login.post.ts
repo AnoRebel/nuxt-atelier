@@ -2,6 +2,8 @@ import * as v from 'valibot'
 import { defineEventHandler, isNuxtError } from 'nuxt/server'
 import { assertMigrated, audit, signInLimits, useAtelierAuth, useAtelierRateLimiter } from '../../index'
 import { readValid } from '../../errors'
+import { logger } from '../../logger'
+import { requestIdOf } from '../../middleware/request-id'
 
 const Credentials = v.object({ email: v.pipe(v.string(), v.maxLength(255)), password: v.pipe(v.string(), v.maxLength(1024)) })
 
@@ -22,6 +24,7 @@ export default defineEventHandler(async (event) => {
     if (isNuxtError(error) && error.status === 401) {
       await limiter.hit(limits)
       await audit(event, { action: 'auth.sign-in-failed', actorId: null, details: { method: 'password', email } })
+      logger.warn('Sign-in failed', { event: 'auth.sign-in-failed', method: 'password', requestId: requestIdOf(event) })
     }
     throw error
   }

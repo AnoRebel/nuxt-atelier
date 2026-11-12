@@ -38,6 +38,7 @@ import { clientIp, createRateLimiter } from './auth/rate-limit'
 import { createRoleStore } from './auth/roles'
 import { createTokenStore } from './auth/tokens'
 import { apiError } from './errors'
+import { logger } from './logger'
 
 export * from './define'
 export type { AtelierDriver, Dialect } from './db/driver'
@@ -121,12 +122,12 @@ export function useAtelierEntries(): Promise<EntryStore> {
     maxNestingDepth: (useAtelierServerConfig() as unknown as { limits: { maxNestingDepth: number } }).limits.maxNestingDepth,
     onChange: (change) => {
       void contentChanged(change)
-      queueWebhooks(change).catch((error: Error) => console.error(`[nuxt-atelier] Couldn't queue webhooks for ${change.type} "${change.id}": ${error.message}`))
+      queueWebhooks(change).catch((error: Error) => logger.error(`Couldn't queue webhooks for ${change.type} "${change.id}"`, { error }))
     },
     hooks: (hook, context) => (useServerHooks().callHook as (name: string, context: unknown) => unknown)(`atelier:${hook}`, context),
     onHookError: async (hook, context, error) => {
       const message = error instanceof Error ? error.message : String(error)
-      console.error(`[nuxt-atelier] The atelier:${hook} hook failed (the change it followed was kept):`, error)
+      logger.error(`The atelier:${hook} hook failed (the change it followed was kept)`, { error })
       const { type, id, actorId } = context as { type: string, id: string, actorId?: string | null }
       await (await useAtelierAudit()).record({ action: 'hook.failed', actorId: actorId ?? null, target: { type, id }, details: { hook: `atelier:${hook}`, error: message.slice(0, 1000) } })
     },
@@ -200,7 +201,7 @@ export async function shutdownAtelier(timeoutMs = 10_000): Promise<void> {
   if (queue) {
     const { requeued } = await queue.stop(timeoutMs)
     if (requeued)
-      console.warn(`[nuxt-atelier] Shutting down: ${requeued} running job${requeued === 1 ? '' : 's'} put back in the queue`)
+      logger.warn(`Shutting down: ${requeued} running job${requeued === 1 ? '' : 's'} put back in the queue`)
   }
   const driver = await database?.catch(() => undefined)
   database = undefined

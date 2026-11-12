@@ -9,6 +9,7 @@ import { migrations } from '#atelier-migrations'
 import { useRuntimeConfig } from 'nuxt/server'
 import { apiError } from '../errors'
 import { applyMigrationList, applyMigrations, migrationStatus } from './migrations'
+import { logger } from '../logger'
 
 let check: Promise<string[]> | undefined
 
@@ -38,10 +39,10 @@ export function pendingMigrations(driver: () => Promise<AtelierDriver>): Promise
     if (useRuntimeConfig().atelier.migrations.autoApply) {
       // D1 (no transactions, no filesystem) applies them as one batch
       const applied = db.capabilities.transactions ? await applyBundled(db, bundled) : await applyMigrationList(db, bundled)
-      console.info(`[nuxt-atelier] Applied migrations: ${applied.join(', ')}`)
+      logger.info(`Applied migrations: ${applied.join(', ')}`)
       return []
     }
-    console.error(`[nuxt-atelier] The database has pending migrations, so CMS writes are refused until they're applied:\n${pending.map(n => `  ${n}`).join('\n')}\nRun \`atelier migrate apply\`, or set NUXT_ATELIER_MIGRATIONS_AUTO_APPLY=true.`)
+    logger.error(`The database has pending migrations, so CMS writes are refused until they're applied:\n${pending.map(n => `  ${n}`).join('\n')}\nRun \`atelier migrate apply\`, or set NUXT_ATELIER_MIGRATIONS_AUTO_APPLY=true.`)
     return pending
   })().catch((error) => {
     check = undefined // retry on the next write, e.g. once the database is reachable

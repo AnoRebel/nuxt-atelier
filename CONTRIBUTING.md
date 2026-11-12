@@ -45,6 +45,7 @@ bun run build
 | `bun run check:pkg` | `publint` and `@arethetypeswrong/cli` on every package |
 | `bun run knip` | unused files, exports, dependencies and catalog entries |
 | `bun run licenses` | every package in `bun.lock` has an allowed license |
+| `bun run deps` | every runtime dependency of a published package is listed, with its purpose, in [the dependencies page](docs/content/3.reference/23.dependencies.md) |
 | `bun run pack` | packs the packages into `.packs/`, as they would be published, and checks them |
 
 ### Database tests
@@ -81,6 +82,8 @@ Catalog entries that published packages depend on at runtime use caret ranges (`
 The catalogs only list dependencies something uses (`bun run knip` fails on unused entries). To add a dependency, add it to the right catalog, creating that catalog if needed, and explain in your PR why it's needed. Every runtime dependency has to justify its weight.
 
 Every dependency, including transitive and dev-only ones, must have a license compatible with distributing Nuxt Atelier under MIT. `bun run licenses` checks every package in `bun.lock` against an allowlist of permissive licenses; run it after adding or updating a dependency. It also runs in CI and on commits that change `bun.lock`. If a package fails, pick another one, or add an entry to `EXCEPTIONS` in `scripts/check-licenses.ts` saying why its license is acceptable for how we use it (build-only, unmodified, not shipped, …).
+
+A new runtime dependency of a published package also needs a line on the [dependencies page](docs/content/3.reference/23.dependencies.md) saying what it's for (`bun run deps` checks), and CI runs `bun audit` on what the published packages install.
 
 ## Public APIs only
 

@@ -4,6 +4,7 @@
 import { defineEventHandler } from 'nuxt/server'
 import { pendingMigrations } from '../db/state'
 import { useAtelierDatabase, useAtelierJobs, useAtelierMedia } from '../index'
+import { logger } from '../logger'
 
 type Check = 'ok' | 'error'
 const TIMEOUT = 3000
@@ -17,7 +18,7 @@ async function within<T>(name: string, check: () => Promise<T>): Promise<T | 'er
     })])
   }
   catch (error) {
-    console.error(`[nuxt-atelier] Readiness: the ${name} check failed:`, error instanceof Error ? error.message : error)
+    logger.error(`Readiness: the ${name} check failed`, { error })
     return 'error'
   }
   finally {

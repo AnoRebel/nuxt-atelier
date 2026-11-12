@@ -3,6 +3,7 @@
 // `validate` is JSON-serialisable.
 import type { AreaRules, BlockSchema } from './blocks'
 import * as v from 'valibot'
+import { sanitizeRichText } from './rich-text'
 
 /** Any Standard Schema (Valibot, Zod, ArkType, …): https://standardschema.dev */
 export interface StandardSchema {
@@ -58,7 +59,13 @@ export interface TextField extends Base, Length {
   patternMessage?: string
 }
 export interface TextareaField extends Base, Length { type: 'textarea', rows?: number }
-export interface RichTextField extends Base { type: 'richText' }
+export interface RichTextField extends Base {
+  type: 'richText'
+  /** Custom node types (Tiptap extensions) kept on save; others are removed (see shared/rich-text.ts). */
+  nodes?: readonly string[]
+  /** Custom mark types kept on save. */
+  marks?: readonly string[]
+}
 export interface NumberField extends Base { type: 'number', integer?: boolean, min?: number, max?: number }
 export interface BooleanField extends Base { type: 'boolean' }
 export interface SelectField extends Base { type: 'select', options: readonly Option[] }
@@ -231,7 +238,11 @@ const builders: { [T in Field['type']]: (field: Extract<Field, { type: T }>) => 
     ? []
     : [v.regex(new RegExp(`^(?:${f.pattern})$`, 'u'), f.patternMessage ?? `expected to match ${f.pattern}`)]),
   textarea: f => str('expected text', ...length(f)),
-  richText: () => v.looseObject({ type: v.literal('doc', 'expected a rich text document'), content: v.optional(v.array(proseNode)) }, 'expected a rich text document'),
+  // what can't be rendered safely is removed before storage: scripts, `on…` attributes, `javascript:` links
+  richText: f => v.pipe(
+    v.looseObject({ type: v.literal('doc', 'expected a rich text document'), content: v.optional(v.array(proseNode)) }, 'expected a rich text document'),
+    v.transform(doc => sanitizeRichText(doc, f)),
+  ),
   number: f => pipe(
     v.number('expected a number'),
     f.integer ? v.integer('expected a whole number') : v.finite('expected a finite number'),
