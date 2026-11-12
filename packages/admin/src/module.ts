@@ -151,6 +151,7 @@ declare module '#atelier-admin-passkeys' {
       'useAtelierUsers',
       'useAtelierRoles',
       'useAtelierAdminPortal',
+      'useAtelierDashboard',
     ].map(name => ({ name, from: resolve(`./runtime/composables/${name}`) })))
   },
 })

@@ -179,6 +179,17 @@ describe('admin', async () => {
     await page.waitForURL(/\/admin\/collections\/posts\/(?!new)[^/]+$/)
   })
 
+  it('shows failed jobs on the dashboard, with a retry, and the user\'s drafts', async () => {
+    await fetch('/api/test/explode', { method: 'POST' })
+    const page = await signIn()
+    const widget = page.locator('[data-widget="failed-jobs"]')
+    await widget.getByText('the webhook endpoint said no').waitFor()
+    await widget.getByRole('button', { name: 'Retry test:explode' }).click()
+    await page.getByText('Queued again').waitFor()
+    await widget.waitFor({ state: 'detached' }) // queued again: no longer failed
+    await page.locator('[data-widget="drafts"]').getByRole('link', { name: 'Hello world' }).waitFor()
+  })
+
   it('keeps the site\'s CSS out of the admin, and the admin\'s CSS off the site\'s pages', async () => {
     const page = await createPage(url('/admin'))
     await page.getByLabel('Email').waitFor()

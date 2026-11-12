@@ -1,13 +1,48 @@
-<!-- The dashboard home. Widgets (activity, drafts, scheduled, failed jobs, migrations) come with task 15.7. -->
+<!-- The admin home: pending migrations, failed jobs (with retry), the user's drafts, upcoming schedules,
+     recent activity, and the content types. Replace it with app/atelier-admin/Home.vue. -->
 <script setup lang="ts">
+import type { AdminApiError } from '../types'
+import { computed } from 'vue'
 import { NuxtLink } from '#components'
-import { useAtelierNavigation } from '../composables/useAtelierNavigation'
+import { useAtelierAdmin } from '../composables/useAtelierAdmin'
+import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
+import { titleField } from '../composables/useAtelierCollection'
+import { useAtelierDashboard } from '../composables/useAtelierDashboard'
+import { humanize, useAtelierNavigation } from '../composables/useAtelierNavigation'
 import { useAtelierSession } from '../composables/useAtelierSession'
+import CnAlert from '../crystal-neuo/components/Alert.vue'
+import CnBadge from '../crystal-neuo/components/Badge.vue'
+import CnButton from '../crystal-neuo/components/Button.vue'
+import { useAdminToast } from '../toast'
 import Icon from './Icon'
 import Page from './Page.vue'
 
+const { to } = useAtelierAdmin()
 const { items } = useAtelierNavigation()
 const { user } = useAtelierSession()
+const { schema } = useAtelierAdminSchema()
+const { dashboard, retry } = useAtelierDashboard()
+const toast = useAdminToast()
+
+const typeLabel = (name: string) => schema.value?.collections.find(c => c.name === name)?.labels?.plural
+  ?? schema.value?.singletons.find(s => s.name === name)?.label ?? humanize(name)
+const entryTitle = (type: string, data: Record<string, unknown>) => {
+  const key = titleField(schema.value?.collections.find(c => c.name === type))
+  return String((key && data[key]) || '(untitled)')
+}
+const when = (iso: string) => new Date(iso).toLocaleString()
+const link = (type: string, id: string, singleton = false) => singleton ? to('singletons', type) : to('collections', type, id)
+const failed = computed(() => dashboard.value?.failedJobs ?? [])
+
+async function retryJob(id: string) {
+  try {
+    await retry.mutateAsync(id)
+    toast.add({ color: 'success', title: 'Queued again' })
+  }
+  catch (e) {
+    toast.add({ color: 'error', title: 'Not retried', description: (e as AdminApiError).message })
+  }
+}
 </script>
 
 <template>
@@ -15,6 +50,170 @@ const { user } = useAtelierSession()
     title="Dashboard"
     :description="`Signed in as ${user?.name || user?.email}.`"
   >
+    <CnAlert
+      v-if="dashboard?.pendingMigrations"
+      variant="warning"
+      title="Migrations are pending"
+      data-widget="migrations"
+    >
+      {{ dashboard.pendingMigrations }} database migration{{ dashboard.pendingMigrations === 1 ? '' : 's' }} not applied yet: content can't be read or saved until they are. Run <code>atelier migrate</code>, or deploy with migrations applied on start.
+    </CnAlert>
+
+    <section
+      v-if="failed.length"
+      class="app-section"
+      data-widget="failed-jobs"
+    >
+      <h2 class="app-section__title">
+        <Icon name="triangle-alert" /> Failed background jobs
+      </h2>
+      <div class="app-table-wrap">
+        <table class="cn-table">
+          <caption class="sr-only">
+            Failed background jobs
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">
+                Job
+              </th>
+              <th scope="col">
+                Error
+              </th>
+              <th scope="col">
+                Last tried
+              </th>
+              <th scope="col">
+                <span class="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="job in failed"
+              :key="job.id"
+            >
+              <td><code>{{ job.name }}</code></td>
+              <td>{{ job.lastError ?? '—' }}</td>
+              <td>{{ when(job.runAt) }} ({{ job.attempts }} tries)</td>
+              <td class="app-actions-cell">
+                <CnButton
+                  size="sm"
+                  variant="secondary"
+                  :aria-label="`Retry ${job.name}`"
+                  @click="retryJob(job.id)"
+                >
+                  Retry
+                </CnButton>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="app-widgets">
+      <section
+        class="app-section cn-card cn-card--raised cn-card--size-md"
+        data-widget="drafts"
+      >
+        <h2 class="app-section__title">
+          Your drafts
+        </h2>
+        <ul
+          v-if="dashboard?.drafts.length"
+          class="app-list"
+        >
+          <li
+            v-for="d in dashboard.drafts"
+            :key="`${d.type}/${d.id}`"
+          >
+            <NuxtLink :to="link(d.type, d.id)">
+              {{ entryTitle(d.type, d.data) }}
+            </NuxtLink>
+            <span class="app-muted"> · {{ typeLabel(d.type) }} · {{ when(d.updatedAt) }}</span>
+            <CnBadge
+              v-if="d.publishedVersion !== null"
+              variant="warning"
+              size="sm"
+            >
+              Changed
+            </CnBadge>
+          </li>
+        </ul>
+        <p
+          v-else
+          class="app-muted"
+        >
+          No unpublished drafts of yours.
+        </p>
+      </section>
+
+      <section
+        class="app-section cn-card cn-card--raised cn-card--size-md"
+        data-widget="scheduled"
+      >
+        <h2 class="app-section__title">
+          Scheduled
+        </h2>
+        <ul
+          v-if="dashboard?.scheduled.length"
+          class="app-list"
+        >
+          <li
+            v-for="s in dashboard.scheduled"
+            :key="`${s.type}/${s.id}/${s.action}`"
+          >
+            <CnBadge
+              :variant="s.action === 'publish' ? 'success' : 'neutral'"
+              size="sm"
+            >
+              {{ s.action === 'publish' ? 'Publish' : 'Unpublish' }}
+            </CnBadge>
+            <NuxtLink :to="link(s.type, s.id, s.singleton)">
+              {{ typeLabel(s.type) }}{{ s.singleton ? '' : ` · ${s.id}` }}
+            </NuxtLink>
+            <span class="app-muted"> · {{ when(s.runAt) }}</span>
+          </li>
+        </ul>
+        <p
+          v-else
+          class="app-muted"
+        >
+          Nothing scheduled.
+        </p>
+      </section>
+
+      <section
+        v-if="dashboard?.activity"
+        class="app-section cn-card cn-card--raised cn-card--size-md"
+        data-widget="activity"
+      >
+        <h2 class="app-section__title">
+          Recent activity
+        </h2>
+        <ul
+          v-if="dashboard.activity.length"
+          class="app-list"
+        >
+          <li
+            v-for="a in dashboard.activity"
+            :key="a.id"
+          >
+            <code>{{ a.action }}</code>
+            <span v-if="a.target"> · {{ a.target.type }}</span>
+            <span class="app-muted"> · {{ when(a.at) }}</span>
+          </li>
+        </ul>
+        <p
+          v-else
+          class="app-muted"
+        >
+          Nothing yet.
+        </p>
+      </section>
+    </div>
+
     <ul class="app-cards">
       <li
         v-for="item in items.filter(i => i.group)"

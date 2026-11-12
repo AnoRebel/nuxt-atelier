@@ -183,6 +183,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ route: '/api/_atelier/health/ready', method: 'get', handler: resolve('./runtime/server/api/health-ready') })
     addServerHandler({ route: '/api/_atelier/setup', handler: resolve('./runtime/server/api/setup') })
     addServerHandler({ route: '/api/_atelier/schema', handler: resolve('./runtime/server/api/schema') })
+    addServerHandler({ route: '/api/_atelier/dashboard', handler: resolve('./runtime/server/api/dashboard') })
     for (const resource of ['users', 'roles', 'tokens', 'collections', 'singletons', 'redirects']) {
       addServerHandler({ route: `/api/_atelier/${resource}`, handler: resolve(`./runtime/server/api/${resource}`) })
       addServerHandler({ route: `/api/_atelier/${resource}/**`, handler: resolve(`./runtime/server/api/${resource}`) })
