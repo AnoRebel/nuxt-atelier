@@ -9,7 +9,7 @@
     "directory": "packages/admin"
   },
   "homepage": "https://nuxt-atelier.anorebel.net",
-  "description": "Headless admin composables and the default Nuxt UI admin kit for Nuxt Atelier",
+  "description": "Headless admin composables and the default admin kit (crystal-neuo) for Nuxt Atelier",
   "exports": {
     ".": {
       "types": "./dist/types.d.mts",
@@ -33,12 +33,25 @@
     "check:pkg": "publint --pack bun && attw --pack . --profile esm-only"
   },
   "peerDependencies": {
-    "nuxt": ">=4.6.0"
+    "nuxt": ">=4.6.0",
+    "nuxt-atelier": "workspace:^",
+    "@simplewebauthn/browser": "catalog:auth"
   },
   "dependencies": {
-    "@nuxt/kit": "catalog:"
+    "@nuxt/kit": "catalog:",
+    "@tanstack/vue-query": "catalog:admin",
+    "@tanstack/vue-form": "catalog:admin",
+    "@iconify-json/lucide": "catalog:admin"
   },
   "devDependencies": {
-    "@nuxt/schema": "catalog:"
+    "@nuxt/schema": "catalog:",
+    "nuxt-atelier": "workspace:^",
+    "@simplewebauthn/browser": "catalog:auth",
+    "vue": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "@simplewebauthn/browser": {
+      "optional": true
+    }
   }
 }

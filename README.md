@@ -19,7 +19,7 @@ A production-grade CMS for Nuxt with a visual page builder that renders your sit
 | Path | Package |
 |---|---|
 | `packages/core` | `nuxt-atelier`: module, schema, server, renderer |
-| `packages/admin` | `@nuxt-atelier/admin`: headless admin + Nuxt UI kit |
+| `packages/admin` | `@nuxt-atelier/admin`: headless admin + crystal-neuo kit |
 | `packages/editor` | `@nuxt-atelier/editor`: visual editor |
 | `packages/layer` | `@nuxt-atelier/layer`: optional starter layer |
 | `packages/*` | adapters (auth, i18n, storage, AI) |

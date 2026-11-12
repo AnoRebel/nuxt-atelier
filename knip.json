@@ -49,6 +49,21 @@
         "src/runtime/server/*.ts"
       ]
     },
+    "packages/admin": {
+      "entry": [
+        "src/module.ts",
+        "src/runtime/pages/*.vue",
+        "src/runtime/passkeys*.ts",
+        "src/runtime/composables/*.ts",
+        "src/runtime/types.ts"
+      ],
+      "ignore": [
+        "src/runtime/crystal-neuo/**"
+      ],
+      "ignoreDependencies": [
+        "nuxt-atelier"
+      ]
+    },
     "packages/layer": {},
     "docs": {
       "ignoreDependencies": [
@@ -196,6 +211,15 @@
       "ignoreDependencies": [
         "nuxt-i18n-micro"
       ]
+    },
+    "test/fixtures/admin": {
+      "ignoreDependencies": [
+        "vue-tsc"
+      ],
+      "entry": [
+        "app/**/*.vue",
+        "server/atelier/**/*.ts"
+      ]
     }
   },
   "ignoreUnresolved": [
@@ -208,6 +232,9 @@
     "#atelier-better-auth",
     "#atelier-blocks",
     "#components",
-    "#atelier-host-pages"
+    "#atelier-host-pages",
+    "#atelier/shared/fields",
+    "#atelier-admin-icons",
+    "#atelier-admin-passkeys"
   ]
 }

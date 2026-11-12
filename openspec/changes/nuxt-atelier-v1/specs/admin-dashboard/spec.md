@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Provides the content management interface as an optional package: headless admin logic with a default, fully themeable Nuxt UI kit, mounted inside the host app without leaking styles either way.
+Provides the content management interface as an optional package: headless admin logic with a default, fully themeable kit on the crystal-neuo design system, mounted inside the host app without leaking styles either way.
 
 ## ADDED Requirements
 
@@ -27,15 +27,19 @@ All admin behavior (data loading, forms, validation, list state, permissions, na
 - **WHEN** a developer builds an edit view using only the headless composables and their own components
 - **THEN** loading, validating, and saving entries behaves identically to the default kit
 
-### Requirement: Default Nuxt UI kit
-The default admin UI SHALL be built with Nuxt UI and SHALL install its UI dependencies without requiring the host site to use Nuxt UI or Tailwind for its own pages.
+### Requirement: Default crystal-neuo kit
+The default admin UI SHALL be built with the crystal-neuo design system and SHALL bring its own styles and components without requiring the host site to use any UI library or Tailwind, and without installing UI modules into the host app.
 
 #### Scenario: Site without Tailwind
 - **WHEN** the host site uses plain CSS and no Tailwind
 - **THEN** the admin renders correctly and no admin CSS is applied to public pages
 
 ### Requirement: Theming
-The admin SHALL be themeable through design tokens (colors, radius, fonts, density), light/dark mode, and branding (logo, name, favicon) via app configuration, without rebuilding the admin package.
+The admin SHALL be themeable through crystal-neuo's design tokens and axes (material, light/dark/high-contrast theme, density, platform), each viewer choosing their own appearance and layout (sidebar or top bar, sidebar style, content width) in an Appearance modal remembered in their browser, and through branding (logo, name, favicon) via app configuration, without rebuilding the admin package.
+
+#### Scenario: Viewer's appearance
+- **WHEN** an editor picks the folio material, the dark theme and a top bar in the Appearance modal
+- **THEN** the admin switches at once and keeps that appearance on their next visit
 
 #### Scenario: Brand color
 - **WHEN** the app configuration sets the admin primary color to a custom value

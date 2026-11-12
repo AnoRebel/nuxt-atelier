@@ -89,6 +89,11 @@
         "mysql2": "^3.24.6",
         "@types/pg": "8.23.1",
         "drizzle-kit": "1.0.0-rc.5"
+      },
+      "admin": {
+        "@tanstack/vue-query": "5.105.0",
+        "@tanstack/vue-form": "1.33.5",
+        "@iconify-json/lucide": "1.2.148"
       }
     }
   },
@@ -96,7 +101,7 @@
     "prepare": "simple-git-hooks",
     "lint": "oxlint && eslint .",
     "lint:fix": "oxlint --fix && eslint . --fix",
-    "typecheck": "tsc --noEmit && vue-tsc --noEmit -p test/vue-tsc && bun run --filter '@nuxt-atelier/fixture-{types,schema}' typecheck",
+    "typecheck": "tsc --noEmit && vue-tsc --noEmit -p test/vue-tsc && bun run --filter '@nuxt-atelier/fixture-{types,schema,admin}' typecheck",
     "test": "vitest run",
     "build": "bun run --filter './packages/*' build",
     "check:pkg": "bun run --filter './packages/*' check:pkg",
@@ -107,7 +112,8 @@
     "docs:config": "bun scripts/config-reference.ts",
     "licenses": "bun scripts/check-licenses.ts",
     "deps": "bun scripts/check-dependencies.ts",
-    "pack": "bun scripts/pack.ts"
+    "pack": "bun scripts/pack.ts",
+    "design:sync": "bun scripts/sync-crystal-neuo.ts"
   },
   "devDependencies": {
     "@nuxt/eslint-config": "catalog:quality",

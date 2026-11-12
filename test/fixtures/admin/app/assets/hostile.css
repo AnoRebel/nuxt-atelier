@@ -1,0 +1,5 @@
+/* A site's global CSS at its worst: none of it may reach the admin. */
+* { box-sizing: content-box !important; }
+button { all: unset; }
+body { font-family: "Comic Sans MS", cursive; color: rgb(255, 0, 0); font-size: 30px; }
+input { border: 5px dashed rgb(255, 0, 0) !important; }

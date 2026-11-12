@@ -16,7 +16,7 @@ The constraints the design must respect:
   - TanStack Form (v1, no adapter) + Valibot for all forms and validation.
   - VueUse for utilities.
   - TanStack Query and TanStack Charts where needed.
-  - Nuxt UI as the default admin kit.
+  - crystal-neuo as the default admin kit's design system (replacing Nuxt UI, by the maintainer's choice).
   - Docus for documentation.
   - Bun workspaces, MIT license.
 - **Naming.** The product is **Nuxt Atelier**. The fixed identifiers:
@@ -56,7 +56,7 @@ Bun workspace:
 ```
 packages/
   core/            → nuxt-atelier          (module: schema, server, renderer, CLI, bridge client)
-  admin/           → @nuxt-atelier/admin   (headless composables + Nuxt UI kit)
+  admin/           → @nuxt-atelier/admin   (headless composables + crystal-neuo kit)
   editor/          → @nuxt-atelier/editor  (visual editor host: preview frame, DnD, history)
   layer/           → @nuxt-atelier/layer   (optional starter layer: overridable admin pages/theme)
   auth-better-auth/, i18n-micro/, i18n-nuxtjs/, storage-s3/, storage-vercel-blob/, ai/  (adapters)
@@ -70,7 +70,7 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 
 ### D2. Module + optional layer using only public `@nuxt/kit`
 - **Main entry:** `defineNuxtModule` with `meta.compatibility.nuxt: '>=4.6.0'` and `meta.compatibility.server: 'nuxt'`.
-- **Dependencies:** `@nuxt/kit ^4.6` goes in `dependencies`, as Nuxt requires for server variants. Optional modules (`@nuxt/ui`, i18n modules, `@nuxtjs/sitemap`) are declared with `moduleDependencies`, not `installModule`.
+- **Dependencies:** `@nuxt/kit ^4.6` goes in `dependencies`, as Nuxt requires for server variants. Optional modules (i18n modules, `@nuxtjs/sitemap`) are declared with `moduleDependencies`, not `installModule`.
 - **Allowed kit APIs:**
   - `addComponentsDir` with prefix `Atelier`
   - `addImports`
@@ -175,23 +175,26 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 - **Proxy mode:** a block opts in with `editor.proxy: true`; its children are then edited in a panel list.
 - **Responsive preview:** the iframe width changes, with presets set in config.
 
-### D7. Admin: headless core + Nuxt UI kit in a Shadow DOM root
+### D7. Admin: headless core + crystal-neuo kit in a Shadow DOM root
 - **Headless layer:** `@nuxt-atelier/admin` exports headless composables (`useAtelierCollection`, `useAtelierEntryForm`, `useAtelierPermissions`, …) built on:
   - TanStack Query (`@tanstack/vue-query` 5.x) for server-state caching, mutations and optimistic updates
   - TanStack Form for forms
-- **Kit:** the default Nuxt UI 4 kit consumes those composables.
-- **Mounting:** `extendPages` adds `${base}/**` with `ssr: false` route rules and `robots: noindex`. The page component teleports a fixed, full-viewport custom element `<atelier-admin>` with an **open Shadow DOM** to `body`.
-  - Admin CSS (Tailwind v4 + Nuxt UI, compiled at module build time) is applied with `adoptedStyleSheets` inside the shadow root.
-  - Tailwind v4 `@property` registrations are also adopted on the admin document, since `@property` is ignored in shadow roots. This is a documented Tailwind limitation, and it's safe here because only the admin is rendered in that document; the site lives in the iframe.
-  - `UApp` receives `portal` = an element inside the shadow root, so modals, popovers, toasts and tooltips stay isolated. Nuxt UI documents `portal: string | boolean | HTMLElement`.
+  - `GET /api/_atelier/schema`: the content types the user may read, their fields (validators and hidden fields left out), what the user may do with each, the blocks, locales and capabilities.
+- **Kit (decided by the maintainer, 2026-11-12, replacing Nuxt UI):** the default kit is built on [crystal-neuo](https://github.com/AnoRebel/crystal-neuo), the maintainer's design system, as in their licenses and ec apps: its `Cn…` Vue components, token CSS and runtime, copied into the package by `scripts/sync-crystal-neuo.ts` (never edited by hand). Each viewer picks the appearance in an **Appearance modal** (Alt+Shift+A): material (refraction, tactile, signal, folio, bloom, hybrid), theme (system, light, dark, high contrast), density, platform, glass options, and layout (sidebar or top bar; floating, icon-rail or attached sidebar; contained or full width), remembered in that browser.
+  - Nothing is installed into the host app beyond the admin route and its auto-imports: no UI module, no Tailwind, no icon module. Icons are Lucide SVGs bundled at build time from `@iconify-json/lucide`, so nothing is fetched from an icon API.
+  - Live refraction is left out: it draws SVG filters into the document, which a shadow root can't reference.
+- **Mounting:** `extendPages` adds `${base}/**` with `ssr: false` route rules and `x-robots-tag: noindex, nofollow`. The page component creates a fixed, full-viewport custom element `<atelier-admin>` with an **open Shadow DOM** on `body`, and teleports the admin into it.
+  - The admin stylesheet (crystal-neuo plus the shell chrome, plain CSS imported as a string) is adopted by the shadow root only. The sync script rewrites the design system's document selectors (`:root`, `html`, `body`) to `:host` and the admin's root element, which also carries the appearance's `data-*` axes.
+  - Dialogs, drawers and menus are native `<dialog>`/popover elements in the top layer, rendered inside the shadow root, so no portal is needed.
   - `:host { all: initial }` blocks inherited properties.
 - **Result:** host global CSS can't reach admin chrome, and admin CSS never reaches public pages. The host's `app.vue` is never touched, and there's no stylesheet-disabling hack like Pruvious's #148 and #153.
 - **Alternatives considered:**
   - cascade layers alone: unlayered host CSS beats layered admin CSS
   - a separate prebuilt SPA: loses "custom admin pages are plain Vue in your app"
   - an iframe-wrapped admin: double-iframe editor, focus and keyboard problems
-- **Overrides:** components resolve through a registry, keyed by name, that host and layer components override. App-config-driven theming maps to `--at-*` and `--ui-*` tokens.
-- **Charts:** dashboard charts use `@tanstack/vue-charts` 1.x, the same engine as Nuxt UI's `UChart`. Tables use `UTable` with the `@tanstack/vue-table` version Nuxt UI pins (currently 8.x), so two table majors are never bundled.
+  - Nuxt UI (the original plan): installing it into the host adds document-wide side effects (a colors `<style>` on every page, root classes, the Tailwind plugin, fonts and color-mode modules) that had to be stripped one by one
+- **Overrides:** components resolve through a registry, keyed by name, that host and layer components override. Theming is crystal-neuo's tokens and axes; branding (name, logo) comes from app config.
+- **Tables and charts:** list views are crystal-neuo tables (`cn-table`) paged on the server. Dashboard charts, when needed, use `@tanstack/vue-charts` 1.x styled with the tokens.
 
 ### D8. Auth
 - **Adapter interface:** `AuthAdapter` with `getUser(event)`, `signIn`, `signOut`, user CRUD, and an optional `oauthProviders`.
@@ -341,9 +344,8 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 | Build | @nuxt/module-builder | 1.0.3 |
 | | typescript / vue-tsc | 6.0.3 / 3.3.14 |
 | | oxc-parser / magic-string | 0.156.0 / 1.4.5 |
-| UI (admin) | @nuxt/ui | 4.12.0 |
-| | tailwindcss | 4.3.3 |
-| | reka-ui | 2.11.0 (via Nuxt UI) |
+| UI (admin) | crystal-neuo | 4.0.0 (vendored copy) |
+| | @iconify-json/lucide | 1.2.148 |
 | Data | drizzle-orm / drizzle-kit | 1.0.0-rc.5 (exact pin) |
 | | @libsql/client / pg / mysql2 | 0.18.0 / 8.23.1 / 3.24.6 |
 | Validation, forms | valibot | 1.5.0 |
@@ -399,7 +401,6 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 - **[Host route middleware or plugins run on admin routes]** → Documented. The admin route sets a `meta.atelier = 'admin'` marker that host middleware can check.
 - **[Cloudflare Workers / D1: no transactions, no sharp, no native scrypt guarantee]** → The D1 driver is behind a capability flag; operations needing transactions use D1 `batch()` where it is equivalent, or fail clearly. Images go through an external provider. Passwords fall back to PBKDF2. The limitations get their own docs page.
 - **[TypeScript 7 transition]** → Stay on 6.0.3. A non-blocking TS 7 job gives early warning.
-- **[Nuxt UI pins `@tanstack/vue-table` 8.x while 9.x is latest]** → Use Nuxt UI's `UTable` only and never import 9.x directly. Revisit when Nuxt UI upgrades.
 - **[Scope is very large for a production-ready v1]** → Tasks are ordered so the core (module, schema, storage, API, auth, blocks, renderer, editor, admin) is releasable first behind stable contracts. Extras build on those contracts and are released under the same v1 only when they meet their specs.
 - **[Static macro extraction limits expressiveness]** → The schema-file style is the escape hatch for dynamic or third-party cases, with clear diagnostics.
 - **[Polling-based presence and locks add load]** → WebSocket push is used where the platform supports it, which reduces polling to a 60 s reconciliation. Where it isn't, intervals are configurable (default 20 s) with cheap indexed upserts.

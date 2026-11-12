@@ -1,0 +1,4 @@
+/* The admin's stylesheet, imported as a string and adopted by the admin's shadow root only
+   (pages/AdminPage.vue), so it never reaches the site's pages. */
+@import "./crystal-neuo/css/crystal-neuo.css";
+@import "./css/shell.css";

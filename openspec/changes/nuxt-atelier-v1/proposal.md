@@ -25,7 +25,7 @@ New greenfield project **Nuxt Atelier** (`nuxt-atelier`). It is a Bun monorepo, 
 - **Media library.** Uploads, folders, focal points and image variants, stored through pluggable drivers (local, S3, R2, Vercel Blob).
 - **Routing, SEO, sitemap and redirects** for routable collections.
 - **Reusable blocks, templates and patterns.**
-- **Headless admin.** Admin composables with a default Nuxt UI v4 kit that is fully themeable and overridable. It is mounted in the same app at a configurable route with strict CSS isolation, and is optional: the core runs without it.
+- **Headless admin.** Admin composables with a default kit on the crystal-neuo design system that is fully themeable and overridable. It is mounted in the same app at a configurable route with strict CSS isolation, and is optional: the core runs without it.
 - **UI-library agnostic site blocks.** Blocks can use Nuxt UI, shadcn-vue, Tailwind or plain CSS with no CMS coupling.
 - **Forms.** A form builder with stored submissions, spam protection, and notifications.
 - **Full-text search.** Search across published content and global search in the admin.
@@ -53,7 +53,7 @@ New greenfield project **Nuxt Atelier** (`nuxt-atelier`). It is a Bun monorepo, 
 - `seo-metadata`: Per-entry SEO metadata, sitemap, and robots.
 - `reusable-content`: Shared blocks, templates, and patterns.
 - `extensibility`: Hooks, jobs, webhooks, and plugins.
-- `admin-dashboard`: Headless admin, the default Nuxt UI kit, theming, overrides, custom pages, and CSS isolation.
+- `admin-dashboard`: Headless admin, the default crystal-neuo kit, theming, overrides, custom pages, and CSS isolation.
 - `forms`: Form definition, submissions, spam protection, and notifications.
 - `content-search`: Full-text search for site visitors and admin users.
 - `multi-site`: Multiple sites or tenants served from one instance.
@@ -68,7 +68,7 @@ _None. This is a greenfield project with no existing specs._
 
 - **Code.** New repository layout:
   - `packages/core` → `nuxt-atelier`: the module, schema, server, and renderer.
-  - `packages/admin` → `@nuxt-atelier/admin`: the headless admin and the Nuxt UI kit.
+  - `packages/admin` → `@nuxt-atelier/admin`: the headless admin and the crystal-neuo kit.
   - `packages/editor` → `@nuxt-atelier/editor`: the visual editor and bridge.
   - `@nuxt-atelier/*` adapter packages for auth, i18n, and storage, plus `@nuxt-atelier/layer`.
   - `playground/`: development app.
@@ -76,7 +76,7 @@ _None. This is a greenfield project with no existing specs._
 - **Dependencies.** Latest maintained versions, verified on npm on 2026-10-31. The full pinned list is in design.md.
   - Peers: `nuxt >=4.6`.
   - Core: `@nuxt/kit ^4.6`, `drizzle-orm` 1.0 RC (pinned), `valibot ^1.5`, Tiptap 3, `@vue/compiler-sfc`.
-  - Optional: `@nuxt/ui ^4.12`, `tailwindcss ^4.3`, `better-auth ^1.7`, `nuxt-i18n-micro ^3.30`, `@nuxtjs/i18n ^10.6`, `@nuxtjs/sitemap ^9.1`.
+  - Optional: `better-auth ^1.7`, `nuxt-i18n-micro ^3.30`, `@nuxtjs/i18n ^10.6`, `@nuxtjs/sitemap ^9.1`.
   - Tooling: TypeScript 6.0.3.
 - **Runtime targets.**
   - Tested in CI: Node, Docker, Bun, Deno, Vercel, and Netlify.

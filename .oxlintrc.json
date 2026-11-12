@@ -10,7 +10,8 @@
     "**/.output/**",
     "**/.nuxt/**",
     "**/.data/**",
-    "**/*.fixture.ts"
+    "**/*.fixture.ts",
+    "packages/admin/src/runtime/crystal-neuo/**"
   ],
   "rules": {
     "no-underscore-dangle": [
