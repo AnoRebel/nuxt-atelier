@@ -93,6 +93,12 @@ describe('site routing', async () => {
     expect(html).toMatch(/<meta name="description" content="All about the launch">/)
     expect(html).toMatch(/<meta property="og:description" content="All about the launch">/)
     expect(html).toMatch(/<meta name="robots" content="noindex">/)
+    // structured data: the site's and the type's, nothing able to close the script element
+    const ld = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>(.*?)<\/script>/g)].map(m => JSON.parse(m[1]!))
+    expect(ld).toEqual([
+      { '@context': 'https://schema.org', '@type': 'Organization', 'name': 'Atelier' },
+      expect.objectContaining({ '@context': 'https://schema.org', '@type': 'Article', 'headline': 'Launch', 'url': '/blog/launch', 'datePublished': post.body.createdAt, 'author': { '@type': 'Organization', 'name': 'Atelier </script> test' } }),
+    ])
   })
 
   it('serves each locale\'s pattern with the type\'s component and layout (Pruvious #73)', async () => {
