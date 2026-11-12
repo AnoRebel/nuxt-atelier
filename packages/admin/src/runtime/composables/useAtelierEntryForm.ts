@@ -5,7 +5,7 @@ import type { MaybeRefOrGetter } from 'vue'
 import type { AdminApiError, Entry } from '../types'
 import { useForm } from '@tanstack/vue-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { computed, toValue, watch } from 'vue'
+import { computed, onScopeDispose, ref, toValue, watch } from 'vue'
 import { defaultsFactory, validateEntry } from '#atelier/shared/fields'
 import { atelierFetch } from './useAtelierAdmin'
 import { useAtelierAdminSchema } from './useAtelierAdminSchema'
@@ -67,6 +67,52 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
       form.reset(copy(loaded.data))
   }, { immediate: true })
 
+  // Local recovery: unsaved changes are copied to this browser's storage as they're made, so a crash or a
+  // closed tab doesn't lose them; reopening the entry offers them back. Saving or discarding removes the copy.
+  const recoveryKey = computed(() => `atelier-admin-recovery:${t.value.kind}:${t.value.name}:${t.value.id ?? 'new'}`)
+  const storage = () => {
+    try {
+      return globalThis.localStorage
+    }
+    catch {
+      return undefined // storage blocked: no recovery copies
+    }
+  }
+  const recovery = ref<{ values: Record<string, unknown>, savedAt: string } | null>(null)
+  const values = form.useStore(state => state.values)
+  const dirty = form.useStore(state => state.isDirty)
+  // offered once the entry has loaded, when the copy differs from what was saved
+  watch(() => [type.value, entry.data.value, isNew.value] as const, ([fieldsOf, loaded, fresh]) => {
+    if (!fieldsOf || (!loaded && !fresh) || recovery.value)
+      return
+    const raw = storage()?.getItem(recoveryKey.value)
+    const copyOf = raw ? JSON.parse(raw) as { values: Record<string, unknown>, savedAt: string } : null
+    if (copyOf && JSON.stringify(copyOf.values) !== JSON.stringify(loaded?.data ?? defaultsFactory(fieldsOf.fields)()))
+      recovery.value = copyOf
+  }, { immediate: true })
+  let timer: ReturnType<typeof setTimeout> | undefined
+  watch(values, (current) => {
+    if (!dirty.value)
+      return
+    clearTimeout(timer)
+    timer = setTimeout(() => storage()?.setItem(recoveryKey.value, JSON.stringify({ values: current, savedAt: new Date().toISOString() })), 400)
+  }, { deep: true })
+  onScopeDispose(() => clearTimeout(timer))
+  const forgetRecovery = () => {
+    clearTimeout(timer)
+    storage()?.removeItem(recoveryKey.value)
+    recovery.value = null
+  }
+  /** Puts the recovered changes in the form (unsaved, until the user saves). */
+  function restoreRecovery() {
+    const copyOf = recovery.value
+    if (!copyOf)
+      return
+    for (const [key, value] of Object.entries(copyOf.values))
+      form.setFieldValue(key as never, value as never)
+    recovery.value = null
+  }
+
   const invalidate = () => client.invalidateQueries({ queryKey: ['atelier', `${t.value.kind}s`, t.value.name] })
   const serverErrors = (error: AdminApiError) => {
     for (const { path, message } of error.errors ?? [])
@@ -78,6 +124,7 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
       ? atelierFetch<Saved>(base.value, { method: 'POST', body: { data } })
       : atelierFetch<Saved>(url.value, { method: 'PATCH', body: { version: version.value, data } }),
     onSuccess: async (saved) => {
+      forgetRecovery()
       client.setQueryData(['atelier', `${t.value.kind}s`, t.value.name, 'entry', saved.id && t.value.kind === 'collection' ? saved.id : ''], saved)
       form.reset(copy(saved.data))
       await invalidate()
@@ -89,7 +136,7 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
     onSuccess: invalidate,
   })
   const unpublish = useMutation({ mutationFn: () => atelierFetch<Saved>(`${url.value}/unpublish`, { method: 'POST' }), onSuccess: invalidate })
-  const remove = useMutation({ mutationFn: () => atelierFetch(url.value, { method: 'DELETE' }), onSuccess: invalidate })
+  const remove = useMutation({ mutationFn: () => atelierFetch(url.value, { method: 'DELETE' }), onSuccess: () => (forgetRecovery(), invalidate()) })
 
   /**
    * Validates and saves. Errors from the previous submit and from the server are cleared first, so fields a
@@ -109,6 +156,13 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
     isNew,
     loading: computed(() => !isNew.value && entry.isPending.value),
     loadError: computed(() => entry.error.value as AdminApiError | null),
+    /** Whether the form has changes not saved yet. */
+    dirty,
+    /** Unsaved changes found in this browser from an earlier visit, offered back (see restoreRecovery). */
+    recovery,
+    restoreRecovery,
+    /** Drops the recovery copy (and the offer). */
+    discardRecovery: forgetRecovery,
     /** Saved changes the site doesn't show yet. */
     unpublished: computed(() => !!entry.data.value && entry.data.value.publishedVersion !== entry.data.value.version),
     save,

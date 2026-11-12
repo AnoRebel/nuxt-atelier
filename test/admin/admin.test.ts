@@ -138,6 +138,31 @@ describe('admin', async () => {
     expect(await rita.locator('[data-site-tools]').count()).toBe(0)
   })
 
+  it('offers unsaved changes back after a crash, and asks before leaving them', async () => {
+    const page = await signIn()
+    await page.goto(url('/admin/collections/posts'))
+    await page.getByRole('link', { name: 'Hello world' }).click()
+    await page.getByLabel('Summary').fill('Written before the crash')
+    await page.waitForTimeout(800) // the copy is written shortly after typing stops
+    await page.reload() // the tab dies: nothing saved
+    await page.locator('[data-recovery]').waitFor()
+    expect(await page.getByLabel('Summary').inputValue()).toBe('')
+    await page.getByRole('button', { name: 'Restore them' }).click()
+    expect(await page.getByLabel('Summary').inputValue()).toBe('Written before the crash')
+
+    // leaving with unsaved changes asks first
+    await page.getByRole('link', { name: 'Dashboard' }).first().click()
+    const ask = page.getByRole('alertdialog', { name: 'Leave without saving?' })
+    await ask.waitFor()
+    await ask.getByRole('button', { name: 'Stay' }).click()
+    expect(page.url()).toMatch(/\/admin\/collections\/posts\/[^/]+$/)
+    await page.getByRole('button', { name: 'Save draft' }).click()
+    await page.getByText('Draft saved').waitFor()
+    await page.reload()
+    await page.getByLabel('Summary').waitFor()
+    expect(await page.locator('[data-recovery]').count()).toBe(0) // saved: no copy left
+  })
+
   it('keeps the site\'s CSS out of the admin, and the admin\'s CSS off the site\'s pages', async () => {
     const page = await createPage(url('/admin'))
     await page.getByLabel('Email').waitFor()
