@@ -109,9 +109,11 @@ export function createDatabaseSearch(driver: AtelierDriver): SearchAdapter {
         const condition = sql`document @@ ${query} and ${filter}`
         const [count] = await rows(driver, sql`select count(*) as n from atelier_search where ${condition}`)
         const found = await rows(driver, sql`select type, entry, locale, ts_rank(document, ${query}) as score,
-          ts_headline('simple', concat_ws(' ', a, b, c), ${query}, ${`StartSel=${MARK_START}, StopSel=${MARK_END}, MaxWords=30, MinWords=12, ShortWord=2`}) as excerpt
+          ts_headline('simple', translate(concat_ws(' ', a, b, c), '<>', chr(3) || chr(4)), ${query}, ${`StartSel=${MARK_START}, StopSel=${MARK_END}, MaxWords=30, MinWords=12, ShortWord=2`}) as excerpt
           from atelier_search where ${condition} order by score desc, ${KEY} limit ${q.limit} offset ${q.offset}`)
-        return { total: Number(count?.n ?? 0), hits: found.map(r => ({ type: String(r.type), id: String(r.entry), locale: String(r.locale), score: Number(r.score), excerpt: markExcerpt(String(r.excerpt ?? '')) })) }
+        // `<` and `>` went in as \u0003 and \u0004: ts_headline's parser drops anything that looks like a tag
+        const unhidden = (excerpt: unknown) => String(excerpt ?? '').replaceAll('\u0003', '<').replaceAll('\u0004', '>')
+        return { total: Number(count?.n ?? 0), hits: found.map(r => ({ type: String(r.type), id: String(r.entry), locale: String(r.locale), score: Number(r.score), excerpt: markExcerpt(unhidden(r.excerpt)) })) }
       }
 
       // MySQL and MariaDB: boolean mode, every term required, the last a prefix; weights by column
