@@ -19,6 +19,7 @@ import EntryEdit from './EntryEdit.vue'
 import Home from './Home.vue'
 import Icon from './Icon'
 import NotFound from './NotFound.vue'
+import RobotsSettings from './RobotsSettings.vue'
 import RoleEdit from './RoleEdit.vue'
 import Roles from './Roles.vue'
 import Setup from './Setup.vue'
@@ -38,6 +39,7 @@ const views = {
   Users: view('Users', Users),
   Roles: view('Roles', Roles),
   RoleEdit: view('RoleEdit', RoleEdit),
+  RobotsSettings: view('RobotsSettings', RobotsSettings),
   SignIn: view('SignIn', SignIn),
   Setup: view('Setup', Setup),
   NotFound: view('NotFound', NotFound),
@@ -156,6 +158,10 @@ const pageAllowed = computed(() => !!page.value && !!schema.value && allowed(pag
       v-else-if="segments[0] === 'roles' && segments.length === 2"
       :key="segments[1]"
       :name="segments[1] === 'new' ? undefined : segments[1]"
+    />
+    <component
+      :is="views.RobotsSettings"
+      v-else-if="segments.join('/') === 'settings/robots'"
     />
     <component
       :is="views.NotFound"

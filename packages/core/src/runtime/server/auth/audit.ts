@@ -10,6 +10,7 @@ export type AuditAction
     | 'auth.passkey-added' | 'auth.passkey-removed'
     | 'user.created' | 'user.updated' | 'user.deleted'
     | 'role.saved' | 'role.deleted'
+    | 'settings.changed'
     | 'token.created' | 'token.revoked'
     | 'entry.published' | 'entry.unpublished' | 'entry.deleted'
     | 'redirect.created' | 'redirect.updated' | 'redirect.deleted'

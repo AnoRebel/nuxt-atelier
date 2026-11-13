@@ -73,6 +73,17 @@ export const optionsSchema = v.strictObject({
       v.record(v.string(), v.unknown(), 'expected a JSON-LD object'),
       v.description('Structured data on every CMS page, like your organization: `{ "@type": "Organization", "name": "…", "url": "…" }`. `@context` is added.'),
     )),
+    robots: v.optional(v.pipe(
+      v.strictObject({
+        indexable: v.optional(v.boolean('expected true or false'), true),
+        rules: v.optional(v.array(v.strictObject({
+          userAgent: v.optional(v.array(v.string()), ['*']),
+          allow: v.optional(v.array(v.string()), []),
+          disallow: v.optional(v.array(v.string()), []),
+        }), 'expected a list of { userAgent, allow, disallow }'), []),
+      }),
+      v.description('robots.txt rules: `indexable: false` asks crawlers to stay away from the whole site (a staging site), `rules` adds groups of `{ userAgent, allow, disallow }`. Administrators can change them in the admin, which then overrides this. The admin and API paths are always disallowed.'),
+    )),
   }), {}),
   i18n: v.optional(v.strictObject({
     module: v.optional(v.pipe(

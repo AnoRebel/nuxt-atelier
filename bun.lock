@@ -401,6 +401,14 @@
         "vue-tsc": "catalog:build",
       },
     },
+    "test/fixtures/seo-modules": {
+      "name": "@nuxt-atelier/fixture-seo-modules",
+      "dependencies": {
+        "@nuxtjs/robots": "catalog:seo",
+        "@nuxtjs/sitemap": "catalog:seo",
+        "nuxt": "catalog:",
+      },
+    },
     "test/fixtures/types": {
       "name": "@nuxt-atelier/fixture-types",
       "dependencies": {
@@ -532,6 +540,10 @@
       "oxlint": "1.90.0",
       "publint": "0.3.25",
       "simple-git-hooks": "2.14.0",
+    },
+    "seo": {
+      "@nuxtjs/robots": "7.0.2",
+      "@nuxtjs/sitemap": "9.1.0",
     },
     "test": {
       "@date-fns/tz": "1.5.0",
@@ -1075,6 +1087,8 @@
     "@nuxt-atelier/fixture-routing": ["@nuxt-atelier/fixture-routing@workspace:test/fixtures/routing"],
 
     "@nuxt-atelier/fixture-schema": ["@nuxt-atelier/fixture-schema@workspace:test/fixtures/schema"],
+
+    "@nuxt-atelier/fixture-seo-modules": ["@nuxt-atelier/fixture-seo-modules@workspace:test/fixtures/seo-modules"],
 
     "@nuxt-atelier/fixture-types": ["@nuxt-atelier/fixture-types@workspace:test/fixtures/types"],
 

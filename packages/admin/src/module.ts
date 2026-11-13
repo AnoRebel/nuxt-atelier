@@ -170,6 +170,10 @@ declare module '#atelier-admin-passkeys' {
     })
 
     extendPages((pages) => {
+      // an app page at the admin's path would be hidden by the admin, or hide it
+      const taken = pages.filter(p => p.path === base || p.path.startsWith(`${base}/`)).map(p => p.path)
+      if (taken.length)
+        console.warn(`[@nuxt-atelier/admin] The admin is at ${base}, where the app has pages too (${taken.join(', ')}). Move the admin elsewhere with \`atelier: { admin: { base: '/studio' } }\` in nuxt.config.`)
       pages.push({ name: 'atelier-admin', path: `${base}/:path(.*)*`, file: resolve('./runtime/pages/AdminPage.vue'), meta: { layout: false, atelier: 'admin' } })
     })
 
@@ -186,6 +190,7 @@ declare module '#atelier-admin-passkeys' {
       'useAtelierRoles',
       'useAtelierAdminPortal',
       'useAtelierDashboard',
+      'useAtelierSetting',
     ].map(name => ({ name, from: resolve(`./runtime/composables/${name}`) })))
     addImports({ name: 'useAdminI18n', from: resolve('./runtime/i18n') })
   },

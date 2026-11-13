@@ -1,0 +1,10 @@
+{
+  "name": "@nuxt-atelier/fixture-seo-modules",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@nuxtjs/robots": "catalog:seo",
+    "@nuxtjs/sitemap": "catalog:seo",
+    "nuxt": "catalog:"
+  }
+}

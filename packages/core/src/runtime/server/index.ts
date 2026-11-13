@@ -29,6 +29,7 @@ import type { Capability, Policy } from '../shared/policy'
 import type { AuthAdapter, AuthUser } from './auth/adapter'
 import type { BuiltinAuthAdapter } from './auth/builtin'
 import type { RoleStore } from './auth/roles'
+import type { SettingsStore } from './settings'
 import { createPolicy } from '../shared/policy'
 import { defineAuthAdapter } from './auth/adapter'
 import { createBuiltinAuth } from './auth/builtin'
@@ -36,6 +37,7 @@ import type { AuditInput, AuditLog } from './auth/audit'
 import { createAuditLog } from './auth/audit'
 import { clientIp, createRateLimiter } from './auth/rate-limit'
 import { createRoleStore } from './auth/roles'
+import { createSettingsStore } from './settings'
 import { createTokenStore } from './auth/tokens'
 import { apiError } from './errors'
 import { logger } from './logger'
@@ -43,6 +45,7 @@ import { logger } from './logger'
 export * from './define'
 export type { AtelierDriver, Dialect } from './db/driver'
 export { createDatabaseAdapter, ForbiddenError } from './adapter'
+export type { RobotsSettings, SettingKey, SettingsStore } from './settings'
 export type { DatabaseAdapterOptions } from './adapter'
 export { UnsupportedOperationError } from './db/driver'
 export { QueryError } from './db/query'
@@ -253,6 +256,19 @@ export function useAtelierAuth(): Promise<AtelierAuth> {
 let roleStore: Promise<RoleStore> | undefined
 
 /** Roles from the database and from `server/atelier/roles.ts`. */
+let settingsStore: Promise<SettingsStore> | undefined
+
+/** Site settings changed in the admin, over the module options (settings.ts). */
+export function useAtelierSettings(): Promise<SettingsStore> {
+  settingsStore ??= (async () => createSettingsStore(await useAtelierDatabase(), {
+    robots: (useAtelierServerConfig() as unknown as { robots?: unknown }).robots ?? undefined,
+  }))().catch((error) => {
+    settingsStore = undefined
+    throw error
+  })
+  return settingsStore
+}
+
 export function useAtelierRoles(): Promise<RoleStore> {
   roleStore ??= (async () => createRoleStore(await useAtelierDatabase(), (await import('#atelier-schema')).roles))()
     .catch((error) => {

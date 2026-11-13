@@ -36,6 +36,13 @@ CREATE TABLE `atelier_roles` (
 	`_updated_at` text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `atelier_settings` (
+	`key` text PRIMARY KEY,
+	`value` text NOT NULL,
+	`_updated_at` text NOT NULL,
+	`_updated_by` text
+);
+--> statement-breakpoint
 CREATE TABLE `atelier_passkeys` (
 	`_id` text PRIMARY KEY,
 	`user_id` text NOT NULL,
@@ -117,15 +124,6 @@ CREATE TABLE `atelier_webhook_deliveries` (
 	`at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `atelier_redirects` (
-	`_id` text PRIMARY KEY,
-	`source` text NOT NULL,
-	`target` text NOT NULL,
-	`status` integer NOT NULL,
-	`auto` integer NOT NULL,
-	`_created_at` text NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE `atelier_relations` (
 	`source` text NOT NULL,
 	`source_id` text NOT NULL,
@@ -134,6 +132,15 @@ CREATE TABLE `atelier_relations` (
 	`target` text NOT NULL,
 	`target_id` text NOT NULL,
 	CONSTRAINT `atelier_relations_pk` PRIMARY KEY(`source`, `source_id`, `field`, `position`)
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_redirects` (
+	`_id` text PRIMARY KEY,
+	`source` text NOT NULL,
+	`target` text NOT NULL,
+	`status` integer NOT NULL,
+	`auto` integer NOT NULL,
+	`_created_at` text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `atelier_c_notes` (
@@ -227,8 +234,8 @@ CREATE UNIQUE INDEX `atelier_jobs_key_idx` ON `atelier_jobs` (`key`);--> stateme
 CREATE INDEX `atelier_media_folder_idx` ON `atelier_media` (`folder`);--> statement-breakpoint
 CREATE INDEX `atelier_media_created_idx` ON `atelier_media` (`_created_at`);--> statement-breakpoint
 CREATE INDEX `atelier_webhook_deliveries_webhook_idx` ON `atelier_webhook_deliveries` (`webhook_id`,`at`);--> statement-breakpoint
-CREATE UNIQUE INDEX `atelier_redirects_source_idx` ON `atelier_redirects` (`source`);--> statement-breakpoint
 CREATE INDEX `atelier_relations_target_idx` ON `atelier_relations` (`target`,`target_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `atelier_redirects_source_idx` ON `atelier_redirects` (`source`);--> statement-breakpoint
 CREATE INDEX `atelier_p_relations_target_idx` ON `atelier_p_relations` (`target`,`target_id`);--> statement-breakpoint
 CREATE INDEX `atelier_routes_source_idx` ON `atelier_routes` (`source`,`source_id`);--> statement-breakpoint
 CREATE INDEX `atelier_p_routes_source_idx` ON `atelier_p_routes` (`source`,`source_id`);--> statement-breakpoint
