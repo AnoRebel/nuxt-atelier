@@ -3,8 +3,10 @@
 <script setup lang="ts">
 import type { AdminApiError } from '../types'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { NuxtLink } from '#components'
 import { navigateTo, onBeforeRouteLeave, onBeforeRouteUpdate } from '#imports'
 import { useAtelierAdmin } from '../composables/useAtelierAdmin'
+import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
 import { useAtelierEntryForm } from '../composables/useAtelierEntryForm'
 import { humanize } from '../composables/useAtelierNavigation'
 import CnAlert from '../crystal-neuo/components/Alert.vue'
@@ -17,16 +19,30 @@ import NotFound from './NotFound.vue'
 import Page from './Page.vue'
 import { useAdminI18n } from '../i18n'
 
-const props = defineProps<{ kind: 'collection' | 'singleton', name: string, id?: string }>()
+const props = defineProps<{ kind: 'collection' | 'singleton', name: string, id?: string, locale?: string }>()
 const { t } = useAdminI18n()
 const { to } = useAtelierAdmin()
 const toast = useAdminToast()
-const edit = useAtelierEntryForm(() => ({ kind: props.kind, name: props.name, id: props.id }))
+const edit = useAtelierEntryForm(() => ({ kind: props.kind, name: props.name, id: props.id, locale: props.locale }))
 const { type, form } = edit
 const values = form.useStore(s => s.values)
 const dirty = edit.dirty
 const submitting = form.useStore(s => s.isSubmitting)
 const error = ref('')
+
+// localized collections: this version's locale, links to the others, and adding the missing ones
+const { schema } = useAtelierAdminSchema()
+const otherLocales = computed(() => (schema.value?.locales.codes ?? []).filter(code => code !== edit.locale.value))
+async function addTranslation(locale: string) {
+  try {
+    const created = await edit.translate.mutateAsync(locale)
+    toast.add({ color: 'success', title: t('entry.translationAdded', { locale: locale.toUpperCase() }) })
+    await navigateTo(to('collections', props.name, created.id))
+  }
+  catch (e) {
+    toast.add({ color: 'error', title: (e as AdminApiError).message })
+  }
+}
 
 // unsaved changes: asked before leaving for another admin page, and warned by the browser on closing
 const leaving = ref<((leave: boolean) => void) | null>(null)
@@ -138,6 +154,40 @@ async function remove() {
       </CnButton>
     </template>
 
+    <nav
+      v-if="type.localized && !edit.isNew.value && edit.locale.value"
+      class="app-row app-translations"
+      :aria-label="t('entry.translations')"
+    >
+      <CnBadge
+        variant="primary"
+        size="sm"
+      >
+        {{ t('entry.inLocale', { locale: edit.locale.value.toUpperCase() }) }}
+      </CnBadge>
+      <template
+        v-for="code in otherLocales"
+        :key="code"
+      >
+        <NuxtLink
+          v-if="edit.translations.value[code]"
+          :to="to('collections', name, edit.translations.value[code]!)"
+          class="cn-button cn-button--ghost cn-button--size-sm"
+          :hreflang="code"
+        >
+          {{ code.toUpperCase() }}
+        </NuxtLink>
+        <CnButton
+          v-else-if="type.can.create"
+          variant="ghost"
+          size="sm"
+          :loading="edit.translate.isPending.value"
+          @click="addTranslation(code)"
+        >
+          {{ t('entry.addTranslation', { locale: code.toUpperCase() }) }}
+        </CnButton>
+      </template>
+    </nav>
     <div
       v-if="edit.loading.value"
       class="app-loading"

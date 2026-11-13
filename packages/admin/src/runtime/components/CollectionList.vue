@@ -6,6 +6,7 @@ import type { Entry } from '../types'
 import { computed, ref, watch } from 'vue'
 import { NuxtLink } from '#components'
 import { useAtelierAdmin } from '../composables/useAtelierAdmin'
+import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
 import { useAtelierCollection } from '../composables/useAtelierCollection'
 import { humanize } from '../composables/useAtelierNavigation'
 import CnBadge from '../crystal-neuo/components/Badge.vue'
@@ -15,6 +16,7 @@ import CnInput from '../crystal-neuo/components/Input.vue'
 import CnMenu from '../crystal-neuo/components/Menu.vue'
 import CnModal from '../crystal-neuo/components/Modal.vue'
 import CnPagination from '../crystal-neuo/components/Pagination.vue'
+import CnSelect from '../crystal-neuo/components/Select.vue'
 import CnSkeleton from '../crystal-neuo/components/Skeleton.vue'
 import { useAdminToast } from '../toast'
 import Icon from './Icon'
@@ -28,6 +30,11 @@ const { to } = useAtelierAdmin()
 const toast = useAdminToast()
 const list = useAtelierCollection(() => props.name)
 const { type, state } = list
+const { schema } = useAtelierAdminSchema()
+// localized collections: which locale's versions to list
+const locales = computed(() => schema.value?.locales.codes ?? [])
+const localeOptions = computed(() => locales.value.map(code => ({ value: code, label: code.toUpperCase() })))
+const localeChoice = computed({ get: () => state.locale ?? schema.value?.locales.default ?? '', set: (code: string) => state.locale = code })
 const selection = ref(new Set<string>())
 const columnsOpen = ref(false)
 watch(() => list.entries.value, () => selection.value = new Set())
@@ -93,7 +100,7 @@ const bulk = computed(() => [
     <template #actions>
       <NuxtLink
         v-if="type.can.create"
-        :to="to('collections', name, 'new')"
+        :to="type.localized ? `${to('collections', name, 'new')}?locale=${localeChoice}` : to('collections', name, 'new')"
         class="cn-button cn-button--primary cn-button--size-md"
       >
         <Icon name="plus" />
@@ -101,6 +108,12 @@ const bulk = computed(() => [
       </NuxtLink>
     </template>
     <template #toolbar>
+      <CnSelect
+        v-if="type.localized && locales.length > 1"
+        v-model="localeChoice"
+        :label="t('list.locale')"
+        :options="localeOptions"
+      />
       <CnInput
         v-model="state.search"
         :label="t('list.search')"

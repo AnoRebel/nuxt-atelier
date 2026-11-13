@@ -132,6 +132,7 @@ const pageAllowed = computed(() => !!page.value && !!schema.value && allowed(pag
       v-else-if="segments[0] === 'collections' && segments.length === 3"
       :id="segments[2] === 'new' ? undefined : segments[2]"
       :key="segments.join('/')"
+      :locale="typeof route.query.locale === 'string' ? route.query.locale : undefined"
       kind="collection"
       :name="segments[1]!"
     />

@@ -154,6 +154,30 @@ CREATE TABLE `atelier_p_authors` (
 	`name` text
 );
 --> statement-breakpoint
+CREATE TABLE `atelier_c_pages` (
+	`_id` text PRIMARY KEY,
+	`_version` integer NOT NULL,
+	`_created_at` text NOT NULL,
+	`_updated_at` text NOT NULL,
+	`_created_by` text,
+	`_locale` text DEFAULT 'en' NOT NULL,
+	`_group` text,
+	`title` text,
+	`code` text
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_p_pages` (
+	`_id` text PRIMARY KEY,
+	`_version` integer NOT NULL,
+	`_created_at` text NOT NULL,
+	`_updated_at` text NOT NULL,
+	`_created_by` text,
+	`_locale` text DEFAULT 'en' NOT NULL,
+	`_group` text,
+	`title` text,
+	`code` text
+);
+--> statement-breakpoint
 CREATE TABLE `atelier_c_posts` (
 	`_id` text PRIMARY KEY,
 	`_version` integer NOT NULL,
@@ -269,6 +293,8 @@ CREATE INDEX `atelier_media_created_idx` ON `atelier_media` (`_created_at`);--> 
 CREATE INDEX `atelier_webhook_deliveries_webhook_idx` ON `atelier_webhook_deliveries` (`webhook_id`,`at`);--> statement-breakpoint
 CREATE UNIQUE INDEX `atelier_redirects_source_idx` ON `atelier_redirects` (`source`);--> statement-breakpoint
 CREATE INDEX `atelier_relations_target_idx` ON `atelier_relations` (`target`,`target_id`);--> statement-breakpoint
+CREATE INDEX `atelier_c_pages__group_idx` ON `atelier_c_pages` (`_group`);--> statement-breakpoint
+CREATE INDEX `atelier_p_pages__group_idx` ON `atelier_p_pages` (`_group`);--> statement-breakpoint
 CREATE INDEX `atelier_p_relations_target_idx` ON `atelier_p_relations` (`target`,`target_id`);--> statement-breakpoint
 CREATE INDEX `atelier_routes_source_idx` ON `atelier_routes` (`source`,`source_id`);--> statement-breakpoint
 CREATE INDEX `atelier_p_routes_source_idx` ON `atelier_p_routes` (`source`,`source_id`);--> statement-breakpoint

@@ -17,6 +17,8 @@ export interface ListState {
   filter?: Record<string, unknown>
   /** The fields shown as columns. */
   columns: string[]
+  /** Localized collections: the locale whose versions are listed (the default locale when unset). */
+  locale?: string
 }
 
 export interface BulkResult { succeeded: string[], failed: { id: string, error: AdminApiError }[] }
@@ -42,7 +44,7 @@ export function useAtelierCollection(name: MaybeRefOrGetter<string>, initial: Pa
     if (t && !state.columns.length)
       state.columns = t.admin?.columns ?? [titleField(t)].filter((k): k is string => !!k)
   }, { immediate: true })
-  watch(() => [state.search, state.filter, state.sort, state.pageSize], () => {
+  watch(() => [state.search, state.filter, state.sort, state.pageSize, state.locale], () => {
     state.page = 1
   })
 
@@ -54,6 +56,7 @@ export function useAtelierCollection(name: MaybeRefOrGetter<string>, initial: Pa
   })
   const params = computed(() => ({
     draft: 'true',
+    ...type.value?.localized && state.locale ? { locale: state.locale } : {},
     sort: state.sort,
     limit: state.pageSize,
     offset: (state.page - 1) * state.pageSize,

@@ -1062,3 +1062,7 @@ button:not(:disabled),
   padding: 0;
   list-style: none;
 }
+.app-translations {
+  flex-wrap: wrap;
+  align-items: center;
+}

@@ -205,6 +205,32 @@ describe('admin', async () => {
     await page.evaluate(() => localStorage.removeItem('atelier-admin-language'))
   })
 
+  it('lists a localized collection per locale, and adds and links an entry\'s translations', async () => {
+    const page = await signIn()
+    await page.goto(url('/admin/collections/pages'))
+    await page.getByRole('link', { name: 'New' }).click()
+    await page.waitForURL(/\/new\?locale=en$/)
+    await page.getByLabel('Title *').fill('About us')
+    await page.getByRole('button', { name: 'Save draft' }).click()
+    await page.waitForURL(/\/admin\/collections\/pages\/[^/?]+$/)
+    await page.getByText('In EN').waitFor()
+
+    await page.getByRole('button', { name: 'Add DE' }).click()
+    await page.getByText('In DE').waitFor()
+    expect(await page.getByLabel('Title *').inputValue()).toBe('About us') // prefilled from English
+    await page.getByLabel('Title *').fill('Über uns')
+    await page.getByRole('button', { name: 'Save draft' }).click()
+    await page.getByText('Draft saved').waitFor()
+    await page.getByRole('link', { name: 'EN', exact: true }).click()
+    await page.getByText('In EN').waitFor()
+    expect(await page.getByLabel('Title *').inputValue()).toBe('About us')
+
+    await page.goto(url('/admin/collections/pages'))
+    await page.getByLabel('Locale').selectOption('de')
+    await page.getByRole('link', { name: 'Über uns' }).waitFor()
+    expect(await page.getByRole('link', { name: 'About us' }).count()).toBe(0)
+  })
+
   it('keeps the site\'s CSS out of the admin, and the admin\'s CSS off the site\'s pages', async () => {
     const page = await createPage(url('/admin'))
     await page.getByLabel('Email').waitFor()
