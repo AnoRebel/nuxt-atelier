@@ -25,6 +25,7 @@
         "src/runtime/server/plugins/*.ts",
         "src/runtime/server/tasks/*.ts",
         "src/runtime/server/api/**/*.ts",
+        "src/runtime/builtin/*/server/atelier/collections/*.ts",
         "src/runtime/server/middleware/*.ts",
         "src/runtime/app/components/*.ts",
         "src/runtime/app/pages/*.ts",

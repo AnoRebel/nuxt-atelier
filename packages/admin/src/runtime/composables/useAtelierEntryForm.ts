@@ -131,6 +131,11 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
     if (entry.data.value)
       form.reset(copy(entry.data.value.data))
   }
+  /** A new entry: starts the form over from a template's data (over the fields' defaults). */
+  function startFrom(data: Record<string, unknown> | null) {
+    if (type.value)
+      form.reset({ ...defaultsFactory(type.value.fields)(), ...copy(data ?? {}) })
+  }
   /** Shows the saved entry again (after someone else's edit), unless the user has changes of their own. */
   async function reload() {
     await entry.refetch()
@@ -193,6 +198,7 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
     discardRecovery: forgetRecovery,
     shelve,
     reload,
+    startFrom,
     /** Saved changes the site doesn't show yet. */
     unpublished: computed(() => !!entry.data.value && entry.data.value.publishedVersion !== entry.data.value.version),
     save,

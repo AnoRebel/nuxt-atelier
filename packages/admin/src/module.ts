@@ -20,7 +20,7 @@ export const ICONS = [
   'image', 'lock', 'file', 'film', 'music',
   'bold', 'italic', 'underline', 'strikethrough', 'code', 'heading-2', 'heading-3', 'list', 'list-ordered',
   'quote', 'square-code', 'link', 'unlink', 'undo-2', 'redo-2',
-  'bell', 'message-square', 'reply', 'circle-check', 'rotate-ccw',
+  'bell', 'message-square', 'reply', 'circle-check', 'rotate-ccw', 'blocks',
 ]
 
 interface IconSet { icons: Record<string, { body: string, width?: number, height?: number }>, aliases?: Record<string, { parent: string }>, width?: number, height?: number }

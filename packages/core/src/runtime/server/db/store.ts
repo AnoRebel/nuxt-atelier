@@ -2,6 +2,7 @@
 // transaction: all of it persists or none does. Writes carry the version the client last read; a write
 // against an older version is refused with a 409 rather than overwriting someone else's save.
 import type { BlockSchema } from '../../shared/blocks'
+import type { BlockInstance } from '../../shared/infer'
 import type { Field, FieldError, RelationField } from '../../shared/fields'
 import type { Redirect } from '../redirects'
 import type { EntryPath } from '../routes'
@@ -11,6 +12,7 @@ import type { Db } from './entries'
 import type { ContentSchema, Stage } from './tables'
 import type { ListQuery } from './query'
 import { and, asc, eq, inArray, lt, lte, notInArray, or, sql } from 'drizzle-orm'
+import { collapseShared, copyBlocks, replaceShared, resolveShared, SHARED_BLOCK, SHARED_BLOCKS, sharedRefs } from '../../shared/blocks'
 import { validateEntry } from '../../shared/fields'
 import { fallbackChain, resolveLocales } from '../../shared/locales'
 import { REDIRECT_STATUSES, redirectLoop, sourceProblem, targetProblem } from '../redirects'
@@ -51,8 +53,8 @@ export interface Reference { collection: string, id: string, field: string }
 export class ReferencedError extends Error {
   readonly statusCode = 409
   readonly data: { references: Reference[] }
-  constructor(what: string, readonly references: Reference[]) {
-    super(`Can't delete ${what}: it's referenced by ${references.map(r => `${r.collection} "${r.id}" (${r.field})`).join(', ')}. Remove those references first, or set onDelete on the relation field.`)
+  constructor(what: string, readonly references: Reference[], hint = 'Remove those references first, or set onDelete on the relation field.') {
+    super(`Can't delete ${what}: it's referenced by ${references.map(r => `${r.collection} "${r.id}" (${r.field})`).join(', ')}. ${hint}`)
     this.data = { references }
   }
 }
@@ -192,6 +194,21 @@ function mediaRows(fields: Record<string, Field>, data: Record<string, unknown> 
 /** The ids of the media items an entry's data uses, anywhere in it (see mediaRows). */
 export const mediaIds = (fields: Record<string, Field>, data: Record<string, unknown>, blocks?: Record<string, BlockSchema>) =>
   [...new Set(mediaRows(fields, data, blocks).map(row => row.targetId))]
+
+/**
+ * References to shared blocks anywhere in the entry, under their block's path (`content.3`): relation rows
+ * targeting the shared blocks collection, so deleting one in use is refused like a restricting relation.
+ */
+function sharedRows(data: unknown, prefix = ''): RelationRow[] {
+  if (Array.isArray(data))
+    return data.flatMap((item, i) => sharedRows(item, `${prefix}${i}.`))
+  if (!data || typeof data !== 'object')
+    return []
+  const node = data as { type?: unknown, props?: { ref?: unknown } }
+  if (node.type === SHARED_BLOCK && typeof node.props?.ref === 'string')
+    return [{ field: prefix.slice(0, -1), position: 0, target: SHARED_BLOCKS, targetId: node.props.ref }]
+  return Object.entries(data).flatMap(([key, item]) => sharedRows(item, `${prefix}${key}.`))
+}
 
 /** Relation values anywhere in the entry, nested ones under their dot path (`faq.2.author`). */
 function relationRows(fields: Record<string, Field>, data: Record<string, unknown> | undefined, prefix = ''): RelationRow[] {
@@ -542,7 +559,11 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
      * singleton) with the entry's current URL, anywhere in `datas`: links survive renames. A link to an entry
      * without a URL, or one that's gone, gets `href: null`. One query per linked type.
      */
-    async function linked<T>(datas: T): Promise<T> {
+    async function linked<T>(input: T): Promise<T> {
+      // shared blocks first: their content has links too
+      const refs = schema.collections[SHARED_BLOCKS] ? sharedRefs(input) : new Set<string>()
+      const found = refs.size ? await readMany(db, SHARED_BLOCKS, [...refs]) : undefined
+      const datas = found ? resolveShared(input, ref => (found.get(ref)?.data.block as BlockInstance[] | undefined)?.[0]) : input
       const marks: { to: string, id?: string, href?: string | null }[] = []
       const walk = (value: unknown): void => {
         if (Array.isArray(value))
@@ -881,7 +902,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     function statements(q: Db, target: Target<unknown>, data: Record<string, unknown>, now: string, plan?: PathPlan, publishing = false) {
       const { source, sourceId, expected } = target
       const version = expected === undefined ? 1 : expected + 1
-      const links = [...relationRows(target.fields, data), ...mediaRows(target.fields, data, schema.blocks)]
+      const links = [...relationRows(target.fields, data), ...mediaRows(target.fields, data, schema.blocks), ...sharedRows(data)]
       return [
         target.write(q, data, version, now),
         ...expected === undefined ? [] : [q.delete(relations).where(and(eq(relations.source, source), eq(relations.sourceId, sourceId)))],
@@ -933,13 +954,14 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         isUnique: publishedTable && ((field, value) => isUnique(q, publishedTable, field, value, sourceId, locale)),
         blocks: schema.blocks,
         maxNestingDepth: options.maxNestingDepth,
+        sharedTypes: await sharedTypes(q, source, data),
       })
       if (!result.success)
         throw new ValidationError(result.errors)
       const plan = await live.planPaths(q, source, sourceId, result.value, true, locale)
       await live.assertPathsFree(q, plan)
       const now = new Date().toISOString()
-      const links = [...relationRows(fields, result.value), ...mediaRows(fields, result.value, schema.blocks)]
+      const links = [...relationRows(fields, result.value), ...mediaRows(fields, result.value, schema.blocks), ...sharedRows(result.value)]
       const mine = (t: Db) => and(eq(t.source, source), eq(t.sourceId, sourceId))
       let row: unknown[]
       if (publishedTable) {
@@ -1113,6 +1135,20 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     }
 
     /**
+     * The block type of each shared block `data` refers to, for validation (from their drafts). A shared block
+     * can't hold references itself: one level only, so no cycles.
+     */
+    async function sharedTypes(q: Db, source: string, data: unknown): Promise<Record<string, string | undefined>> {
+      const refs = [...sharedRefs(data)]
+      if (!refs.length)
+        return {}
+      if (source === SHARED_BLOCKS)
+        throw new ValidationError([{ path: 'block', message: 'a shared block can\'t contain shared blocks' }])
+      const found = schema.collections[SHARED_BLOCKS] ? await stages.draft.readMany(q, SHARED_BLOCKS, refs) : new Map<string, Entry>()
+      return Object.fromEntries(refs.map(ref => [ref, (found.get(ref)?.data.block as { type?: string }[] | undefined)?.[0]?.type]))
+    }
+
+    /**
      * Saves validated data, its relation rows and a revision atomically: in a transaction, or on D1 as
      * one batch whose revision insert (unique per source and version) doubles as the version check.
      */
@@ -1122,7 +1158,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const publishing = publish || !versioned(target.source)
 
       const validate = async (q: Db) => {
-        const result = await validateEntry(target.fields, input, { isUnique: target.isUnique?.(q, publishing), blocks: schema.blocks, maxNestingDepth: options.maxNestingDepth })
+        const result = await validateEntry(target.fields, collapseShared(input), { isUnique: target.isUnique?.(q, publishing), blocks: schema.blocks, maxNestingDepth: options.maxNestingDepth, sharedTypes: await sharedTypes(q, target.source, input) })
         if (!result.success)
           throw new ValidationError(result.errors)
         const plan = await planPaths(q, target.source, target.sourceId, result.value, !creating, target.locale)
@@ -1247,7 +1283,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       return result
     }
 
-    return { relations, routes, collection, singleton, readMany, read, readSingleton, linked, populate, list, inLocale, planPaths, assertPathsFree, pathStatements, entryTarget, singletonTarget, persist, deletion, unpublication, pinnedPublication }
+    return { relations, routes, singletons, collection, singleton, readMany, read, readSingleton, linked, populate, list, inLocale, planPaths, assertPathsFree, pathStatements, entryTarget, singletonTarget, persist, deletion, unpublication, pinnedPublication }
   }
 
   const { collection, singleton, entryTarget, singletonTarget, persist, deletion, unpublication, pinnedPublication } = stages.draft
@@ -1450,6 +1486,12 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
      */
     async delete(name: string, id: string, actorId: string | null = null): Promise<void> {
       const acting = { type: name, id, actorId }
+      // a shared block still placed, on a draft or a live page: detach or remove its references first
+      if (name === SHARED_BLOCKS) {
+        const usage = await this.sharedUsage(id)
+        if (usage.length)
+          throw new ReferencedError(`shared block "${id}"`, usage, 'Detach or remove it everywhere first (POST /api/_atelier/shared-blocks/<id>/release).')
+      }
       await before('beforeDelete', acting)
       if (!driver.capabilities.transactions) {
         // ponytail: on D1 the references are read before the batch runs; one added in between is left dangling (it reads as null)
@@ -1464,6 +1506,71 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       forgetRedirects()
       committed({ type: name, id, action: 'deleted', live: true })(undefined)
       await after('afterDelete', acting)
+    },
+
+    /** Where a shared block is used, in drafts and on the live site (each place once). */
+    async sharedUsage(id: string): Promise<Reference[]> {
+      const seen = new Map<string, Reference>()
+      for (const stage of Object.values(stages)) {
+        const rows: { source: string, sourceId: string, field: string }[] = await db.select().from(stage.relations)
+          .where(and(eq(stage.relations.target, SHARED_BLOCKS), eq(stage.relations.targetId, id)))
+        for (const row of rows)
+          seen.set(`${row.source}:${row.sourceId}:${row.field}`, { collection: row.source, id: row.sourceId, field: row.field })
+      }
+      return [...seen.values()]
+    },
+
+    /**
+     * Lets go of a shared block everywhere it's used, in drafts and live pages alike and without new versions:
+     * `detach` puts a copy of its content in place of each reference (pages look the same), `remove` drops
+     * the references. Afterwards it can be deleted. Answers the entries changed.
+     */
+    async releaseShared(id: string, mode: 'detach' | 'remove'): Promise<Reference[]> {
+      const usage = await this.sharedUsage(id)
+      const work = async (q: Db) => {
+        const writes: unknown[] = []
+        for (const stage of Object.values(stages)) {
+          // each stage's copy: the published shared block for live pages, the draft for drafts
+          const shared = (await stage.readMany(q, SHARED_BLOCKS, [id])).get(id) ?? (await stages.draft.readMany(q, SHARED_BLOCKS, [id])).get(id)
+          const block = (shared?.data.block as BlockInstance[] | undefined)?.[0]
+          const holders = new Map(usage.map(u => [`${u.collection}:${u.id}`, u]))
+          for (const { collection: source, id: sourceId } of holders.values()) {
+            const singletonHolder = !!schema.singletons[source]
+            const entry = singletonHolder ? await stage.readSingleton(q, source) : await stage.read(q, source, sourceId)
+            if (!entry)
+              continue
+            const data = replaceShared(entry.data, id, ref => mode === 'detach' && block ? { ...copyBlocks(block), id: ref.id } : undefined)
+            const fields = singletonHolder ? stage.singleton(source).fields : stage.collection(source).definition.fields
+            const changed = Object.keys(fields).filter(key => JSON.stringify(data[key]) !== JSON.stringify(entry.data[key]))
+            if (!changed.length)
+              continue
+            if (singletonHolder)
+              writes.push(q.update(stage.singletons).set({ data }).where(eq(stage.singletons.name, source)))
+            else
+              writes.push(q.update(stage.collection(source).table).set(toRow(Object.fromEntries(changed.map(key => [key, fields[key]!])), data)).where(eq(stage.collection(source).table._id, sourceId)))
+            // its links again: the copy may use media
+            const links = [...relationRows(fields, data), ...mediaRows(fields, data, schema.blocks), ...sharedRows(data)]
+            writes.push(q.delete(stage.relations).where(and(eq(stage.relations.source, source), eq(stage.relations.sourceId, sourceId))))
+            writes.push(...insertsOf(q, stage.relations, links.map(l => ({ source, sourceId, ...l }))))
+          }
+        }
+        return writes
+      }
+      if (!driver.capabilities.transactions) {
+        const writes = await work(db)
+        if (writes.length)
+          await db.batch(writes)
+      }
+      else {
+        await db.transaction(async (tx: Db) => {
+          for (const statement of await work(tx))
+            await statement
+        })
+      }
+      const changed = [...new Map(usage.map(u => [`${u.collection}:${u.id}`, u])).values()]
+      for (const { collection: type, id: entryId } of changed)
+        committed({ type, id: entryId, action: 'saved', live: true })(undefined)
+      return changed
     },
 
     /** A singleton (relations as ids, or entries up to `depth` levels), or undefined before its first save or publish. */

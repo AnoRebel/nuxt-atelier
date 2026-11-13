@@ -118,6 +118,23 @@ export default {
   'entry.recovery': 'Changes to this entry from {time} weren\'t saved.',
   'entry.restore': 'Restore them',
   'entry.discard': 'Discard',
+  // templates
+  'templates.startFrom': 'Start from',
+  'templates.blank': 'Blank',
+  'templates.save': 'Save as template',
+  'templates.saveTitle': 'Save as a template',
+  'templates.saveBody': 'New entries can start from this one\'s current values.',
+  'templates.name': 'Template name',
+  'templates.saved': 'Template saved',
+  // shared blocks
+  'shared.usage': 'Where it\'s used',
+  'shared.unused': 'Not placed on any page yet.',
+  'shared.detachAll': 'Detach everywhere',
+  'shared.removeAll': 'Remove everywhere',
+  'shared.detachTitle': 'Detach this block everywhere?',
+  'shared.detachBody': 'Each of the {count} places gets its own copy, which won\'t change with this block anymore. Pages look the same.',
+  'shared.removeTitle': 'Remove this block everywhere?',
+  'shared.removeBody': 'It disappears from the {count} places that use it, live pages included.',
   // collaboration
   'collab.viewing': 'Also here: {names}',
   'collab.lockedTitle': '{name} is editing',

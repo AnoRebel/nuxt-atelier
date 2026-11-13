@@ -2,10 +2,10 @@
 // with `#atelier/server` aliased to this module.
 import type { Roles } from '../shared/policy'
 import type { TableSpec } from './db/tables'
-import type { CollectionDefinition, SingletonDefinition } from './types'
+import type { CollectionDefinition, PatternDefinition, SingletonDefinition } from './types'
 
 export * from '../shared/fields'
-export type { CollectionDefinition, SingletonDefinition } from './types'
+export type { CollectionDefinition, PatternDefinition, SingletonDefinition } from './types'
 
 /** Defines a collection. The file name under `server/atelier/collections/` is its name. */
 export function defineCollection<const T extends CollectionDefinition>(definition: T): T {
@@ -28,4 +28,9 @@ export function defineRoles<const T extends Roles>(roles: T): T {
 /** Extra tables (`server/atelier/tables.ts`), e.g. an auth adapter's: created and migrated like content tables. */
 export function defineTables<const T extends Record<string, TableSpec>>(tables: T): T {
   return tables
+}
+
+/** Block arrangements editors insert as independent copies, by name: `server/atelier/patterns.ts`. */
+export function definePatterns<const T extends Record<string, PatternDefinition>>(patterns: T): T {
+  return patterns
 }

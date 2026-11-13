@@ -32,6 +32,11 @@ export async function collectModuleDirectories(nuxt: Nuxt): Promise<void> {
   ;(nuxt as WithDirs)[ADDED] = dirs
 }
 
+/** Adds a directory of Nuxt Atelier's own (built-in content types), after the modules' ones. */
+export function addBuiltinDirectory(nuxt: Nuxt, root: string): void {
+  ;((nuxt as WithDirs)[ADDED] ??= []).push(root)
+}
+
 /** The app's and layers' `app` and `server` directories, then the modules' added ones. */
 export function contentDirectories(nuxt: Nuxt = useNuxt()): { app: string, server: string }[] {
   return [

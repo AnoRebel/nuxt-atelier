@@ -20,4 +20,7 @@ export default defineCollection({
     location: geoPoint(),
     faq: repeater({ fields: { question: text({ required: true }), answer: textarea() } }),
   },
+  templates: {
+    announcement: { label: 'Announcement', data: { title: 'We have news', category: 'news', summary: 'What changed, and why.' } },
+  },
 })

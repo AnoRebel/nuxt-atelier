@@ -40,7 +40,7 @@ export function discoverSchema(kind: SchemaKind, nuxt?: Nuxt): Map<string, strin
 }
 
 /** `server/atelier/<name>.{ts,…}` of the app and every layer, highest priority (the app) first. */
-export function layerFiles(name: 'roles' | 'tables', nuxt?: Nuxt): string[] {
+export function layerFiles(name: 'roles' | 'tables' | 'patterns', nuxt?: Nuxt): string[] {
   const pattern = new RegExp(`^${name}\\.(?:ts|mts|js|mjs)$`)
   return contentDirectories(nuxt).flatMap((layer) => {
     const dir = join(layer.server, 'atelier')
@@ -60,8 +60,8 @@ export function layerFiles(name: 'roles' | 'tables', nuxt?: Nuxt): string[] {
 export function schemaTemplate(locales: Locales): string {
   const lines: string[] = []
   const exports: string[] = []
-  // roles and tables: a higher-priority layer's replaces one with the same name
-  for (const kind of ['roles', 'tables'] as const) {
+  // roles, tables and patterns: a higher-priority layer's replaces one with the same name
+  for (const kind of ['roles', 'tables', 'patterns'] as const) {
     const imports = layerFiles(kind).map((path, i) => {
       lines.push(`import ${kind}${i} from ${JSON.stringify(path)}`)
       return `${kind}${i}`

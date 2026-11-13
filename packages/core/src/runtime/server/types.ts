@@ -45,6 +45,18 @@ export interface CollectionDefinition {
    */
   versioned?: boolean
   admin?: { icon?: string, group?: string, columns?: string[] }
+  /**
+   * Starting points for new entries, by name: field values (blocks get fresh ids on each use). Editors can
+   * save more from existing entries.
+   */
+  templates?: Record<string, { label?: string, description?: string, data: Record<string, unknown> }>
+}
+
+/** A block arrangement editors insert as independent copies (`server/atelier/patterns.ts`). */
+export interface PatternDefinition {
+  label?: string
+  description?: string
+  blocks: { id: string, type: string, props: Record<string, unknown> }[]
 }
 
 export interface SingletonDefinition {
