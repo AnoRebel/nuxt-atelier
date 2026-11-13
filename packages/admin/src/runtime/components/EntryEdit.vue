@@ -17,6 +17,7 @@ import { useAdminToast } from '../toast'
 import FieldInput from './FieldInput.vue'
 import NotFound from './NotFound.vue'
 import Page from './Page.vue'
+import SeoPanel from './SeoPanel.vue'
 import { useAdminI18n } from '../i18n'
 
 const props = defineProps<{ kind: 'collection' | 'singleton', name: string, id?: string, locale?: string }>()
@@ -229,6 +230,10 @@ async function remove() {
         :root="values"
         :sibling="values"
         :read-only="readOnly(String(key))"
+      />
+      <SeoPanel
+        v-if="kind === 'collection' && type.routable"
+        :input="{ collection: name, id, data: values, path: edit.entry.value?.path, media: edit.entry.value?.media, locale: edit.locale.value }"
       />
       <CnAlert
         v-if="error"

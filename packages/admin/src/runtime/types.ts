@@ -45,6 +45,8 @@ export interface Entry {
   locale?: string
   translations?: Record<string, string>
   data: Record<string, unknown>
+  /** The media items the entry's fields name, for previews. */
+  media?: Record<string, import('#atelier/shared/query').MediaSummary>
 }
 export interface EntryList { items: Entry[], total: number, next: string | null }
 
