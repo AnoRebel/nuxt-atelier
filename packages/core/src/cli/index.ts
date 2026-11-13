@@ -28,6 +28,8 @@ Commands:
   jobs retry <id>          queue a failed job again
   jobs run                 run due jobs now, on the running site (--url, default NUXT_PUBLIC_ATELIER_SITE_URL;
                            sends NUXT_ATELIER_JOBS_SECRET)
+  search rebuild           index all published content for site search again, on the running site (--url, as
+                           jobs run)
 
 Options:
   --root <dir>          the Nuxt app (default: current directory)
@@ -68,6 +70,8 @@ async function main() {
   }
   if (group === 'jobs' && command === 'run' && !values.help)
     return runJobs(values.url)
+  if (group === 'search' && command === 'rebuild' && !values.help)
+    return rebuildSearch(values.url)
   if (values.help || !command || !['migrate', 'export', 'import', 'user', 'jobs'].includes(group!)) {
     console.log(USAGE)
     return values.help ? 0 : 1
@@ -181,13 +185,27 @@ async function jobsCommand(driver: AtelierDriver, command: string, id: string | 
 }
 
 /** Job handlers live in the app's server: ask the running site to run due jobs. */
-async function runJobs(url = process.env.NUXT_PUBLIC_ATELIER_SITE_URL): Promise<number> {
+/** A POST to the running site, authorized with the jobs secret. */
+async function callSite(command: string, path: string, url = process.env.NUXT_PUBLIC_ATELIER_SITE_URL): Promise<Response> {
   const secret = process.env.NUXT_ATELIER_JOBS_SECRET
   if (!url)
-    throw new Error('atelier jobs run needs the site: --url https://example.com, or NUXT_PUBLIC_ATELIER_SITE_URL')
+    throw new Error(`atelier ${command} needs the site: --url https://example.com, or NUXT_PUBLIC_ATELIER_SITE_URL`)
   if (!secret)
-    throw new Error('atelier jobs run needs NUXT_ATELIER_JOBS_SECRET, the same as the site\'s')
-  const response = await fetch(new URL('/api/_atelier/jobs/run', url), { method: 'POST', headers: { authorization: `Bearer ${secret}` } })
+    throw new Error(`atelier ${command} needs NUXT_ATELIER_JOBS_SECRET, the same as the site's`)
+  return fetch(new URL(path, url), { method: 'POST', headers: { authorization: `Bearer ${secret}` } })
+}
+
+async function rebuildSearch(url?: string): Promise<number> {
+  const response = await callSite('search rebuild', '/api/_atelier/search/rebuild', url)
+  if (!response.ok)
+    throw new Error(`The site answered ${response.status}${response.status === 403 ? ': is NUXT_ATELIER_JOBS_SECRET set there, the same?' : ''}`)
+  const { indexed } = await response.json() as { indexed: number }
+  console.log(`Indexed ${indexed} entries.`)
+  return 0
+}
+
+async function runJobs(url?: string): Promise<number> {
+  const response = await callSite('jobs run', '/api/_atelier/jobs/run', url)
   if (!response.ok)
     throw new Error(`The site answered ${response.status}${response.status === 404 ? ': is NUXT_ATELIER_JOBS_SECRET set there?' : ''}`)
   const { ran, failed, remaining } = await response.json() as { ran: number, failed: number, remaining: number }

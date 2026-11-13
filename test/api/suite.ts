@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fetch, setup, startServer } from '@nuxt/test-utils/e2e'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 interface Session { cookie: string, csrf: string }
 
@@ -154,6 +154,28 @@ export function contentApiSuite(label: string, rootDir: string) {
       // the articles type isn't versioned here: every save is published, so it's no draft
       expect(writer.drafts.map((d: { id: string }) => d.id)).not.toContain(mine.id)
       expect((await api(null, 'GET', '/dashboard')).status).toBe(401)
+    })
+
+    it('searches published content: title matches first, drafts never, input as plain text', async () => {
+      const doc = (text: string) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] })
+      const inBody = await api('admin', 'POST', '/collections/notes', { publish: true, data: { title: 'Spring', slug: 'spring', body: doc('Pruning the compost heap') } })
+      const inTitle = await api('admin', 'POST', '/collections/notes', { publish: true, data: { title: 'Compost basics', slug: 'compost', body: doc('Start small') } })
+      await api('admin', 'POST', '/collections/notes', { data: { title: 'Compost secrets', slug: 'secret', body: doc('unpublished') } })
+      const search = async (q: string) => (await api(null, 'GET', `/search${q}`)).body
+      await vi.waitFor(async () => expect((await search(q({ q: 'compost' }))).total).toBe(2)) // indexed as they're published
+      const found = await search(q({ q: 'compost' }))
+      expect(found.items.map((i: { id: string }) => i.id)).toEqual([inTitle.body.id, inBody.body.id])
+      expect(found.items[0]).toMatchObject({ type: 'notes', title: 'Compost basics', path: '/notes/compost', excerpt: expect.stringContaining('<mark>') })
+      expect((await search(q({ q: 'secrets' }))).total).toBe(0) // the draft
+      expect((await search(q({ q: 'compost', types: 'articles' }))).total).toBe(0)
+      expect((await api(null, 'GET', `/search${q({ q: 'compost" OR 1=1; DROP TABLE atelier_search; --' })}`)).status).toBe(200)
+      expect((await api(null, 'GET', `/search${q({ q: 'x'.repeat(201) })}`)).status).toBe(422)
+      // unpublished: gone from search
+      await api('admin', 'POST', `/collections/notes/${inTitle.body.id}/unpublish`)
+      await vi.waitFor(async () => expect((await search(q({ q: 'compost' }))).items.map((i: { id: string }) => i.id)).toEqual([inBody.body.id]))
+      // a rebuild: administrators only
+      expect((await api('writer', 'POST', '/search/rebuild')).status).toBe(403)
+      expect((await api('admin', 'POST', '/search/rebuild')).body).toEqual({ indexed: 1 })
     })
 
     it('reads a singleton\'s defaults before its first save, then saves it', async () => {

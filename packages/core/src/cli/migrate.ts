@@ -17,7 +17,11 @@ import { buildTables, collectionTable, publishedTable } from '../runtime/server/
 import { allDrivers } from '../runtime/server/db/loaders'
 import { discoverSchema, layerFiles } from '../schema/discover'
 import { serialiseFields } from '../runtime/shared/fields'
+import { searchTableSql } from '../runtime/server/search/text'
 import { resolveLocales } from '../runtime/shared/locales'
+
+/** The data update that creates the search table (written once per dialect's migrations). */
+const SEARCH_MARKER = 'search index'
 
 const runtime = (path: string) => fileURLToPath(new URL(`../runtime/server/${path}`, import.meta.url))
 const KIT_DIALECTS = { sqlite: 'sqlite', postgres: 'postgresql', mysql: 'mysql' } as const
@@ -196,7 +200,9 @@ ${tables.map((name, i) => `export const t${i} = t[${JSON.stringify(name)}]`).joi
 
   const out = migrationsFolder(project.rootDir, dialect)
   const written = writtenDataUpdates(out)
-  const dataUpdates = renames.map(r => r.data).filter(d => !written.has(d.marker))
+  // the search table: each engine's own full-text search, which drizzle-kit can't describe, created once
+  const search = { marker: SEARCH_MARKER, sql: searchTableSql(dialect) }
+  const dataUpdates = [...renames.map(r => r.data), search].filter(d => !written.has(d.marker))
   const run = (hints?: Parameters<typeof kit.generate>[0]['hints'], custom?: boolean) =>
     kit.generate({ dialect: KIT_DIALECTS[dialect], schema: schemaModule, out, name: options.name, hints, custom })
   let result = await run()

@@ -38,6 +38,7 @@ import { createAuditLog } from './auth/audit'
 import { clientIp, createRateLimiter } from './auth/rate-limit'
 import { createRoleStore } from './auth/roles'
 import { createSettingsStore } from './settings'
+import { indexChange } from './search/service'
 import { createTokenStore } from './auth/tokens'
 import { apiError } from './errors'
 import { logger } from './logger'
@@ -46,6 +47,9 @@ export * from './define'
 export type { AtelierDriver, Dialect } from './db/driver'
 export { createDatabaseAdapter, ForbiddenError } from './adapter'
 export type { RobotsSettings, SettingKey, SettingsStore } from './settings'
+export { rebuildSearchIndex, registerSearchAdapter, searchSite, useAtelierSearch } from './search/service'
+export type { SearchResult } from './search/service'
+export type { SearchAdapter, SearchDocument, SearchHit, SearchQuery } from './search/adapter'
 export type { DatabaseAdapterOptions } from './adapter'
 export { UnsupportedOperationError } from './db/driver'
 export { QueryError } from './db/query'
@@ -125,6 +129,7 @@ export function useAtelierEntries(): Promise<EntryStore> {
     maxNestingDepth: (useAtelierServerConfig() as unknown as { limits: { maxNestingDepth: number } }).limits.maxNestingDepth,
     onChange: (change) => {
       void contentChanged(change)
+      void indexChange(change)
       queueWebhooks(change).catch((error: Error) => logger.error(`Couldn't queue webhooks for ${change.type} "${change.id}"`, { error }))
     },
     hooks: (hook, context) => (useServerHooks().callHook as (name: string, context: unknown) => unknown)(`atelier:${hook}`, context),

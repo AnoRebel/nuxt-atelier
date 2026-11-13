@@ -70,6 +70,9 @@ export async function resetDatabase(driver: AtelierDriver): Promise<void> {
       await db.execute(sql.raw(`drop table \`${name}\``))
     return
   }
+  // virtual tables (the FTS5 search index) first: dropping one drops its own tables, which can't be dropped alone
+  for (const { name } of await db.all(sql.raw(`select name from sqlite_master where sql like 'CREATE VIRTUAL TABLE%'`)) as { name: string }[])
+    await db.run(sql.raw(`drop table \`${name}\``))
   const rows = await db.all(sql.raw(`select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like '_cf_%'`))
   for (const { name } of rows as { name: string }[])
     await db.run(sql.raw(`drop table \`${name}\``))
