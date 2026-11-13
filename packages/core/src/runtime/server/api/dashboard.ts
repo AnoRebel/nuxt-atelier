@@ -11,7 +11,7 @@ import { ADMIN_ROLE } from '../../shared/policy'
 import { caller } from '../content-access'
 import { pendingMigrations } from '../db/state'
 import { apiError } from '../errors'
-import { useAtelierAudit, useAtelierDatabase, useAtelierEntries, useAtelierJobs, useAtelierSchema } from '../index'
+import { useAtelierAudit, useAtelierDatabase, useAtelierEntries, useAtelierJobs, useAtelierSchema, useAtelierSite } from '../index'
 import { SCHEDULE_JOB } from '../schedule'
 
 const LIMIT = 10
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
     return { drafts: [], scheduled: [], ...admin ? { activity: [], failedJobs: [], pendingMigrations: pending } : {} }
 
   const { collections, singletons } = await useAtelierSchema()
-  const entries = await useAtelierEntries()
+  const entries = await useAtelierEntries(useAtelierSite(event))
   const jobs = await useAtelierJobs()
 
   const drafts = (await Promise.all(Object.entries(collections)

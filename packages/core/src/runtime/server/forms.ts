@@ -79,11 +79,16 @@ export function createSubmissionStore(driver: AtelierDriver, storage: () => Prom
       const rows = await db.select().from(table).where(and(eq(table.form, form), lt(table.createdAt, before.toISOString())))
       return remove(rows.map(toSubmission))
     },
-    /** Deletes every submission, of any form, holding `email` in an email field: an erasure request. */
-    async erase(email: string): Promise<number> {
+    /**
+     * Deletes every submission holding `email` in an email field, of any form (or of `forms` only: a site's,
+     * with sites): an erasure request.
+     */
+    async erase(email: string, forms?: string[]): Promise<number> {
+      if (forms && !forms.length)
+        return 0
       // `!` escapes the wildcards: the same on every engine (SQLite has no default escape character)
       const needle = email.trim().toLowerCase().replace(/[!%_]/g, c => `!${c}`)
-      const rows = await db.select().from(table).where(sql`${table.emails} like ${`%,${needle},%`} escape '!'`)
+      const rows = await db.select().from(table).where(and(sql`${table.emails} like ${`%,${needle},%`} escape '!'`, forms ? inArray(table.form, forms) : undefined))
       return remove(rows.map(toSubmission))
     },
     /** A file a submission holds, by field name. */

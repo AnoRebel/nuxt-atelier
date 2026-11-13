@@ -14,7 +14,9 @@ import { entryTopic, issueTicket, publish } from '../collab/realtime'
 import { notifyUser } from '../collab/notify'
 import { segments } from '../content-access'
 import { apiError, readValid } from '../errors'
-import { assertMigrated, requireUser, useAtelierAuth, useAtelierCollab, useAtelierEntries, useAtelierPolicy, useAtelierSchema } from '../index'
+import type { SiteContext } from '../sites'
+import { siteScoped } from '../db/tables'
+import { assertMigrated, requireUser, useAtelierAuth, useAtelierCollab, useAtelierEntries, useAtelierPolicy, useAtelierSchema, useAtelierSite } from '../index'
 
 const PREFIX = '/api/_atelier/collab/'
 const Heartbeat = v.object({ edit: v.optional(v.boolean('edit: expected true or false')), takeover: v.optional(v.boolean('takeover: expected true or false')) })
@@ -27,15 +29,16 @@ async function named(ids: string[]): Promise<Map<string, string>> {
 }
 
 /** The entry or singleton, when it exists and the user may read it: 404 otherwise, so nothing leaks. */
-export async function readableType(user: AuthUser, type: string | undefined, id: string | undefined): Promise<{ type: string, id: string }> {
+export async function readableType(site: SiteContext, user: AuthUser, type: string | undefined, id: string | undefined): Promise<{ type: string, id: string, topic: string }> {
   const schema = await useAtelierSchema()
   const policy = await useAtelierPolicy()
+  // a site's own singleton keeps its locks and comments under `name@site`; topics stay on the name
   if (type && id && schema.singletons[type] && id === type && policy.can(user, 'read', type))
-    return { type, id }
-  const entry = type && id && schema.collections[type] ? await (await useAtelierEntries()).get(type, id, { stage: 'draft' }) : undefined
+    return { type, id: siteScoped(schema, schema.singletons[type]) ? `${id}@${site.name}` : id, topic: entryTopic(site.name, type, id) }
+  const entry = type && id && schema.collections[type] ? await (await useAtelierEntries(site)).get(type, id, { stage: 'draft' }) : undefined
   if (!entry || !policy.can(user, 'read', type!, entry))
     throw apiError(404, 'Not found')
-  return { type: type!, id: id! }
+  return { type: type!, id: id!, topic: entryTopic(site.name, type!, id!) }
 }
 
 export default defineEventHandler(async (event) => {
@@ -44,10 +47,10 @@ export default defineEventHandler(async (event) => {
   const method = event.req.method
   const parts = segments(event, PREFIX)
   if (parts.length === 1 && parts[0] === 'ticket' && method === 'POST')
-    return { ticket: await issueTicket(user.id) }
+    return { ticket: await issueTicket(user.id, useAtelierSite(event).name) }
   if (parts.length !== 2 && !(parts.length === 3 && parts[2] === 'people' && method === 'GET'))
     throw apiError(404, 'Not found')
-  const { type, id } = await readableType(user, parts[0], parts[1])
+  const { type, id, topic } = await readableType(useAtelierSite(event), user, parts[0], parts[1])
   if (parts[2] === 'people') {
     const policy = await useAtelierPolicy()
     const users = await (await useAtelierAuth()).users.list()
@@ -55,7 +58,6 @@ export default defineEventHandler(async (event) => {
     return users.filter(u => policy.can(u, 'read', type)).map(u => ({ id: u.id, name: u.name || u.email }))
   }
   const collab = await useAtelierCollab()
-  const topic = entryTopic(type, id)
   const state = async (lock: Lock | null) => {
     const viewers = await collab.viewers(type, id)
     const names = await named([...viewers.map(w => w.userId), ...lock ? [lock.userId] : []])

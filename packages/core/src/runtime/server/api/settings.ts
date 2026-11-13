@@ -6,7 +6,7 @@
 import { defineEventHandler, getRequestURL } from 'nuxt/server'
 import { forgetCached } from '../cache'
 import { apiError, readJson } from '../errors'
-import { assertMigrated, audit, requireUser, useAtelierSettings } from '../index'
+import { assertMigrated, audit, requireUser, useAtelierSettings, useAtelierSite } from '../index'
 import { isSettingKey } from '../settings'
 
 const PREFIX = '/api/_atelier/settings/'
@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   const key = decodeURIComponent(getRequestURL(event).pathname.slice(PREFIX.length).replace(/\/$/, ''))
   if (!isSettingKey(key))
     throw apiError(404, `No setting "${key}"`)
-  const settings = await useAtelierSettings()
+  const settings = await useAtelierSettings(useAtelierSite(event))
   const method = event.req.method
   if (method === 'GET')
     return settings.get(key)

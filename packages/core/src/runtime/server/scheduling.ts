@@ -5,7 +5,7 @@ import type { Scheduled } from './schedule'
 import * as v from 'valibot'
 import { allow } from './content-access'
 import { apiError, readValid } from './errors'
-import { useAtelierEntries, useAtelierJobs } from './index'
+import { useAtelierEntries, useAtelierJobs, useAtelierSite } from './index'
 import { SCHEDULE_JOB, scheduleKey, schedulesOf } from './schedule'
 
 const Body = v.object({
@@ -24,7 +24,10 @@ const Body = v.object({
  */
 export async function scheduleRequest(event: RequestEvent, who: Caller, target: { type: string, id: string, singleton: boolean, versioned: boolean }, action: string | undefined) {
   const queue = await useAtelierJobs()
-  const { type, id } = target
+  const { type } = target
+  const site = useAtelierSite(event)
+  // a singleton's schedules are per site (each site has its own); entries' ids are unique anyway
+  const id = target.singleton && site.scoped ? `${target.id}@${site.name}` : target.id
   const method = event.req.method
   if (method === 'GET' && !action) {
     allow(who, 'update', type)
@@ -40,10 +43,10 @@ export async function scheduleRequest(event: RequestEvent, who: Caller, target: 
     if (body.action === 'publish') {
       if (body.version === undefined)
         throw apiError(422, 'Say which version to publish: the draft version you read', { errors: [{ path: 'version', message: 'required' }] })
-      if (!await (await useAtelierEntries()).revision(type, id, body.version))
+      if (!await (await useAtelierEntries(site)).revision(type, target.id, body.version))
         throw apiError(422, `There's no version ${body.version} to publish`, { errors: [{ path: 'version', message: 'not in the history' }] })
     }
-    const job: Scheduled = { type, id, singleton: target.singleton, action: body.action, ...body.action === 'publish' ? { version: body.version } : {}, by: who.principal.id }
+    const job: Scheduled = { type, id: target.id, singleton: target.singleton, action: body.action, ...body.action === 'publish' ? { version: body.version } : {}, by: who.principal.id, ...site.scoped ? { site: site.name } : {} }
     await queue.enqueue(SCHEDULE_JOB, job as unknown as Record<string, unknown>, { key: scheduleKey(type, id, body.action), runAt: body.at, maxAttempts: 3 })
     return schedulesOf(queue, type, id)
   }

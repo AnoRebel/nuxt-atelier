@@ -4,7 +4,9 @@ import type { ContentPermission } from '../../shared/policy'
 import type { AtelierDriver } from '../db/driver'
 import type { Db } from '../db/entries'
 import { and, desc, eq, gt, isNull, or } from 'drizzle-orm'
+import type { SiteContext } from '../sites'
 import { buildTables } from '../db/tables'
+import { singleSite } from '../sites'
 
 const TOKEN_PREFIX = 'atk_'
 export const READ_ONLY: Record<string, ContentPermission> = { '*': { actions: ['read'] } }
@@ -24,9 +26,11 @@ export interface TokenInfo {
   revokedAt: string | null
 }
 
-export function createTokenStore(driver: AtelierDriver) {
-  const { atelier_tokens: table } = buildTables(driver.dialect, { collections: {}, singletons: {} })
+export function createTokenStore(driver: AtelierDriver, site: SiteContext = singleSite) {
+  const { atelier_tokens: table } = buildTables(driver.dialect, { collections: {}, singletons: {}, sites: site.scoped })
   const db = driver.db as Db
+  // with sites, a token belongs to the site it was made on, and works only there
+  const here = site.scoped ? eq(table.site, site.name) : undefined
   // never the hash
   const info = (row: TokenInfo & { hash: string }): TokenInfo =>
     ({ id: row.id, name: row.name, permissions: row.permissions, expiresAt: row.expiresAt, createdBy: row.createdBy, createdAt: row.createdAt, lastUsedAt: row.lastUsedAt, revokedAt: row.revokedAt })
@@ -36,7 +40,7 @@ export function createTokenStore(driver: AtelierDriver) {
     async create(input: { name: string, permissions: Record<string, ContentPermission>, expiresAt?: string | null, createdBy: string }): Promise<TokenInfo & { token: string }> {
       const token = randomToken()
       const row = { id: crypto.randomUUID(), name: input.name, hash: await sha256(token), permissions: input.permissions, expiresAt: input.expiresAt ?? null, createdBy: input.createdBy, createdAt: new Date().toISOString(), lastUsedAt: null, revokedAt: null }
-      await db.insert(table).values(row)
+      await db.insert(table).values({ ...row, ...site.scoped ? { site: site.name } : {} })
       return { ...info(row), token }
     },
 
@@ -49,6 +53,7 @@ export function createTokenStore(driver: AtelierDriver) {
         eq(table.hash, await sha256(token)),
         isNull(table.revokedAt),
         or(isNull(table.expiresAt), gt(table.expiresAt, now.toISOString())),
+        here,
       )).limit(1)
       if (!row)
         return undefined
@@ -57,11 +62,11 @@ export function createTokenStore(driver: AtelierDriver) {
       return info(row)
     },
 
-    list: async (): Promise<TokenInfo[]> => (await db.select().from(table).orderBy(desc(table.createdAt))).map(info),
+    list: async (): Promise<TokenInfo[]> => (await db.select().from(table).where(here).orderBy(desc(table.createdAt))).map(info),
 
     /** Revokes a token for good. Returns it, or undefined when there's no such live token. */
     async revoke(id: string): Promise<TokenInfo | undefined> {
-      const [row] = await db.select().from(table).where(and(eq(table.id, id), isNull(table.revokedAt))).limit(1)
+      const [row] = await db.select().from(table).where(and(eq(table.id, id), isNull(table.revokedAt), here)).limit(1)
       if (!row)
         return undefined
       await db.update(table).set({ revokedAt: new Date().toISOString() }).where(eq(table.id, id))

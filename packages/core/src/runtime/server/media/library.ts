@@ -5,12 +5,14 @@ import type { Field } from '../../shared/fields'
 import type { AtelierDriver } from '../db/driver'
 import type { Db } from '../db/entries'
 import type { Filter, ListQuery } from '../db/query'
+import type { SiteContext } from '../sites'
 import type { StorageDriver } from './storage'
 import { fileTypeFromBuffer } from 'file-type'
-import { and, eq, inArray, lt, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import { afterCursor, compileFilter, compileSort, decodeCursor, encodeCursor, orderBy } from '../db/query'
 import { affected, MEDIA_TARGET } from '../db/store'
 import { buildTables } from '../db/tables'
+import { singleSite } from '../sites'
 import { storageKey } from './storage'
 
 /** What may be uploaded by default: types recognised from their content. */
@@ -138,9 +140,13 @@ function limited(max: number, seen: { bytes: number }) {
   })
 }
 
-export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver, options: { maxUploadSize: number, accept?: readonly string[] }) {
-  const { atelier_media: media, atelier_media_uploads: uploads, atelier_relations: relations, atelier_p_relations: publishedRelations } = buildTables(driver.dialect, { collections: {}, singletons: {} })
+export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver, options: { maxUploadSize: number, accept?: readonly string[], site?: SiteContext }) {
+  const site = options.site ?? singleSite
+  const { atelier_media: media, atelier_media_uploads: uploads, atelier_relations: relations, atelier_p_relations: publishedRelations } = buildTables(driver.dialect, { collections: {}, singletons: {}, sites: site.scoped })
   const db = driver.db as Db
+  // with sites: a site's own media, and media every site shares (site null); another site's is invisible
+  const visible = site.scoped ? or(eq(media.site, site.name), isNull(media.site)) : undefined
+  const mine = (id: string) => and(eq(media._id, id), visible)
   const accept = options.accept ?? DEFAULT_ACCEPT
 
   const toItem = (r: Record<string, unknown>): MediaItem => ({
@@ -180,7 +186,7 @@ export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver
      * Stores an uploaded file and its row. 415 for a type that isn't allowed (judged by its content),
      * 413 past `maxUploadSize`; nothing is kept from a refused upload.
      */
-    async upload(input: { body: ReadableStream<Uint8Array>, filename: string, folder?: string, private?: boolean, createdBy: string | null }): Promise<MediaItem> {
+    async upload(input: { body: ReadableStream<Uint8Array>, filename: string, folder?: string, private?: boolean, createdBy: string | null, /** With sites: for every site, not just this one. */ shared?: boolean }): Promise<MediaItem> {
       const { head, whole } = await peek(input.body, SNIFF_BYTES)
       const type = await fileTypeFromBuffer(head)
       if (!type || !accepts(accept, type.mime)) {
@@ -214,6 +220,7 @@ export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver
           _createdBy: input.createdBy,
           _createdAt: now,
           _updatedAt: now,
+          ...site.scoped ? { site: input.shared ? null : site.name } : {},
         }
         await db.insert(media).values(row)
         return toItem(row)
@@ -322,7 +329,7 @@ export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver
 
     /** Records an image's width and height (measured after it's stored). */
     async setDimensions(id: string, size: { width: number, height: number }): Promise<MediaItem | undefined> {
-      await db.update(media).set({ width: size.width, height: size.height }).where(eq(media._id, id))
+      await db.update(media).set({ width: size.width, height: size.height }).where(mine(id))
       return this.get(id)
     },
 
@@ -330,18 +337,18 @@ export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver
     async getMany(ids: string[]): Promise<MediaItem[]> {
       if (!ids.length)
         return []
-      const rows: Record<string, unknown>[] = await db.select().from(media).where(inArray(media._id, ids.slice(0, 500)))
+      const rows: Record<string, unknown>[] = await db.select().from(media).where(and(inArray(media._id, ids.slice(0, 500)), visible))
       return rows.map(toItem)
     },
 
     async get(id: string): Promise<MediaItem | undefined> {
-      const [row] = await db.select().from(media).where(eq(media._id, id)).limit(1)
+      const [row] = await db.select().from(media).where(mine(id)).limit(1)
       return row && toItem(row)
     },
 
     /** A page of media, newest first unless sorted: the content API's query language on the media fields. */
     async list(query: ListQuery & { filter?: Filter } = {}): Promise<{ items: MediaItem[], total: number, next: string | null }> {
-      const where = query.filter ? compileFilter(context, query.filter) : undefined
+      const where = and(query.filter ? compileFilter(context, query.filter) : undefined, visible)
       const keys = compileSort(context, query.sort?.length ? query.sort : ['-_createdAt'])
       const limit = query.limit ?? 50
       const page = query.cursor ? and(where, afterCursor(keys, decodeCursor(query.cursor, keys))) : where
@@ -360,7 +367,7 @@ export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver
     },
 
     async update(id: string, changes: MediaChanges): Promise<MediaItem | undefined> {
-      await db.update(media).set({ ...changes, _updatedAt: new Date().toISOString() }).where(eq(media._id, id))
+      await db.update(media).set({ ...changes, _updatedAt: new Date().toISOString() }).where(mine(id))
       return this.get(id)
     },
 
@@ -384,7 +391,7 @@ export function createMediaLibrary(driver: AtelierDriver, storage: StorageDriver
       const item = await this.get(id)
       if (!item)
         return false
-      await db.delete(media).where(eq(media._id, id))
+      await db.delete(media).where(mine(id))
       // the original and its image variants share its folder
       await (storage.deletePrefix ? storage.deletePrefix(`${item.id}/`) : storage.delete(item.key))
       return true

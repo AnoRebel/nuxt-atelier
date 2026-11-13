@@ -6,7 +6,7 @@
 // Loops, sources in use and sources that are an entry's URL are refused with 422.
 import * as v from 'valibot'
 import { defineEventHandler, getRequestURL } from 'nuxt/server'
-import { assertMigrated, audit, requireUser, toHttpError, useAtelierEntries } from '../index'
+import { assertMigrated, audit, requireUser, toHttpError, useAtelierEntries, useAtelierSite } from '../index'
 import { apiError, readValid } from '../errors'
 
 const PREFIX = '/api/_atelier/redirects'
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   const actor = await requireUser(event, 'redirects')
   const id = decodeURIComponent(getRequestURL(event).pathname.slice(PREFIX.length).replace(/^\/|\/$/g, ''))
   const method = event.req.method
-  const redirects = (await useAtelierEntries()).redirects
+  const redirects = (await useAtelierEntries(useAtelierSite(event))).redirects
   try {
     if (!id && method === 'GET')
       return await redirects.list()

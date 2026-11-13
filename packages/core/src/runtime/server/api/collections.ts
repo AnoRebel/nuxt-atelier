@@ -22,7 +22,7 @@ import type { Entry } from '../db/store'
 import * as v from 'valibot'
 import { defineEventHandler, getQuery } from 'nuxt/server'
 import { apiError, readValid, validated } from '../errors'
-import { audit, toHttpError, useAtelierCollab, useAtelierEntries, useAtelierSchema } from '../index'
+import { audit, siteLocales, toHttpError, useAtelierCollab, useAtelierEntries, useAtelierSchema, useAtelierSite } from '../index'
 import { scheduleRequest } from '../scheduling'
 import { shadowed } from '../shadowing'
 import { allow, assertInversesWritable, assertMigrated, assertUnlocked, assertWritable, caller, countWrite, limits, mediaOf, present, restorable, segments, select, stageFor } from '../content-access'
@@ -68,12 +68,14 @@ export default defineEventHandler(async (event) => {
     await assertMigrated()
 
   const who = await caller(event, method === 'GET')
-  const entries = await useAtelierEntries()
+  const entries = await useAtelierEntries(useAtelierSite(event))
   const depthOf = (depth: number | undefined) => Math.min(depth ?? 0, limits().maxRelationDepth)
   /** A requested locale: 400 for one that isn't configured, or on a collection that isn't localized. */
+  // the site's own locales, when it has them
+  const codes = siteLocales(who.site).codes ?? schema.locales.codes
   const localeOf = (locale: string | undefined) => {
-    if (locale !== undefined && (!definition.localized || !schema.locales.codes.includes(locale)))
-      throw apiError(400, definition.localized ? `locale: expected one of ${schema.locales.codes.join(', ')}` : `locale: "${name}" isn't localized`)
+    if (locale !== undefined && (!definition.localized || !codes.includes(locale)))
+      throw apiError(400, definition.localized ? `locale: expected one of ${codes.join(', ')}` : `locale: "${name}" isn't localized`)
     return locale
   }
   const shape = async (entry: Entry, fields?: string[]) => {

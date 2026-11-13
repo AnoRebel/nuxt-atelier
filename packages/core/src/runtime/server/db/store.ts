@@ -18,9 +18,11 @@ import { fallbackChain, resolveLocales } from '../../shared/locales'
 import { REDIRECT_STATUSES, redirectLoop, sourceProblem, targetProblem } from '../redirects'
 import { entryPaths, MAX_PATH, patterns, presentPaths } from '../routes'
 import { deadlocked, UnsupportedOperationError } from './driver'
-import { fromRow, getRow, isEmpty, isUnique, toRow } from './entries'
+import { fromRow, isEmpty, isUnique, toRow } from './entries'
 import { afterCursor, compileFilter, compileSort, decodeCursor, encodeCursor, orderBy } from './query'
-import { buildTables, collectionTable, published } from './tables'
+import { buildTables, collectionTable, published, siteScoped } from './tables'
+import { singleSite } from '../sites'
+import type { SiteContext } from '../sites'
 
 /** The entry changed since the client read it. `currentVersion` is the version to reload. */
 export class ConflictError extends Error {
@@ -349,7 +351,7 @@ interface Target<T> {
 }
 
 /** A committed write: `live` when what the site serves changed. */
-export interface StoreChange { type: string, id: string, action: 'saved' | 'published' | 'unpublished' | 'deleted', live: boolean }
+export interface StoreChange { type: string, id: string, action: 'saved' | 'published' | 'unpublished' | 'deleted', live: boolean, site: SiteContext }
 
 /** Who did it: a user or API token id, when known. */
 interface Acting { type: string, id: string, actorId: string | null }
@@ -386,12 +388,42 @@ export interface StoreOptions {
   hooks?: <H extends LifecycleHook>(hook: H, context: LifecycleHooks[H]) => unknown
   /** An after-hook failed: the write stands. Logged when not given. */
   onHookError?: (hook: LifecycleHook, context: unknown, error: unknown) => unknown
+  /** The site every read and write is for (with `sites`); the implicit single site otherwise. */
+  site?: SiteContext
+  /** The site's own locales and default (`sites.<name>.locales`, `defaultLocale`), when it has them. */
+  siteLocales?: { codes?: string[], default?: string }
 }
 
 export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, options: StoreOptions = {}) {
   const tables = buildTables(driver.dialect, schema)
   const db = driver.db as Db
   const { atelier_redirects: redirectsTable, atelier_revisions: revisions } = tables
+  // the site this store reads and writes: site-scoped rows carry it, shared ones '' (singletons, routes)
+  const site = options.site ?? singleSite
+  const scopedType = (name: string) => siteScoped(schema, schema.collections[name] ?? schema.singletons[name])
+  /** The site a type's singleton and route rows carry: this store's, or '' for a shared type. */
+  const siteOfType = (name: string) => scopedType(name) ? site.name : ''
+  /** The condition keeping a collection table's rows to this site (none for a shared type, or without sites). */
+  const inSite = (name: string, table: Db) => scopedType(name) ? eq(table._site, site.name) : undefined
+  /** A new row's site column, when its type has one. */
+  const siteColumn = (name: string) => scopedType(name) ? { _site: site.name } : {}
+  /** Rows of a site-keyed system table (singletons, routes, redirects) this site sees: its own and shared ones. */
+  const visibleSites = (table: Db) => schema.sites ? inArray(table.site, [site.name, '']) : undefined
+  /** The condition picking a singleton's row for this site (its own, or the shared one). */
+  const singletonSite = (table: Db, name: string) => schema.sites ? eq(table.site, siteOfType(name)) : undefined
+  /**
+   * The id a singleton's relation rows, revisions and route rows carry: its name, qualified by its site when
+   * each site has its own (`settings@shop`), so sites' copies never mix.
+   */
+  const singletonKey = (name: string) => scopedType(name) ? `${name}@${site.name}` : name
+  /** The id revisions and links are kept under: an entry's own, a singleton's key. */
+  const recordId = (name: string, id: string) => name in schema.singletons ? singletonKey(name) : id
+  /** A route row's site column for a type, and the condition finding that type's route rows. */
+  const routeSiteColumn = (source: string) => schema.sites ? { site: siteOfType(source) } : {}
+  const routesOf = (table: Db, source: string) => schema.sites ? eq(table.site, siteOfType(source)) : undefined
+  /** Redirects: this site's. */
+  const redirectSite = () => schema.sites ? eq(redirectsTable.site, site.name) : undefined
+  const redirectSiteColumn = () => schema.sites ? { site: site.name } : {}
   /** Cloudflare D1: no transactions, and at most 100 bound parameters per statement. */
   const d1 = !driver.capabilities.transactions
   /** Inserts of `rows`, as few statements as the engine's parameter limit allows (D1: 100 per statement). */
@@ -401,7 +433,8 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     const size = d1 ? Math.max(1, Math.floor(100 / Object.keys(rows[0]!).length)) : 1000
     return Array.from({ length: Math.ceil(rows.length / size) }, (_, i) => q.insert(table).values(rows.slice(i * size, (i + 1) * size)))
   }
-  const locales = resolveLocales(schema.locales)
+  // a site may have fewer locales, and its own default
+  const locales = resolveLocales({ ...schema.locales, ...options.siteLocales?.codes && { codes: options.siteLocales.codes }, ...options.siteLocales?.default && { default: options.siteLocales.default } })
   const localized = (source: string) => !!schema.collections[source]?.localized
   /** The fields one value of which serves every locale of a localized collection. */
   const sharedKeys = (source: string) => localized(source) ? Object.entries(schema.collections[source]!.fields).filter(([, f]) => f.shared).map(([key]) => key) : []
@@ -415,7 +448,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
   /** A localized entry's locale and translation group, from its draft row (which every entry has). */
   const placeOf = async (q: Db, source: string, id: string): Promise<{ _locale: string, _group: string | null } | undefined> => {
     const table = tables[collectionTable(source)]
-    return (await q.select({ _locale: table._locale, _group: table._group }).from(table).where(eq(table._id, id)).limit(1))[0]
+    return (await q.select({ _locale: table._locale, _group: table._group }).from(table).where(and(eq(table._id, id), inSite(source, table))).limit(1))[0]
   }
   /** A localized entry's locale: undefined when the collection isn't localized, or there's no such entry. */
   const entryLocale = async (q: Db, source: string, id: string): Promise<string | undefined> =>
@@ -448,7 +481,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
   }
   const REDIRECT_TTL = 30_000
   const readRedirects = async (): Promise<Redirect[]> =>
-    (await db.select().from(redirectsTable).orderBy(asc(redirectsTable.createdAt), asc(redirectsTable.id)) as (Redirect & { createdAt: string })[])
+    (await db.select().from(redirectsTable).where(schema.sites ? eq(redirectsTable.site, site.name) : undefined).orderBy(asc(redirectsTable.createdAt), asc(redirectsTable.id)) as (Redirect & { createdAt: string })[])
       .map(({ id, source, target, status, auto }) => ({ id, source, target, status, auto: Boolean(auto) }))
 
   // The same reads and writes on either copy of the content tables: drafts, or what the site serves.
@@ -483,7 +516,8 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const found = new Map<string, Entry>()
       for (let i = 0; i < ids.length; i += CHUNK) {
         const chunk = [...new Set(ids.slice(i, i + CHUNK))]
-        const rows: Record<string, unknown>[] = await q.select().from(table).where(inArray(table._id, chunk))
+        // another site's entry reads as missing
+        const rows: Record<string, unknown>[] = await q.select().from(table).where(and(inArray(table._id, chunk), inSite(name, table)))
         if (!rows.length)
           continue
         const links: (RelationRow & { sourceId: string })[] = await q.select().from(relations)
@@ -535,22 +569,22 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       if (!route || !ids.length)
         return byId
       const rows: { path: string, locale: string, sourceId: string }[] = await q.select().from(routes)
-        .where(and(eq(routes.source, source), inArray(routes.sourceId, ids)))
+        .where(and(eq(routes.source, source), inArray(routes.sourceId, ids), schema.sites ? eq(routes.site, siteOfType(source)) : undefined))
       for (const row of rows)
         byId.set(row.sourceId, [...byId.get(row.sourceId) ?? [], { path: row.path, locale: row.locale }])
       return byId
     }
 
     async function readSingleton(q: Db, name: string): Promise<SingletonEntry | undefined> {
-      const [row] = await q.select().from(singletons).where(eq(singletons.name, name)).limit(1)
+      const [row] = await q.select().from(singletons).where(and(eq(singletons.name, name), singletonSite(singletons, name))).limit(1)
       if (!row)
         return undefined
       const { route, fields } = singleton(name)
-      const urls = route ? (await storedPaths(q, name, route, [name])).get(name) ?? [] : []
+      const urls = route ? (await storedPaths(q, name, route, [singletonKey(name)])).get(singletonKey(name)) ?? [] : []
       const live = tables.atelier_p_singletons
       const publishedVersion = stage === 'published'
         ? row.version
-        : (await q.select({ version: live.version }).from(live).where(eq(live.name, name)).limit(1))[0]?.version ?? null
+        : (await q.select({ version: live.version }).from(live).where(and(eq(live.name, name), singletonSite(live, name))).limit(1))[0]?.version ?? null
       return { name, version: row.version, updatedAt: row.updatedAt, ...route && presentPaths(route, urls), publishedVersion, data: renamed(fields, row.data) }
     }
 
@@ -658,7 +692,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
           ancestor = await parentOf(q, source, key, ancestor)
         }
         const parent: EntryPath[] = await q.select({ path: routes.path, locale: routes.locale }).from(routes)
-          .where(and(eq(routes.source, source), eq(routes.sourceId, data[key] as string)))
+          .where(and(eq(routes.source, source), eq(routes.sourceId, data[key] as string), routesOf(routes, source)))
         if (stage === 'published' && !parent.length)
           throw new ValidationError([{ path: key, message: 'Its parent isn\'t published: publish that first, so this one has a URL under it' }])
         own = under(own, parent)
@@ -679,7 +713,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         await walk(sourceId, own, 0)
       }
       if (existing)
-        plan.old = await q.select().from(routes).where(and(eq(routes.source, source), inArray(routes.sourceId, plan.ids)))
+        plan.old = await q.select().from(routes).where(and(eq(routes.source, source), inArray(routes.sourceId, plan.ids), routesOf(routes, source)))
       return plan
     }
 
@@ -702,7 +736,8 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         if (row.path.length > MAX_PATH)
           errors.push({ path: fieldOf(row.locale), message: `${whose(row)} would be longer than ${MAX_PATH} characters` })
       }
-      const taken: RouteRow[] = await q.select().from(routes).where(inArray(routes.path, [...new Set(plan.rows.map(p => p.path))]))
+      // ponytail: with sites, a shared type's path is checked against this site's paths only, not every site's
+      const taken: RouteRow[] = await q.select().from(routes).where(and(inArray(routes.path, [...new Set(plan.rows.map(p => p.path))]), visibleSites(routes)))
       for (const row of plan.rows) {
       // rows of the entries this save moves are replaced, so they don't count
         const other = taken.find(t => t.path === row.path && !(t.source === plan.source && plan.ids.includes(t.sourceId))
@@ -730,14 +765,14 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       })
       const createdAt = new Date().toISOString()
       return [
-        q.delete(routes).where(and(eq(routes.source, plan.source), inArray(routes.sourceId, plan.ids))),
-        ...rows.length ? [q.insert(routes).values(rows)] : [],
-        ...rows.length && stage === 'published' ? [q.delete(redirectsTable).where(inArray(redirectsTable.source, [...new Set(rows.map(r => r.path))]))] : [],
+        q.delete(routes).where(and(eq(routes.source, plan.source), inArray(routes.sourceId, plan.ids), routesOf(routes, plan.source))),
+        ...rows.length ? [q.insert(routes).values(rows.map(r => ({ ...r, ...routeSiteColumn(plan.source) })))] : [],
+        ...rows.length && stage === 'published' ? [q.delete(redirectsTable).where(and(inArray(redirectsTable.source, [...new Set(rows.map(r => r.path))]), redirectSite()))] : [],
         ...plan.redirect
           ? moved.flatMap(([from, to]) => [
-              q.update(redirectsTable).set({ target: to }).where(eq(redirectsTable.target, from)),
-              q.delete(redirectsTable).where(eq(redirectsTable.source, from)),
-              q.insert(redirectsTable).values({ id: crypto.randomUUID(), source: from, target: to, status: 301, auto: true, createdAt }),
+              q.update(redirectsTable).set({ target: to }).where(and(eq(redirectsTable.target, from), redirectSite())),
+              q.delete(redirectsTable).where(and(eq(redirectsTable.source, from), redirectSite())),
+              q.insert(redirectsTable).values({ id: crypto.randomUUID(), source: from, target: to, status: 301, auto: true, createdAt, ...redirectSiteColumn() }),
             ])
           : [],
       ]
@@ -810,6 +845,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         ...options.filter ? [compileFilter(context, options.filter)] : [],
         ...options.createdBy === undefined ? [] : [eq(table._createdBy, options.createdBy)],
         ...definition.localized ? [eq(table._locale, options.locale ?? locales.default)] : [],
+        ...scopedType(name) ? [eq(table._site, site.name)] : [],
       ]
       const where = filters.length ? and(...filters) : undefined
       const keys = compileSort(context, options.sort)
@@ -857,21 +893,23 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         isUnique: (q, publishing) => async (field, value) => {
           // a localized entry's values are unique within its locale
           target.locale ??= await entryLocale(q, name, id)
-          return await isUnique(q, table, field, value, id, target.locale)
-            && (!publishing || await isUnique(q, tables[published(collectionTable(name))], field, value, id, target.locale))
+          const within = scopedType(name) ? site.name : undefined
+          return await isUnique(q, table, field, value, id, target.locale, within)
+            && (!publishing || await isUnique(q, tables[published(collectionTable(name))], field, value, id, target.locale, within))
         },
-        currentVersion: async q => (await q.select({ version: table._version }).from(table).where(eq(table._id, id)))[0]?.version,
+        // another site's entry of that id reads as missing: never updated from here
+        currentVersion: async q => (await q.select({ version: table._version }).from(table).where(and(eq(table._id, id), inSite(name, table))))[0]?.version,
         write: (q, data, version, now) => {
           const row = toRow(definition.fields, data)
           const place = definition.localized ? { _locale: placement?.locale ?? locales.default, _group: placement?.group ?? null } : {}
           return expected === undefined
-            ? q.insert(table).values({ _id: id, _version: version, _createdAt: now, _updatedAt: now, _createdBy: authorId ?? null, ...place, ...row })
+            ? q.insert(table).values({ _id: id, _version: version, _createdAt: now, _updatedAt: now, _createdBy: authorId ?? null, ...siteColumn(name), ...place, ...row })
           // only the version the client read is updated: a concurrent save makes this match nothing
-            : q.update(table).set({ ...row, _version: version, _updatedAt: now }).where(and(eq(table._id, id), eq(table._version, expected)))
+            : q.update(table).set({ ...row, _version: version, _updatedAt: now }).where(and(eq(table._id, id), eq(table._version, expected), inSite(name, table)))
         },
         publish: (q, remove) => {
           const live = tables[published(collectionTable(name))]
-          return [q.delete(live).where(eq(live._id, id)), ...remove ? [] : [q.insert(live).select(q.select().from(table).where(eq(table._id, id)))]]
+          return [q.delete(live).where(and(eq(live._id, id), inSite(name, live))), ...remove ? [] : [q.insert(live).select(q.select().from(table).where(and(eq(table._id, id), inSite(name, table))))]]
         },
         read: async q => (await read(q, name, id))!,
       }
@@ -883,16 +921,16 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         what: `singleton "${name}"`,
         fields: singleton(name).fields,
         source: name,
-        sourceId: name,
+        sourceId: singletonKey(name),
         expected,
         authorId,
         currentVersion: async q => (await readSingleton(q, name))?.version,
         write: (q, data, version, now) => expected === undefined
-          ? q.insert(singletons).values({ name, data, version, updatedAt: now })
-          : q.update(singletons).set({ data, version, updatedAt: now }).where(and(eq(singletons.name, name), eq(singletons.version, expected))),
+          ? q.insert(singletons).values({ ...schema.sites ? { site: siteOfType(name) } : {}, name, data, version, updatedAt: now })
+          : q.update(singletons).set({ data, version, updatedAt: now }).where(and(eq(singletons.name, name), eq(singletons.version, expected), singletonSite(singletons, name))),
         publish: (q, remove) => {
           const live = tables.atelier_p_singletons
-          return [q.delete(live).where(eq(live.name, name)), ...remove ? [] : [q.insert(live).select(q.select().from(singletons).where(eq(singletons.name, name)))]]
+          return [q.delete(live).where(and(eq(live.name, name), singletonSite(live, name))), ...remove ? [] : [q.insert(live).select(q.select().from(singletons).where(and(eq(singletons.name, name), singletonSite(singletons, name))))]]
         },
         read: async q => (await readSingleton(q, name))!,
       }
@@ -936,7 +974,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     function unpublication(q: Db, target: Target<unknown>): unknown[] {
       const live = stages.published
       const mine = (t: Db) => and(eq(t.source, target.source), eq(t.sourceId, target.sourceId))
-      return [...target.publish(q, true), q.delete(live.relations).where(mine(live.relations)), q.delete(live.routes).where(mine(live.routes))]
+      return [...target.publish(q, true), q.delete(live.relations).where(mine(live.relations)), q.delete(live.routes).where(and(mine(live.routes), routesOf(live.routes, target.source)))]
     }
 
     /**
@@ -951,7 +989,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       const publishedTable = singletonPin ? undefined : tables[published(collectionTable(source))]
       const locale = await entryLocale(q, source, sourceId)
       const result = await validateEntry(fields, data, {
-        isUnique: publishedTable && ((field, value) => isUnique(q, publishedTable, field, value, sourceId, locale)),
+        isUnique: publishedTable && ((field, value) => isUnique(q, publishedTable, field, value, sourceId, locale, scopedType(source) ? site.name : undefined)),
         blocks: schema.blocks,
         maxNestingDepth: options.maxNestingDepth,
         sharedTypes: await sharedTypes(q, source, data),
@@ -969,15 +1007,15 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         if (!draft)
           throw new NotFoundError(`No entry "${sourceId}" in "${source}"`)
         row = [
-          q.delete(publishedTable).where(eq(publishedTable._id, sourceId)),
-          q.insert(publishedTable).values({ _id: sourceId, _version: version, _createdAt: draft.createdAt, _updatedAt: now, _createdBy: draft.createdBy, ...localized(source) && await placeOf(q, source, sourceId), ...toRow(fields, result.value) }),
+          q.delete(publishedTable).where(and(eq(publishedTable._id, sourceId), inSite(source, publishedTable))),
+          q.insert(publishedTable).values({ _id: sourceId, _version: version, _createdAt: draft.createdAt, _updatedAt: now, _createdBy: draft.createdBy, ...siteColumn(source), ...localized(source) && await placeOf(q, source, sourceId), ...toRow(fields, result.value) }),
         ]
       }
       else {
         const liveSingletons = tables.atelier_p_singletons
         row = [
-          q.delete(liveSingletons).where(eq(liveSingletons.name, source)),
-          q.insert(liveSingletons).values({ name: source, data: result.value, version, updatedAt: now }),
+          q.delete(liveSingletons).where(and(eq(liveSingletons.name, source), singletonSite(liveSingletons, source))),
+          q.insert(liveSingletons).values({ ...schema.sites ? { site: siteOfType(source) } : {}, name: source, data: result.value, version, updatedAt: now }),
         ]
       }
       return [
@@ -1251,7 +1289,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
           }
         }
       }
-      if (!await getRow(q, collection(name).table, id))
+      if (!await read(q, name, id)) // another site's reads as missing
         throw new NotFoundError(`No entry "${id}" in "${name}"`)
       await visit(name, id)
 
@@ -1265,9 +1303,9 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       for (const [source, sourceId] of deleted.values()) {
         const { table } = collection(source)
         result.push(
-          q.delete(table).where(eq(table._id, sourceId)),
+          q.delete(table).where(and(eq(table._id, sourceId), inSite(source, table))),
           q.delete(relations).where(and(eq(relations.source, source), eq(relations.sourceId, sourceId))),
-          q.delete(routes).where(and(eq(routes.source, source), eq(routes.sourceId, sourceId))),
+          q.delete(routes).where(and(eq(routes.source, source), eq(routes.sourceId, sourceId), routesOf(routes, source))),
           ...unpublication(q, entryTarget(source, sourceId, undefined)),
         )
       }
@@ -1288,19 +1326,20 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
 
   const { collection, singleton, entryTarget, singletonTarget, persist, deletion, unpublication, pinnedPublication } = stages.draft
   /** Tells `onChange` about a committed write, after the redirect cache is reset. */
-  const committed = <T>(change: StoreChange) => (result: T) => {
-    void options.onChange?.(change)
+  const committed = <T>(change: Omit<StoreChange, 'site'>) => (result: T) => {
+    // a singleton is known by its name outside the store, whatever key its rows carry
+    void options.onChange?.({ ...change, id: change.type in schema.singletons ? change.type : change.id, site })
     return result
   }
 
   /** A before-hook: its error stops the operation. */
   const before = async <H extends LifecycleHook>(hook: H, context: LifecycleHooks[H]) => {
-    await options.hooks?.(hook, context)
+    await options.hooks?.(hook, { ...context, site })
   }
   /** An after-hook: its error is reported, the write stands. */
   const after = async <H extends LifecycleHook>(hook: H, context: LifecycleHooks[H]) => {
     try {
-      await options.hooks?.(hook, context)
+      await options.hooks?.(hook, { ...context, site })
     }
     catch (error) {
       if (options.onHookError)
@@ -1314,7 +1353,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     await before('beforeRead', context)
     const entries = await read()
     if (entries.length)
-      await options.hooks?.('afterRead', { type: context.type, stage: context.stage, entries })
+      await options.hooks?.('afterRead', { type: context.type, stage: context.stage, entries, site } as LifecycleHooks['afterRead'])
     return entries
   }
   /**
@@ -1454,17 +1493,18 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     async publishVersion(name: string, id: string, version: number, actorId: string | null = null): Promise<void> {
       assertVersioned(name)
       const acting = { type: name, id, actorId, version }
-      const [revision] = await db.select({ data: revisions.data }).from(revisions)
-        .where(and(eq(revisions.source, name), eq(revisions.sourceId, id), eq(revisions.version, version))).limit(1)
+      const [revision] = await this.owns(name, id)
+        ? await db.select({ data: revisions.data }).from(revisions).where(and(eq(revisions.source, name), eq(revisions.sourceId, recordId(name, id)), eq(revisions.version, version))).limit(1)
+        : []
       if (!revision)
         throw new NotFoundError(`No version ${version} of ${name in schema.singletons ? `"${name}"` : `entry "${id}" in "${name}"`}`)
       await before('beforePublish', acting)
       if (!driver.capabilities.transactions) {
-        await db.batch(await pinnedPublication(db, name, id, version, revision.data))
+        await db.batch(await pinnedPublication(db, name, recordId(name, id), version, revision.data))
       }
       else {
         await db.transaction(async (tx: Db) => {
-          for (const statement of await pinnedPublication(tx, name, id, version, revision.data))
+          for (const statement of await pinnedPublication(tx, name, recordId(name, id), version, revision.data))
             await statement
         })
       }
@@ -1616,7 +1656,8 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
      */
     async resolve(path: string, locale?: string, stage: Stage = 'published'): Promise<ResolvedRoute | undefined> {
       const routes = stages[stage].routes
-      const rows: { path: string, locale: string, source: string, sourceId: string }[] = await db.select().from(routes).where(eq(routes.path, path))
+      // this site's paths, and shared types' (served on every site)
+      const rows: { path: string, locale: string, source: string, sourceId: string }[] = await db.select().from(routes).where(and(eq(routes.path, path), visibleSites(routes)))
       const row = locale === undefined
         ? rows.find(r => r.locale === '') ?? rows[0]
         : rows.find(r => r.locale === locale) ?? rows.find(r => r.locale === '')
@@ -1664,25 +1705,25 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
         if (same)
           throw new ValidationError([{ path: 'source', message: `${redirect.source} already redirects to ${same.target}` }])
         const routes = stages.published.routes
-        const [entry]: { source: string, sourceId: string }[] = await db.select().from(routes).where(eq(routes.path, redirect.source)).limit(1)
+        const [entry]: { source: string, sourceId: string }[] = await db.select().from(routes).where(and(eq(routes.path, redirect.source), visibleSites(routes))).limit(1)
         if (entry)
           throw new ValidationError([{ path: 'source', message: `${redirect.source} is the URL of ${entry.source in schema.singletons ? `singleton "${entry.source}"` : `entry "${entry.sourceId}" in "${entry.source}"`}; it can't redirect` }])
         const loop = redirectLoop(all, redirect)
         if (loop)
           throw new ValidationError([{ path: 'target', message: `This would make a loop: ${loop.join(' → ')}` }])
         if (input.id === undefined)
-          await db.insert(redirectsTable).values({ ...redirect, createdAt: new Date().toISOString() })
+          await db.insert(redirectsTable).values({ ...redirect, createdAt: new Date().toISOString(), ...redirectSiteColumn() })
         else
-          await db.update(redirectsTable).set({ source: redirect.source, target: redirect.target, status, auto: false }).where(eq(redirectsTable.id, redirect.id))
+          await db.update(redirectsTable).set({ source: redirect.source, target: redirect.target, status, auto: false }).where(and(eq(redirectsTable.id, redirect.id), redirectSite()))
         forgetRedirects()
         return redirect
       },
 
       async delete(id: string): Promise<void> {
-        const [found] = await db.select({ id: redirectsTable.id }).from(redirectsTable).where(eq(redirectsTable.id, id)).limit(1)
+        const [found] = await db.select({ id: redirectsTable.id }).from(redirectsTable).where(and(eq(redirectsTable.id, id), redirectSite())).limit(1)
         if (!found)
           throw new NotFoundError(`No redirect "${id}"`)
-        await db.delete(redirectsTable).where(eq(redirectsTable.id, id))
+        await db.delete(redirectsTable).where(and(eq(redirectsTable.id, id), redirectSite()))
         forgetRedirects()
       },
     },
@@ -1717,7 +1758,15 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
     },
 
     /** One saved version of an entry (or a singleton, by its name), or undefined. */
+    /** Whether this site has the entry (any singleton: each site has its own, or shares one). */
+    async owns(name: string, id: string): Promise<boolean> {
+      return name in schema.singletons || !scopedType(name) || !!(await stages.draft.readMany(db, name, [id])).get(id)
+    },
+
     async revision(name: string, id: string, version: number): Promise<{ version: number, createdAt: string, authorId: string | null, published: boolean, data: Record<string, unknown> } | undefined> {
+      if (!await this.owns(name, id))
+        return undefined
+      id = recordId(name, id)
       const [row] = await db.select({ version: revisions.version, createdAt: revisions.createdAt, authorId: revisions.authorId, published: revisions.published, data: revisions.data }).from(revisions)
         .where(and(eq(revisions.source, name), eq(revisions.sourceId, id), eq(revisions.version, version))).limit(1)
       return row && { ...row, published: Boolean(row.published) }
@@ -1725,6 +1774,9 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
 
     /** Versions saved for an entry (or a singleton, by its name), newest first. */
     async revisions(name: string, id: string = name): Promise<{ version: number, createdAt: string, authorId: string | null, published: boolean, data: Record<string, unknown> }[]> {
+      if (!await this.owns(name, id))
+        return []
+      id = recordId(name, id)
       const rows: { version: number, createdAt: string, authorId: string | null, published: unknown, data: Record<string, unknown> }[] = await db.select({ version: revisions.version, createdAt: revisions.createdAt, authorId: revisions.authorId, published: revisions.published, data: revisions.data }).from(revisions)
         .where(and(eq(revisions.source, name), eq(revisions.sourceId, id)))
         .orderBy(sql`${revisions.version} desc`)

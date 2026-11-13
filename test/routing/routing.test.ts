@@ -316,11 +316,11 @@ describe('site routing', async () => {
 
     const changes = await (await fetch('/api/test/changes')).json()
     expect(changes.filter((c: { id: string }) => c.id === post.id)).toEqual([
-      { type: 'posts', id: post.id, action: 'published', live: true },
-      { type: 'posts', id: post.id, action: 'published', live: true },
+      { type: 'posts', id: post.id, action: 'published', live: true, site: { name: 'default', scoped: false } },
+      { type: 'posts', id: post.id, action: 'published', live: true, site: { name: 'default', scoped: false } },
     ])
     await api(`/api/_atelier/collections/posts/${post.id}`, 'PATCH', { version: 2, data: { title: 'Draft only' } })
-    expect((await (await fetch('/api/test/changes')).json()).at(-1)).toEqual({ type: 'posts', id: post.id, action: 'saved', live: false })
+    expect((await (await fetch('/api/test/changes')).json()).at(-1)).toEqual({ type: 'posts', id: post.id, action: 'saved', live: false, site: { name: 'default', scoped: false } })
   })
 
   it('runs background jobs on Nitro\'s scheduler, and from the trigger endpoint within its time budget', async () => {

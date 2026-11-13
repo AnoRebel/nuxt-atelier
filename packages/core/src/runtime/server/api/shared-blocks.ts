@@ -8,7 +8,7 @@ import * as v from 'valibot'
 import { SHARED_BLOCKS } from '../../shared/blocks'
 import { allow, caller, countWrite, segments } from '../content-access'
 import { apiError, readValid } from '../errors'
-import { assertMigrated, audit, useAtelierEntries, useAtelierSchema } from '../index'
+import { assertMigrated, audit, useAtelierEntries, useAtelierSchema, useAtelierSite } from '../index'
 
 const PREFIX = '/api/_atelier/shared-blocks/'
 const Release = v.object({ mode: v.picklist(['detach', 'remove'], 'mode: expected "detach" or "remove"') })
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   if (!(await useAtelierSchema()).collections[SHARED_BLOCKS] || !id || rest.length)
     throw apiError(404, 'Not found')
   const who = await caller(event)
-  const entries = await useAtelierEntries()
+  const entries = await useAtelierEntries(useAtelierSite(event))
   const shared = await entries.get(SHARED_BLOCKS, id, { stage: 'draft' })
   if (!shared)
     throw apiError(404, `No shared block "${id}"`)

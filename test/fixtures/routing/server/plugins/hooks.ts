@@ -8,8 +8,8 @@ export default () => {
     if (type === 'posts' && data.title === 'Forbidden')
       throw apiError(422, 'A post can\'t be called "Forbidden"', { errors: [{ path: 'title', message: 'not allowed' }] })
   })
-  hooks.hook('atelier:afterPublish', async ({ type, id }) => {
-    if (type === 'posts' && (await (await useAtelierEntries()).get(type, id))?.data.title === 'Explode')
+  hooks.hook('atelier:afterPublish', async ({ type, id, site }) => {
+    if (type === 'posts' && (await (await useAtelierEntries(site)).get(type, id))?.data.title === 'Explode')
       throw new Error('the after-publish hook exploded')
   })
 }

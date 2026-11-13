@@ -10,13 +10,14 @@
 import type { RequestEvent } from 'nuxt/server'
 import type { FormDefinition, FormField } from '../../shared/forms'
 import type { StoredFileInfo, Submission } from '../forms'
+import type { SiteContext } from '../sites'
 import { defineEventHandler, getQuery, getRequestURL, useRuntimeConfig, useServerHooks } from 'nuxt/server'
 import * as v from 'valibot'
 import { emailsOf, fileProblem, FORMS, labelOf, submissionSchema } from '../../shared/forms'
 import { clientIp } from '../auth/rate-limit'
 import { segments } from '../content-access'
 import { apiError, readValid, validated } from '../errors'
-import { assertMigrated, audit, requireUser, useAtelierChallenge, useAtelierEntries, useAtelierRateLimiter, useAtelierServerConfig, useAtelierStorage, useAtelierSubmissions } from '../index'
+import { assertMigrated, audit, requireUser, useAtelierChallenge, useAtelierEntries, useAtelierRateLimiter, useAtelierServerConfig, useAtelierSite, useAtelierStorage, useAtelierSubmissions } from '../index'
 import { logger } from '../logger'
 import { sendMail } from '../mail'
 import { storageKey } from '../media/storage'
@@ -37,8 +38,8 @@ const List = v.object({
 const Erase = v.object({ email: v.pipe(v.string('email: expected an email address'), v.trim(), v.email('email: expected an email address')) })
 
 /** The published form: what visitors fill in. */
-async function published(id: string): Promise<{ definition: FormDefinition, version: number }> {
-  const entry = await (await useAtelierEntries()).get(FORMS, id)
+async function published(site: SiteContext, id: string): Promise<{ definition: FormDefinition, version: number }> {
+  const entry = await (await useAtelierEntries(site)).get(FORMS, id)
   if (!entry)
     throw apiError(404, 'No such form')
   return { definition: entry.data as unknown as FormDefinition, version: entry.version }
@@ -72,7 +73,7 @@ async function submit(event: RequestEvent, id: string) {
   const limiter = await useAtelierRateLimiter()
   await limiter.check(event, limits)
   await limiter.hit(limits)
-  const { definition, version } = await published(id)
+  const { definition, version } = await published(useAtelierSite(event), id)
   const { values, files } = await received(event, definition.fields)
   const done = { ok: true, ...definition.success?.message ? { message: definition.success.message } : {}, ...definition.success?.redirect ? { redirect: definition.success.redirect } : {} }
 
@@ -168,12 +169,25 @@ export default defineEventHandler(async (event) => {
   if (id === 'erase' && !action && method === 'POST') {
     const user = await requireUser(event, 'forms')
     const { email } = await readValid(event, Erase)
-    const deleted = await (await useAtelierSubmissions()).erase(email)
+    // with sites, this site's forms only
+    const site = useAtelierSite(event)
+    let forms: string[] | undefined
+    if (site.scoped) {
+      forms = []
+      const entries = await useAtelierEntries(site)
+      let cursor: string | undefined
+      do {
+        const page = await entries.list(FORMS, { stage: 'draft', limit: 100, cursor })
+        forms.push(...page.items.map(f => f.id))
+        cursor = page.next ?? undefined
+      } while (cursor)
+    }
+    const deleted = await (await useAtelierSubmissions()).erase(email, forms)
     await audit(event, { action: 'forms.erased', actorId: user.id, target: { type: 'submissions', id: '' }, details: { deleted } })
     return { deleted }
   }
   if (!action && method === 'GET') {
-    const { definition, version } = await published(id)
+    const { definition, version } = await published(useAtelierSite(event), id)
     const locale = typeof getQuery(event).locale === 'string' ? String(getQuery(event).locale) : undefined
     const challenge = await useAtelierChallenge()
     return {
@@ -192,10 +206,14 @@ export default defineEventHandler(async (event) => {
   if (action !== 'submissions')
     throw apiError(404, 'Not found')
   await requireUser(event, 'forms')
+  // another site's form (and so its submissions) reads as missing
+  if (!await (await useAtelierEntries(useAtelierSite(event))).get(FORMS, id, { stage: 'draft' }))
+    throw apiError(404, 'No such form')
   const store = await useAtelierSubmissions()
   if (!submissionId && method === 'GET') {
     const query = validated(List, getQuery(event))
-    const { definition } = await published(id).catch(async () => ({ definition: (await (await useAtelierEntries()).get(FORMS, id, { stage: 'draft' }))?.data as unknown as FormDefinition | undefined }))
+    const site = useAtelierSite(event)
+    const { definition } = await published(site, id).catch(async () => ({ definition: (await (await useAtelierEntries(site)).get(FORMS, id, { stage: 'draft' }))?.data as unknown as FormDefinition | undefined }))
     if (!definition)
       throw apiError(404, 'No such form')
     if (query.format) {

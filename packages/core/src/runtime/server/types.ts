@@ -45,6 +45,8 @@ export interface CollectionDefinition {
    */
   versioned?: boolean
   admin?: { icon?: string, group?: string, columns?: string[] }
+  /** With several `sites`: entries belong to one site (the default), or every site shares them. */
+  scope?: 'site' | 'shared'
   /**
    * Starting points for new entries, by name: field values (blocks get fresh ids on each use). Editors can
    * save more from existing entries.
@@ -69,4 +71,6 @@ export interface SingletonDefinition {
   /** Drafts and publishing, as for collections. */
   versioned?: boolean
   admin?: { icon?: string, group?: string }
+  /** With several `sites`: each site has its own (the default), or one is shared by every site. */
+  scope?: 'site' | 'shared'
 }

@@ -14,7 +14,7 @@ import * as v from 'valibot'
 import { defineEventHandler, getQuery } from 'nuxt/server'
 import { defaultsFactory } from '../../shared/fields'
 import { apiError, readValid, validated } from '../errors'
-import { audit, toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
+import { audit, toHttpError, useAtelierEntries, useAtelierSchema, useAtelierSite } from '../index'
 import { scheduleRequest } from '../scheduling'
 import { shadowed } from '../shadowing'
 import { allow, assertMigrated, assertUnlocked, assertWritable, caller, countWrite, limits, mediaOf, present, restorable, segments, select, stageFor } from '../content-access'
@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
     await assertMigrated()
 
   const who = await caller(event, method === 'GET')
-  const entries = await useAtelierEntries()
+  const entries = await useAtelierEntries(useAtelierSite(event))
   const shape = async (saved: Awaited<ReturnType<typeof entries.saveSingleton>>, publish: boolean | undefined) => {
     if (publish && definition.versioned)
       await audit(event, { action: 'entry.published', actorId: who.principal.id, target: { type: name, id: name }, details: { version: saved.version } })

@@ -30,6 +30,9 @@ export interface AdminSchema {
   collections: CollectionType[]
   singletons: SingletonType[]
   blocks: Record<string, { name: string, label?: string, fields: Fields, options: Fields }>
+  /** With several sites: the one the admin works on, and the ones the user may switch to. */
+  site?: string
+  sites?: { name: string, label: string }[]
 }
 
 export interface AdminUser { id: string, email: string, name?: string | null, role: string }

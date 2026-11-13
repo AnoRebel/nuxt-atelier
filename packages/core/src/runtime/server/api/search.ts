@@ -14,7 +14,7 @@ import { defineEventHandler, getQuery, getRequestHeader } from 'nuxt/server'
 import { ADMIN_ROLE } from '../../shared/policy'
 import { clientIp } from '../auth/rate-limit'
 import { apiError, validated } from '../errors'
-import { assertMigrated, audit, useAtelierAuth, useAtelierEntries, useAtelierMedia, useAtelierRateLimiter, useAtelierSchema, useAtelierServerConfig } from '../index'
+import { assertMigrated, audit, useAtelierAuth, useAtelierEntries, useAtelierMedia, useAtelierRateLimiter, useAtelierSchema, useAtelierServerConfig, useAtelierSite, allSites } from '../index'
 import { caller, segments } from '../content-access'
 import { rebuildSearchIndex, searchSite } from '../search/service'
 import { MAX_QUERY } from '../search/text'
@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
     const user = bearer ? undefined : await (await useAtelierAuth()).getUser(event)
     if (!(bearer && secret && await same(bearer, secret)) && user?.role !== ADMIN_ROLE)
       throw apiError(user || bearer ? 403 : 401, 'Rebuilding the search index takes an administrator, or the jobs secret')
-    const result = await rebuildSearchIndex()
+    const result = await rebuildSearchIndex(allSites())
     if (user)
       await audit(event, { action: 'search.rebuilt', actorId: user.id, details: result })
     return result
@@ -63,7 +63,7 @@ export default defineEventHandler(async (event) => {
   await limiter.hit(limits)
   const limit = query.limit ?? 10
   const offset = query.offset ?? 0
-  return { ...await searchSite(query.q, { types: query.types, locale: query.locale, limit, offset }), limit, offset }
+  return { ...await searchSite(useAtelierSite(event), query.q, { types: query.types, locale: query.locale, limit, offset }), limit, offset }
 })
 
 const PER_TYPE = 5
@@ -90,7 +90,7 @@ async function adminSearch(event: RequestEvent): Promise<{ results: AdminSearchR
   const needle = text.toLowerCase()
   const { principal, policy } = who
   const { collections, singletons } = await useAtelierSchema()
-  const entries = await useAtelierEntries()
+  const entries = await useAtelierEntries(useAtelierSite(event))
   const results: AdminSearchResult[] = []
 
   // entries, by their title field (a field the user may read)
@@ -115,7 +115,7 @@ async function adminSearch(event: RequestEvent): Promise<{ results: AdminSearchR
   }
 
   // media, by title or file name: everyone signed in may browse the library
-  const media = await (await useAtelierMedia()).list({ filter: { or: [{ title: { contains: text } }, { filename: { contains: text } }] }, limit: PER_TYPE })
+  const media = await (await useAtelierMedia(useAtelierSite(event))).list({ filter: { or: [{ title: { contains: text } }, { filename: { contains: text } }] }, limit: PER_TYPE })
   results.push(...media.items.map(m => ({ kind: 'media' as const, id: m.id, title: m.title || m.filename, detail: m.filename })))
 
   if (policy.can(principal, 'manage', 'users')) {

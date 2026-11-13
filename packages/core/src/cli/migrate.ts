@@ -48,7 +48,7 @@ export async function projectFromNuxt(nuxt: Nuxt): Promise<Project> {
     [...discoverSchema(kind, nuxt)].map(async ([name, path]) => [name, await jiti.import(path, { default: true })]),
   ))
   const tables = Object.assign({}, ...await Promise.all(layerFiles('tables', nuxt).toReversed().map(path => jiti.import(path, { default: true }))))
-  return { rootDir, buildDir, databaseUrl, schema: { collections: await load('collections'), singletons: await load('singletons'), tables, locales: resolveLocales(options.locales) } }
+  return { rootDir, buildDir, databaseUrl, schema: { collections: await load('collections'), singletons: await load('singletons'), tables, locales: resolveLocales(options.locales), sites: !!options.sites } }
 }
 
 /**

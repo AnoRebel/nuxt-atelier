@@ -17,6 +17,8 @@ export interface Scheduled {
   version?: number
   /** Who scheduled it, recorded as the actor in the audit log. */
   by: string | null
+  /** With sites: the site it's on. */
+  site?: string
 }
 
 export const SCHEDULE_JOB = 'atelier:schedule'

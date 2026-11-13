@@ -8,7 +8,10 @@ import { computed, ref, watch } from 'vue'
 import { NuxtLink } from '#components'
 import { navigateTo, useRoute } from '#imports'
 import { useAppearance } from '../appearance'
-import { useAtelierAdmin } from '../composables/useAtelierAdmin'
+import { useQueryClient } from '@tanstack/vue-query'
+import { chooseSite, useAtelierAdmin } from '../composables/useAtelierAdmin'
+import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
+import CnSelect from '../crystal-neuo/components/Select.vue'
 import { useAtelierNavigation } from '../composables/useAtelierNavigation'
 import { useAtelierSession } from '../composables/useAtelierSession'
 import CnDrawer from '../crystal-neuo/components/Drawer.vue'
@@ -28,6 +31,16 @@ const { appearance, set, openModal } = useAppearance()
 const brand = useOverrides()('Brand', Brand)
 const { items } = useAtelierNavigation()
 const { user, signOut } = useAtelierSession()
+
+// with several sites the user may reach: which one the admin works on
+const { schema } = useAtelierAdminSchema()
+const client = useQueryClient()
+const sites = computed(() => (schema.value?.sites ?? []).map(s => ({ value: s.name, label: s.label })))
+async function switchSite(site: string) {
+  chooseSite(site)
+  client.removeQueries({ predicate: q => q.queryKey[1] !== 'me' })
+  await navigateTo(base)
+}
 
 const nav = computed(() => appearance.value.nav)
 const sidebar = computed(() => appearance.value.sidebar)
@@ -192,6 +205,15 @@ const account = computed(() => [
           >
             <Icon name="search" />
           </button>
+          <CnSelect
+            v-if="sites.length > 1"
+            :model-value="schema?.site ?? ''"
+            :label="t('nav.site')"
+            :options="sites"
+            class="app-site-switcher"
+            data-site-switcher
+            @update:model-value="switchSite"
+          />
           <NotificationBell />
           <button
             type="button"

@@ -9,7 +9,7 @@ import { defineEventHandler } from 'nuxt/server'
 import { copyBlocks } from '../../shared/blocks'
 import { allow, caller, segments } from '../content-access'
 import { apiError } from '../errors'
-import { useAtelierEntries, useAtelierSchema } from '../index'
+import { useAtelierEntries, useAtelierSchema, useAtelierSite } from '../index'
 
 const PATTERNS = 'atelier-patterns'
 const TEMPLATES = 'atelier-templates'
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     throw apiError(404, 'Not found')
   const who = await caller(event)
   const schema = await useAtelierSchema()
-  const entries = await useAtelierEntries()
+  const entries = await useAtelierEntries(useAtelierSite(event))
   /** The saved ones, when the caller may read them (every page, they're few). */
   const saved = async (name: string, filter?: Filter) => {
     if (!schema.collections[name] || !who.policy.can(who.principal, 'read', name))

@@ -8,11 +8,14 @@ import { createPolicy, PUBLIC_ROLE } from '../shared/policy'
 import { apiError } from './errors'
 import type { MediaSummary } from '../shared/query'
 import { mediaIds } from './db/store'
-import { assertMigrated, useAtelierAuth, useAtelierCollab, useAtelierMedia, useAtelierPolicy, useAtelierRateLimiter, useAtelierRoles, useAtelierSchema, useAtelierServerConfig, useAtelierTokens } from './index'
+import type { SiteContext } from './sites'
+import { assertMigrated, onSite, useAtelierAuth, useAtelierCollab, useAtelierSite, useAtelierMedia, useAtelierPolicy, useAtelierRateLimiter, useAtelierRoles, useAtelierSchema, useAtelierServerConfig, useAtelierTokens } from './index'
 
 export interface Caller {
   principal: PolicyUser
   policy: Policy
+  /** The site the request is for. */
+  site: SiteContext
 }
 
 interface Limits { maxPageSize: number, maxRelationDepth: number, writesPerMinute: number }
@@ -26,17 +29,19 @@ export const limits = () => (useAtelierServerConfig() as unknown as { limits: Li
 export async function caller(event: RequestEvent, visitors = false): Promise<Caller> {
   const bearer = /^Bearer (.+)$/i.exec(getRequestHeader(event, 'authorization') ?? '')?.[1]
   if (bearer) {
-    const token = await (await useAtelierTokens()).verify(bearer.trim())
+    const token = await (await useAtelierTokens(useAtelierSite(event))).verify(bearer.trim())
     if (!token)
       throw apiError(401, 'This API token is invalid, expired or revoked')
     const role = `token:${token.id}` // not a valid role name, so it can't clash with a real one
     const policy = createPolicy({ ...await (await useAtelierRoles()).roles(), [role]: { content: token.permissions } })
-    return { principal: { id: role, role }, policy }
+    return { principal: { id: role, role }, policy, site: useAtelierSite(event) }
   }
-  const user = await (await useAtelierAuth()).getUser(event)
+  const signedIn = await (await useAtelierAuth()).getUser(event)
+  // with sites, someone without a role on this site is a visitor here
+  const user = signedIn && await onSite(event, signedIn)
   if (!user && !visitors)
-    throw apiError(401, 'Sign in first')
-  return { principal: user ?? { id: '', role: PUBLIC_ROLE }, policy: await useAtelierPolicy() }
+    throw apiError(signedIn ? 403 : 401, signedIn ? 'You don\'t have access to this site' : 'Sign in first')
+  return { principal: user ?? { id: '', role: PUBLIC_ROLE }, policy: await useAtelierPolicy(), site: useAtelierSite(event) }
 }
 
 /**
@@ -162,7 +167,7 @@ export async function mediaOf(who: Caller, fields: Record<string, Field>, data: 
   const ids = mediaIds(fields, data, (await useAtelierSchema()).blocks)
   if (!ids.length)
     return {}
-  const items = await (await useAtelierMedia()).getMany(ids)
+  const items = await (await useAtelierMedia(who.site)).getMany(ids)
   const visitor = who.principal.role === PUBLIC_ROLE
   return Object.fromEntries(items.filter(item => !item.private || !visitor).map(item => [item.id, {
     id: item.id,

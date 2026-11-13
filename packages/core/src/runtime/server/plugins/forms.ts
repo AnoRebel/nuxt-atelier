@@ -4,7 +4,7 @@ import type { FormDefinition } from '../../shared/forms'
 import { useServerHooks } from 'nuxt/server'
 import { definitionErrors, FORMS } from '../../shared/forms'
 import { apiError } from '../errors'
-import { useAtelierEntries, useAtelierSchema, useAtelierSubmissions } from '../index'
+import { allSites, useAtelierEntries, useAtelierSchema, useAtelierSubmissions } from '../index'
 import { defineJob } from '../jobs'
 
 const DAY = 24 * 3600_000
@@ -24,17 +24,19 @@ export default () => {
   defineJob('atelier:forms:prune', async () => {
     if (!(await useAtelierSchema()).collections[FORMS])
       return
-    const entries = await useAtelierEntries()
     const submissions = await useAtelierSubmissions()
-    let cursor: string | undefined
-    do {
-      const page = await entries.list(FORMS, { stage: 'draft', limit: 100, cursor })
-      for (const form of page.items) {
-        const days = Number(form.data.retentionDays ?? 90)
-        if (days > 0)
-          await submissions.deleteBefore(form.id, new Date(Date.now() - days * DAY))
-      }
-      cursor = page.next ?? undefined
-    } while (cursor)
+    for (const site of allSites()) {
+      const entries = await useAtelierEntries(site)
+      let cursor: string | undefined
+      do {
+        const page = await entries.list(FORMS, { stage: 'draft', limit: 100, cursor })
+        for (const form of page.items) {
+          const days = Number(form.data.retentionDays ?? 90)
+          if (days > 0)
+            await submissions.deleteBefore(form.id, new Date(Date.now() - days * DAY))
+        }
+        cursor = page.next ?? undefined
+      } while (cursor)
+    }
   }, { every: DAY })
 }

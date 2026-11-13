@@ -5,6 +5,25 @@ import { useRuntimeConfig } from '#imports'
 
 const csrf = () => globalThis.document?.cookie.split('; ').find(c => c.startsWith('atelier-csrf='))?.slice('atelier-csrf='.length)
 
+// With several sites: the one the admin works on, chosen in the site switcher and remembered in this browser;
+// sent as `x-atelier-site` (the server checks the user may). None: the site of the address the admin is at.
+const SITE_KEY = 'atelier-admin-site'
+const storage = () => {
+  try {
+    return globalThis.localStorage
+  }
+  catch {
+    return undefined
+  }
+}
+export const chosenSite = () => storage()?.getItem(SITE_KEY) ?? undefined
+export function chooseSite(site: string | undefined) {
+  if (site)
+    storage()?.setItem(SITE_KEY, site)
+  else
+    storage()?.removeItem(SITE_KEY)
+}
+
 interface RequestOptions { method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE', body?: unknown, query?: Record<string, string | number | undefined> }
 
 function toAdminApiError(error: unknown): AdminApiError {
@@ -29,7 +48,7 @@ export async function atelierFetch<T>(path: string, options: RequestOptions = {}
       method: options.method ?? 'GET',
       body: options.body as Record<string, unknown> | undefined,
       query: options.query,
-      headers: token ? { 'x-atelier-csrf': token } : {},
+      headers: { ...token ? { 'x-atelier-csrf': token } : {}, ...chosenSite() ? { 'x-atelier-site': chosenSite()! } : {} },
     })
   }
   catch (error) {

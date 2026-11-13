@@ -7,7 +7,7 @@
 import * as v from 'valibot'
 import { defineEventHandler, getQuery, useRuntimeConfig } from 'nuxt/server'
 import { apiError, validated } from '../errors'
-import { toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
+import { toHttpError, useAtelierEntries, useAtelierSchema, useAtelierSite } from '../index'
 import type { PreviewToken } from '../secrets'
 import { PUBLIC_ROLE } from '../../shared/policy'
 import { cached, remember } from '../cache'
@@ -33,14 +33,14 @@ export default defineEventHandler(async (event) => {
   if (!Object.values({ ...schema.collections, ...schema.singletons }).some(d => d.route))
     throw notFound()
   const who = await caller(event, true) // first: whether a path exists isn't told to anyone who can't read it
-  const entries = await useAtelierEntries()
+  const entries = await useAtelierEntries(useAtelierSite(event))
   // what visitors see is cached until content changes; anything else is private to who asked
   const shared = who.principal.role === PUBLIC_ROLE && query.draft === undefined && query.preview === undefined
   if (!shared)
     event.res.headers.set('cache-control', 'private, no-store')
   try {
     const path = canonicalPath(query.path)
-    const key = `route:${path}|${query.locale ?? ''}|${query.depth ?? 0}`
+    const key = `route:${who.site.name}|${path}|${query.locale ?? ''}|${query.depth ?? 0}`
     const hit = shared ? cached<object>(key) : undefined
     if (hit)
       return hit
