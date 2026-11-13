@@ -3,6 +3,7 @@
 import type { UserInput } from '../composables/useAtelierUsers'
 import type { AdminApiError, AdminUser } from '../types'
 import { computed, reactive, ref } from 'vue'
+import { atelierFetch } from '../composables/useAtelierAdmin'
 import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
 import { useAtelierPermissions } from '../composables/useAtelierPermissions'
 import { useAtelierUsers } from '../composables/useAtelierUsers'
@@ -31,22 +32,28 @@ const roleLabel = (name: string) => schema.value?.roles?.find(r => r.name === na
 
 // one form for creating (no id) and editing (an id)
 const editing = ref<string | null | undefined>(undefined) // undefined: closed, null: new user
-const form = reactive({ email: '', name: '', role: '', password: '' })
+const form = reactive({ email: '', name: '', role: '', password: '', sites: {} as Record<string, string> })
+// with sites: a role per site (administrators reach every site)
+const sites = computed(() => schema.value?.sites ?? [])
+const siteRoleOptions = computed(() => [{ value: '', label: t('users.noAccess') }, ...roleOptions.value.filter(o => o.value !== 'admin')])
 const error = ref('')
 const open = computed({ get: () => editing.value !== undefined, set: (on: boolean) => !on && (editing.value = undefined) })
-function edit(user: AdminUser | null) {
-  Object.assign(form, { email: user?.email ?? '', name: user?.name ?? '', role: user?.role ?? roleOptions.value.find(o => o.value !== 'admin')?.value ?? '', password: '' })
+async function edit(user: AdminUser | null) {
+  Object.assign(form, { email: user?.email ?? '', name: user?.name ?? '', role: user?.role ?? roleOptions.value.find(o => o.value !== 'admin')?.value ?? '', password: '', sites: {} })
   error.value = ''
   editing.value = user?.id ?? null
+  if (user && sites.value.length)
+    form.sites = await atelierFetch<Record<string, string>>(`/users/${encodeURIComponent(user.id)}/sites`).catch(() => ({}))
 }
 async function submit() {
   error.value = ''
   const body: UserInput = { email: form.email, name: form.name || null, role: form.role, ...form.password ? { password: form.password } : {} }
   try {
-    if (editing.value)
-      await update.mutateAsync({ id: editing.value, ...body })
-    else
-      await create.mutateAsync(body)
+    const saved = editing.value ? await update.mutateAsync({ id: editing.value, ...body }) : await create.mutateAsync(body)
+    if (sites.value.length && form.role !== 'admin') {
+      const roles = Object.fromEntries(Object.entries(form.sites).filter(([, role]) => role))
+      await atelierFetch(`/users/${encodeURIComponent((saved as AdminUser).id)}/sites`, { method: 'PUT', body: { sites: roles } })
+    }
     toast.add({ color: 'success', title: editing.value ? t('users.saved') : t('users.created') })
     editing.value = undefined
   }
@@ -175,6 +182,20 @@ async function confirmDelete() {
           :label="t('common.role')"
           :options="roleOptions"
         />
+        <fieldset
+          v-if="sites.length && form.role !== 'admin'"
+          class="app-form"
+          data-site-roles
+        >
+          <legend>{{ t('users.sites') }}</legend>
+          <CnSelect
+            v-for="site in sites"
+            :key="site.name"
+            v-model="form.sites[site.name]"
+            :label="site.label"
+            :options="siteRoleOptions"
+          />
+        </fieldset>
         <CnInput
           v-model="form.password"
           :label="t('common.password')"

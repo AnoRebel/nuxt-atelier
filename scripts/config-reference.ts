@@ -15,6 +15,8 @@ function typeOf(schema: Node): string {
     return base!.options!.map(o => `\`${JSON.stringify(o)}\``).join(' \\| ')
   if (base!.type === 'union')
     return (base!.options as Node[]).map(typeOf).join(' \\| ')
+  if (base!.type === 'record')
+    return 'object'
   if (base!.type === 'literal')
     return `\`${JSON.stringify((base as { literal?: unknown }).literal)}\``
   if (base!.type === 'number') {
@@ -28,6 +30,15 @@ function typeOf(schema: Node): string {
 export function generateReference(): string {
   const sections: string[] = []
   for (const [group, groupSchema] of Object.entries((optionsSchema as unknown as Node).entries!)) {
+    // an option that isn't a group of options (sites, fallbackSite): one row of its own
+    if (!groupSchema.wrapped!.entries) {
+      const description = v.getDescription(groupSchema.wrapped as never)
+      if (!description)
+        throw new Error(`atelier.${group} has no description; add v.description() to it in packages/core/src/options.ts`)
+      const fallback = v.getDefault(groupSchema as never)
+      sections.push(`## \`${group}\`\n\n| Option | Type | Default | Description |\n|---|---|---|---|\n| \`${group}\` | ${typeOf(groupSchema.wrapped!)} | ${fallback === undefined ? 'none' : `\`${JSON.stringify(fallback)}\``} | ${description} |`)
+      continue
+    }
     const rows = Object.entries(groupSchema.wrapped!.entries!).map(([key, optional]) => {
       const path = `${group}.${key}`
       const description = v.getDescription(optional.wrapped as never)

@@ -280,6 +280,12 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
   - The site is resolved from the `Host` header in a server middleware into `event.context.atelier.site`.
   - Every data-access function requires a site context argument, with no default, so a missing scope is a type error. This enforces isolation in the data layer.
   - An isolation test matrix runs against all endpoints.
+  - **Implementation plan (2026-11-13):**
+    - Config: `atelier.sites: { <name>: { hosts: string[], label?, locales?: string[], defaultLocale? } }` and `atelier.fallbackSite?: <name>`. Without `sites`, one implicit site `default` and no `_site` columns anywhere (single-site installs see no change and need no migration).
+    - Content types get `scope: 'site' | 'shared'` (default `site` when sites are configured). Site-scoped collection tables (draft and published) get `_site`; `atelier_singletons`, `atelier_routes`, `atelier_redirects`, `atelier_search` and their published twins key by site too; media gets a nullable `site` (null = shared media); settings keys become `<site>:<key>`. Ids stay globally unique, so relations, revisions, comments and locks need no column: they're reached only through a site-checked entry.
+    - Data access: `useAtelierEntries(site)`, `useAtelierMedia(site)`, `useAtelierSearch(site)`, `useAtelierRedirects(site)`, `useAtelierSettings(site)` take a required `SiteContext` (no default, so omitting it doesn't compile); the store adds the site condition in its few table accessors (readMany, list, getRow, isUnique, writes, routes, singletons), not in callers. Shared types ignore it. Relations from a shared type to a site-scoped one are refused at schema load.
+    - Requests: a server middleware resolves `Host` to the site (`event.context.atelier.site`), the fallback site for unknown hosts, else 404. Jobs carry `site` in their payload. The CLI takes `--site`.
+    - Access: a user's `sites` (`{ [site]: role }`) override `role` per site; a user without the request's site is a stranger there (401/404). The admin shows a site switcher only with several sites the user can reach.
 
 ### D14. AI assist
 - **Packaging:** `@nuxt-atelier/ai` defines the `AiAdapter` and ships a provider-agnostic implementation on the AI SDK (`ai` 7.x). Users pick any AI SDK provider package.

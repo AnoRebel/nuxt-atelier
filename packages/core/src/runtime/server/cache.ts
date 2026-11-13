@@ -3,6 +3,7 @@
 // Any content write clears the cache: a page shows related entries and links to others, so one change
 // can touch any page. Apps hook `atelier:content:changed` to purge their own caches or a CDN.
 import type { LifecycleHook, LifecycleHooks } from './db/store'
+import type { SiteContext } from './sites'
 import { useServerHooks } from 'nuxt/server'
 import { useAtelierServerConfig } from './index'
 import { logger } from './logger'
@@ -16,7 +17,8 @@ export interface ContentChange {
   live: boolean
 }
 
-type Hooked = { [H in LifecycleHook as `atelier:${H}`]: (context: LifecycleHooks[H]) => void | Promise<void> }
+// every hook also gets the site the operation is on (see sites.ts)
+type Hooked = { [H in LifecycleHook as `atelier:${H}`]: (context: LifecycleHooks[H] & { site: SiteContext }) => void | Promise<void> }
 
 declare module 'nuxt/schema' {
   interface NuxtServerHooks extends Hooked {

@@ -31,8 +31,10 @@ import type { BuiltinAuthAdapter } from './auth/builtin'
 import type { RoleStore } from './auth/roles'
 import type { SettingsStore } from './settings'
 import type { CollabStore } from './collab/store'
+import type { SiteContext, SiteDefinition, SitesConfig } from './sites'
 import type { ChallengeAdapter, SubmissionStore } from './forms'
-import { createPolicy } from '../shared/policy'
+import type { SiteRoleStore } from './site-roles'
+import { ADMIN_ROLE, createPolicy } from '../shared/policy'
 import { defineAuthAdapter } from './auth/adapter'
 import { createBuiltinAuth } from './auth/builtin'
 import type { AuditInput, AuditLog } from './auth/audit'
@@ -41,7 +43,9 @@ import { clientIp, createRateLimiter } from './auth/rate-limit'
 import { createRoleStore } from './auth/roles'
 import { createSettingsStore } from './settings'
 import { createCollabStore } from './collab/store'
+import { siteOf, singleSite } from './sites'
 import { createSubmissionStore, turnstileChallenge } from './forms'
+import { createSiteRoleStore } from './site-roles'
 import { indexChange } from './search/service'
 import { createTokenStore } from './auth/tokens'
 import { apiError } from './errors'
@@ -53,6 +57,8 @@ export { createDatabaseAdapter, ForbiddenError } from './adapter'
 export type { RobotsSettings, SettingKey, SettingsStore } from './settings'
 export type { CollabStore, Comment, Lock, Notification, NotificationKind } from './collab/store'
 export { turnstileChallenge } from './forms'
+export { DEFAULT_SITE, singleSite } from './sites'
+export type { SiteContext, SiteDefinition } from './sites'
 export type { ChallengeAdapter, Submission, SubmissionStore } from './forms'
 export { rebuildSearchIndex, registerSearchAdapter, searchSite, useAtelierSearch } from './search/service'
 export type { SearchResult } from './search/service'
@@ -114,9 +120,11 @@ export async function useAtelierSchema(): Promise<{
   tables: Record<string, TableSpec>
   blocks: Record<string, BlockSchema>
   locales: Locales
+  /** Several sites are configured: site-scoped types and system tables carry a site. */
+  sites: boolean
 }> {
   const { collections, singletons, tables, blocks, locales } = await import('#atelier-schema')
-  return { collections, singletons, tables, blocks, locales }
+  return { collections, singletons, tables, blocks, locales, sites: !!(useAtelierServerConfig() as unknown as { sites: SitesConfig }).sites.list }
 }
 
 /** Every table of the app as Drizzle tables, by table name: content, system and extra tables. */
@@ -130,11 +138,17 @@ export function assertMigrated(): Promise<void> {
   return assertMigratedWith(useAtelierDatabase)
 }
 
-let entries: Promise<EntryStore> | undefined
+const entryStores = new Map<string, Promise<EntryStore>>()
 
-/** Reads and saves entries of the app's collections, on the app's database. */
-export function useAtelierEntries(): Promise<EntryStore> {
+/**
+ * Reads and saves entries of the app's collections, on the app's database, for one site: `useAtelierSite(event)`
+ * in a request, `singleSite` without sites. Another site's entries read as missing.
+ */
+export function useAtelierEntries(site: SiteContext): Promise<EntryStore> {
+  let entries = entryStores.get(site.name)
   entries ??= (async () => createEntryStore(await useAtelierDatabase(), await useAtelierSchema(), {
+    site,
+    siteLocales: siteLocales(site),
     maxNestingDepth: (useAtelierServerConfig() as unknown as { limits: { maxNestingDepth: number } }).limits.maxNestingDepth,
     onChange: (change) => {
       void contentChanged(change)
@@ -150,13 +164,14 @@ export function useAtelierEntries(): Promise<EntryStore> {
     },
   }))()
     .catch((error) => {
-      entries = undefined
+      entryStores.delete(site.name)
       throw error
     })
+  entryStores.set(site.name, entries)
   return entries
 }
 
-let mediaLibrary: Promise<MediaLibrary> | undefined
+const mediaLibraries = new Map<string, Promise<MediaLibrary>>()
 let customStorage: (() => StorageDriver | Promise<StorageDriver>) | undefined
 
 /**
@@ -165,7 +180,7 @@ let customStorage: (() => StorageDriver | Promise<StorageDriver>) | undefined
  */
 export function registerStorageDriver(factory: () => StorageDriver | Promise<StorageDriver>): void {
   customStorage = factory
-  mediaLibrary = undefined
+  mediaLibraries.clear()
   storageDriver = undefined
 }
 
@@ -185,17 +200,19 @@ export function useAtelierStorage(): Promise<StorageDriver> {
   return storageDriver
 }
 
-/** The media library: files in the configured storage, their metadata in the database. */
-export function useAtelierMedia(): Promise<MediaLibrary> {
-  mediaLibrary ??= useAtelierDatabase().then(async (driver) => {
-    const config = useAtelierServerConfig() as unknown as { storage: { driver: string, dir: string }, media: { accept: string[] | string }, limits: { maxUploadSize: number } }
+/** The media library: files in the configured storage, their metadata in the database; a site's own, and shared ones. */
+export function useAtelierMedia(site: SiteContext): Promise<MediaLibrary> {
+  let library = mediaLibraries.get(site.name)
+  library ??= useAtelierDatabase().then(async (driver) => {
+    const config = useAtelierServerConfig() as unknown as { media: { accept: string[] | string }, limits: { maxUploadSize: number } }
     const accept = typeof config.media.accept === 'string' ? JSON.parse(config.media.accept) as string[] : config.media.accept
-    return createMediaLibrary(driver, await useAtelierStorage(), { maxUploadSize: config.limits.maxUploadSize, accept })
+    return createMediaLibrary(driver, await useAtelierStorage(), { maxUploadSize: config.limits.maxUploadSize, accept, site })
   }).catch((error) => {
-    mediaLibrary = undefined
+    mediaLibraries.delete(site.name)
     throw error
   })
-  return mediaLibrary
+  mediaLibraries.set(site.name, library)
+  return library
 }
 
 let webhookStore: Promise<WebhookStore> | undefined
@@ -312,6 +329,54 @@ export async function useAtelierChallenge(): Promise<ChallengeAdapter | undefine
   return turnstile.siteKey && turnstile.secret ? turnstileChallenge(turnstile) : undefined
 }
 
+/** The site a request is for (see sites.ts): what every site-scoped data access takes. */
+export function useAtelierSite(event: RequestEvent): SiteContext {
+  return siteOf(event, (useAtelierServerConfig() as unknown as { sites: SitesConfig }).sites)
+}
+
+/** A site's own locales and default locale, when it sets them. */
+export function siteLocales(site: SiteContext): { codes?: string[], default?: string } {
+  const definition = atelierSites()[site.name]
+  return { ...definition?.locales && { codes: definition.locales }, ...(definition?.defaultLocale ?? definition?.locales?.[0]) && { default: definition?.defaultLocale ?? definition?.locales?.[0] } }
+}
+
+/** A request's site, or a site given as is. */
+const siteFor = (scope: RequestEvent | SiteContext): SiteContext => 'scoped' in scope ? scope : useAtelierSite(scope)
+
+/** Every site, for work that covers them all (rebuilding search, jobs): the one implicit site without `sites`. */
+export function allSites(): SiteContext[] {
+  const list = (useAtelierServerConfig() as unknown as { sites: SitesConfig }).sites.list
+  return list ? Object.keys(list).map(name => ({ name, scoped: true })) : [singleSite]
+}
+
+/** The configured sites, by name (empty without `sites`). */
+export function atelierSites(): Record<string, SiteDefinition> {
+  return (useAtelierServerConfig() as unknown as { sites: SitesConfig }).sites.list ?? {}
+}
+
+let siteRoles: Promise<SiteRoleStore> | undefined
+
+/** Users' roles per site (with `sites`; see site-roles.ts). */
+export function useAtelierSiteRoles(): Promise<SiteRoleStore> {
+  siteRoles ??= useAtelierDatabase().then(createSiteRoleStore).catch((error) => {
+    siteRoles = undefined
+    throw error
+  })
+  return siteRoles
+}
+
+/**
+ * The user as they are on the request's site: with sites, their role there (administrators keep theirs
+ * everywhere), or undefined when they have none, i.e. no access to it. Without sites, the user as is.
+ */
+export async function onSite(event: RequestEvent, user: AuthUser): Promise<AuthUser | undefined> {
+  const site = useAtelierSite(event)
+  if (!site.scoped || user.role === ADMIN_ROLE)
+    return user
+  const role = await (await useAtelierSiteRoles()).roleOn(user.id, site.name)
+  return role ? { ...user, role } : undefined
+}
+
 /** Edit locks, presence, comments and notifications (collab/store.ts). */
 export function useAtelierCollab(): Promise<CollabStore> {
   collabStore ??= (async () => {
@@ -325,17 +390,19 @@ export function useAtelierCollab(): Promise<CollabStore> {
   return collabStore
 }
 
-let settingsStore: Promise<SettingsStore> | undefined
+const settingsStores = new Map<string, Promise<SettingsStore>>()
 
 /** Site settings changed in the admin, over the module options (settings.ts). */
-export function useAtelierSettings(): Promise<SettingsStore> {
-  settingsStore ??= (async () => createSettingsStore(await useAtelierDatabase(), {
+export function useAtelierSettings(site: SiteContext): Promise<SettingsStore> {
+  let store = settingsStores.get(site.name)
+  store ??= (async () => createSettingsStore(await useAtelierDatabase(), {
     robots: (useAtelierServerConfig() as unknown as { robots?: unknown }).robots ?? undefined,
-  }))().catch((error) => {
-    settingsStore = undefined
+  }, site))().catch((error) => {
+    settingsStores.delete(site.name)
     throw error
   })
-  return settingsStore
+  settingsStores.set(site.name, store)
+  return store
 }
 
 export function useAtelierRoles(): Promise<RoleStore> {
@@ -354,9 +421,12 @@ export async function useAtelierPolicy(): Promise<Policy> {
 
 /** The signed-in user, or a 401. With a capability, a 403 unless the user's role has it. */
 export async function requireUser(event: RequestEvent, capability?: Capability): Promise<AuthUser> {
-  const user = await (await useAtelierAuth()).getUser(event)
-  if (!user)
+  const signedIn = await (await useAtelierAuth()).getUser(event)
+  if (!signedIn)
     throw apiError(401, 'Sign in first')
+  const user = await onSite(event, signedIn)
+  if (!user)
+    throw apiError(403, 'You don\'t have access to this site')
   if (capability && !(await useAtelierPolicy()).can(user, 'manage', capability))
     throw apiError(403, `Your role can't manage ${capability}`)
   return user
@@ -399,32 +469,34 @@ export async function audit(event: RequestEvent, input: AuditInput): Promise<voi
   await (await useAtelierAudit()).record(input, clientIp(event, trustProxy))
 }
 
-let tokens: Promise<ReturnType<typeof createTokenStore>> | undefined
+const tokenStores = new Map<string, Promise<ReturnType<typeof createTokenStore>>>()
 
-/** API tokens for headless clients. */
-export function useAtelierTokens(): Promise<ReturnType<typeof createTokenStore>> {
-  tokens ??= useAtelierDatabase().then(createTokenStore).catch((error) => {
-    tokens = undefined
+/** API tokens of a site (with sites, each works only on the site it was made on). */
+export function useAtelierTokens(site: SiteContext): Promise<ReturnType<typeof createTokenStore>> {
+  let store = tokenStores.get(site.name)
+  store ??= useAtelierDatabase().then(driver => createTokenStore(driver, site)).catch((error) => {
+    tokenStores.delete(site.name)
     throw error
   })
-  return tokens
+  tokenStores.set(site.name, store)
+  return store
 }
 
 /**
  * A page of a collection's entries, typed from its definition. Server code is trusted: no permission
  * checks (the API applies them). Page size and depth are capped by `limits`.
  */
-export async function queryEntries<N extends CollectionName, Q extends CollectionQuery<N> = CollectionQuery<N>>(name: N, query?: Q): Promise<TypedEntryList<N, Q extends { depth: number } ? true : false>> {
+export async function queryEntries<N extends CollectionName, Q extends CollectionQuery<N> = CollectionQuery<N>>(scope: RequestEvent | SiteContext, name: N, query?: Q): Promise<TypedEntryList<N, Q extends { depth: number } ? true : false>> {
   const { limits } = useAtelierServerConfig() as unknown as { limits: { maxPageSize: number, maxRelationDepth: number } }
   const limit = Math.min(query?.limit ?? 20, limits.maxPageSize)
-  const page = await (await useAtelierEntries()).list(name, { ...query as ListQuery, limit, depth: Math.min(query?.depth ?? 0, limits.maxRelationDepth) })
+  const page = await (await useAtelierEntries(siteFor(scope))).list(name, { ...query as ListQuery, limit, depth: Math.min(query?.depth ?? 0, limits.maxRelationDepth) })
   const data = (entry: Entry) => query?.fields ? Object.fromEntries(Object.entries(entry.data).filter(([key]) => (query.fields as string[]).includes(key))) : entry.data
   return { items: page.items.map(entry => ({ ...entry, data: data(entry) })) as never, total: page.total, limit, next: page.next }
 }
 
 /** One entry of a collection, typed from its definition, or undefined. No permission checks. */
-export async function getEntry<N extends CollectionName, D extends number | undefined = undefined>(name: N, id: string, options?: { depth?: D, locale?: string }): Promise<TypedEntry<N, D extends number ? true : false> | undefined> {
+export async function getEntry<N extends CollectionName, D extends number | undefined = undefined>(scope: RequestEvent | SiteContext, name: N, id: string, options?: { depth?: D, locale?: string }): Promise<TypedEntry<N, D extends number ? true : false> | undefined> {
   const { limits } = useAtelierServerConfig() as unknown as { limits: { maxRelationDepth: number } }
-  return await (await useAtelierEntries()).get(name, id, { depth: Math.min(options?.depth ?? 0, limits.maxRelationDepth), locale: options?.locale }) as never
+  return await (await useAtelierEntries(siteFor(scope))).get(name, id, { depth: Math.min(options?.depth ?? 0, limits.maxRelationDepth), locale: options?.locale }) as never
 }
 export type { CollectionFilter, CollectionName, CollectionQuery, Condition as FieldCondition, PopulatedEntry, RelatedEntry, SortKey, SystemField, TypedEntry, TypedEntryList } from '../shared/query'

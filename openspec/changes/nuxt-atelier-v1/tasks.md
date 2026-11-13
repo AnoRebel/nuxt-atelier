@@ -219,11 +219,11 @@
 
 ## 21. Multi-site (multi-site)
 
-- [ ] 21.1 Implement site definitions (hostnames, locales, settings), host-based resolution middleware into `event.context.atelier.site`, fallback site handling; verify host resolution and unknown-host tests
-- [ ] 21.2 Make site context a required argument in the data-access layer for site-scoped tables and support shared content types; verify type-level test that omitting site context fails to compile
-- [ ] 21.3 Implement per-site roles, per-site media, redirects, sitemaps, robots, and search indexes; verify restricted editor e2e and per-site sitemap test
-- [ ] 21.4 Add the cross-site isolation test matrix covering every content, media, form, and search endpoint; verify it passes and fails when a scope check is removed
-- [ ] 21.5 Write docs: multi-site setup, content scoping, per-site permissions, deployment with multiple domains
+- [x] 21.1 Implement site definitions (hostnames, locales, settings), host-based resolution middleware into `event.context.atelier.site`, fallback site handling; verify host resolution and unknown-host tests
+- [x] 21.2 Make site context a required argument in the data-access layer for site-scoped tables and support shared content types; verify type-level test that omitting site context fails to compile
+- [x] 21.3 Implement per-site roles, per-site media, redirects, sitemaps, robots, and search indexes; verify restricted editor e2e and per-site sitemap test
+- [x] 21.4 Add the cross-site isolation test matrix covering every content, media, form, and search endpoint; verify it passes and fails when a scope check is removed
+- [x] 21.5 Write docs: multi-site setup, content scoping, per-site permissions, deployment with multiple domains
 
 ## 22. AI assist (ai-assist)
 

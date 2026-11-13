@@ -63,6 +63,23 @@ export const optionsSchema = v.strictObject({
     v.check(l => l.default === undefined || l.codes.includes(l.default), 'locales.default must be one of locales.codes'),
     v.check(l => Object.entries(l.fallback).every(([from, to]) => [from, ...to].every(code => l.codes.includes(code))), 'locales.fallback may only name locales in locales.codes'),
   ), {}),
+  sites: v.optional(v.pipe(
+    v.record(
+      v.pipe(v.string(), v.regex(/^[a-z][a-z0-9-]{0,31}$/, 'expected site names of lowercase letters, digits and "-", starting with a letter')),
+      v.strictObject({
+        hosts: v.pipe(
+          v.array(v.pipe(v.string(), v.toLowerCase(), v.regex(/^[a-z0-9.-]+(?::\d+)?$/, 'expected host names like "shop.example.com"')), 'expected a list of host names'),
+          v.minLength(1, 'expected at least one host name'),
+        ),
+        label: v.optional(v.string()),
+        locales: v.optional(v.pipe(v.array(v.pipe(v.string(), v.regex(LOCALE_CODE, 'expected locale codes'))), v.minLength(1))),
+        defaultLocale: v.optional(v.pipe(v.string(), v.regex(LOCALE_CODE, 'expected a locale code'))),
+      }),
+    ),
+    v.check(sites => new Set(Object.values(sites).flatMap(s => s.hosts)).size === Object.values(sites).flatMap(s => s.hosts).length, 'a host name belongs to one site only'),
+    v.description('Several sites from one deployment: each with its host names (the `Host` a request arrives with picks its site), a label, and optionally its own locales (some of `locales.codes`) and default locale. Content types are site-scoped unless they set `scope: \'shared\'`. Without it, there\'s one site and nothing is scoped.'),
+  )),
+  fallbackSite: v.optional(v.pipe(v.string(), v.description('The site serving requests whose host isn\'t any site\'s (local development, health checks). Without it they answer 404.'))),
   seo: v.optional(v.strictObject({
     titleTemplate: v.optional(v.pipe(
       v.string('expected a template like "%s · My site"'),
@@ -161,8 +178,19 @@ export type ResolvedOptions = v.InferOutput<typeof optionsSchema>
 /** Validates and fills defaults; throws one error listing every invalid option with its value. */
 export function resolveOptions(options: unknown, configKey = 'atelier'): ResolvedOptions {
   const result = v.safeParse(optionsSchema, options)
-  if (result.success)
+  if (result.success) {
+    const { sites, fallbackSite, locales } = result.output
+    const problems = [
+      ...fallbackSite !== undefined && !sites?.[fallbackSite] ? [`  - ${configKey}.fallbackSite = ${JSON.stringify(fallbackSite)}: expected one of the sites (${Object.keys(sites ?? {}).join(', ') || 'none defined'})`] : [],
+      ...Object.entries(sites ?? {}).flatMap(([name, site]) => [
+        ...(site.locales ?? []).filter(code => !locales.codes.includes(code)).map(code => `  - ${configKey}.sites.${name}.locales: "${code}" isn't one of locales.codes`),
+        ...site.defaultLocale && !(site.locales ?? locales.codes).includes(site.defaultLocale) ? [`  - ${configKey}.sites.${name}.defaultLocale: "${site.defaultLocale}" isn't one of the site's locales`] : [],
+      ]),
+    ]
+    if (problems.length)
+      throw new Error(`[nuxt-atelier] Invalid module options:\n${problems.join('\n')}`)
     return result.output
+  }
   const lines = result.issues.map((issue) => {
     const path = [configKey, v.getDotPath(issue)].filter(Boolean).join('.')
     if (issue.type === 'strict_object' && issue.path) // an unknown key; without a path the value isn't an object

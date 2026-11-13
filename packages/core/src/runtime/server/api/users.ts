@@ -3,6 +3,8 @@
 //   POST    /                 { email, name?, role, password? }
 //   PATCH   /<id>             { email?, name?, role?, password? }  a password change signs them out everywhere
 //   DELETE  /<id>
+//   GET     /<id>/sites       with `sites`: their role on each site, { shop: 'editor' } (administrators reach every site)
+//   PUT     /<id>/sites       { sites: { shop: 'editor' } }: replaces them; a site left out loses access
 // The last administrator can't lose the admin role or be deleted, so the CMS can't be locked out.
 // Only administrators can grant the admin role or change an administrator, and nobody can change
 // their own role: otherwise the `users` capability would be a way to become an administrator.
@@ -10,7 +12,7 @@ import type { AuthUser } from '../auth/adapter'
 import * as v from 'valibot'
 import { defineEventHandler, getRequestURL } from 'nuxt/server'
 import { ADMIN_ROLE, PUBLIC_ROLE } from '../../shared/policy'
-import { assertMigrated, audit, requireUser, useAtelierAuth, useAtelierRoles } from '../index'
+import { assertMigrated, atelierSites, audit, requireUser, useAtelierAuth, useAtelierRoles, useAtelierSiteRoles } from '../index'
 import { apiError, readValid } from '../errors'
 
 const PREFIX = '/api/_atelier/users'
@@ -28,8 +30,10 @@ export default defineEventHandler(async (event) => {
   await assertMigrated()
   const actor = await requireUser(event, 'users')
   const auth = await useAtelierAuth()
-  const id = decodeURIComponent(getRequestURL(event).pathname.slice(PREFIX.length).replace(/^\/|\/$/g, ''))
+  const [id = '', sub, ...rest] = getRequestURL(event).pathname.slice(PREFIX.length).replace(/^\/|\/$/g, '').split('/').map(decodeURIComponent)
   const method = event.req.method
+  if (rest.length || (sub !== undefined && sub !== 'sites'))
+    throw apiError(404, 'Not found')
 
   const knownRole = async (name: string | undefined) => {
     if (name === PUBLIC_ROLE)
@@ -45,6 +49,28 @@ export default defineEventHandler(async (event) => {
     return users
   }
 
+  if (id && sub === 'sites') {
+    const sites = atelierSites()
+    if (!Object.keys(sites).length)
+      throw apiError(404, 'Sites aren\'t configured')
+    await target()
+    const store = await useAtelierSiteRoles()
+    if (method === 'PUT') {
+      const body = await readValid(event, v.object({ sites: v.record(v.string(), role) }))
+      for (const [site, siteRole] of Object.entries(body.sites)) {
+        if (!sites[site])
+          throw apiError(422, `There's no site "${site}"`)
+        if (siteRole === ADMIN_ROLE || siteRole === PUBLIC_ROLE || !await (await useAtelierRoles()).exists(siteRole))
+          throw apiError(422, `"${siteRole}" can't be a role on a site`)
+      }
+      await store.set(id, body.sites)
+      await audit(event, { action: 'user.updated', actorId: actor.id, target: { type: 'user', id }, details: { sites: body.sites } })
+    }
+    else if (method !== 'GET') {
+      throw apiError(405, 'Method not allowed')
+    }
+    return store.of(id)
+  }
   if (!id && method === 'GET')
     return auth.users.list()
   if (!id && method === 'POST') {

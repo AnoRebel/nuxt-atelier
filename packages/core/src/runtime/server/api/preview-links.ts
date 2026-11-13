@@ -5,7 +5,7 @@
 import * as v from 'valibot'
 import { defineEventHandler } from 'nuxt/server'
 import { apiError, readValid } from '../errors'
-import { assertMigrated, toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
+import { assertMigrated, toHttpError, useAtelierEntries, useAtelierSchema, useAtelierSite } from '../index'
 import { allow, caller } from '../content-access'
 import type { PreviewToken } from '../secrets'
 import { PREVIEW_PURPOSE, signToken } from '../secrets'
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   if (!definition.route)
     throw apiError(422, `"${type}" has no URLs to preview`, { errors: [{ path: 'type', message: 'not routable' }] })
   try {
-    const entries = await useAtelierEntries()
+    const entries = await useAtelierEntries(useAtelierSite(event))
     const draft = singleton ? await entries.getSingleton(type, { stage: 'draft' }) : id === undefined ? undefined : await entries.get(type, id, { stage: 'draft' })
     if (!draft)
       throw apiError(404, singleton ? `"${type}" has no draft` : `No entry "${id}" in "${type}"`)

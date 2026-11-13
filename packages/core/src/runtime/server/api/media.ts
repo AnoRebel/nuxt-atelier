@@ -1,6 +1,6 @@
 // The media library:
 //   GET     /api/_atelier/media                   ?filter&sort&limit&offset&cursor (the query language on the media fields)
-//   POST    /api/_atelier/media?filename=photo.jpg&folder=&private=true   the request body is the file
+//   POST    /api/_atelier/media?filename=photo.jpg&folder=&private=true&shared=true   the request body is the file (shared: every site's, with sites)
 //   GET     /api/_atelier/media/<id>
 //   PATCH   /api/_atelier/media/<id>              { title, alt, caption, credits, folder, tags, focal, private }
 //   GET     /api/_atelier/media/<id>/usage        the entries using it, and in which field
@@ -43,6 +43,7 @@ const UploadParams = v.object({
   filename: v.pipe(v.string('filename: name the file, e.g. ?filename=photo.jpg'), v.trim(), v.nonEmpty('filename: name the file'), v.maxLength(255)),
   folder: v.optional(v.pipe(v.string(), v.regex(/^(?:[\w-]+(?:\/[\w-]+)*)?$/, 'folder: letters, digits, "-" and "_", in levels separated by "/"'), v.maxLength(255))),
   private: v.optional(v.picklist(['true', 'false'], 'private: expected true or false')),
+  shared: v.optional(v.picklist(['true', 'false'], 'shared: expected true or false')), // with sites: in every site's library
 })
 const NewUpload = v.object({
   filename: UploadParams.entries.filename,
@@ -75,7 +76,7 @@ export default defineEventHandler(async (event) => {
   if (method !== 'GET')
     await assertMigrated()
   const who = await caller(event)
-  const library = await useAtelierMedia()
+  const library = await useAtelierMedia(who.site)
   const manage = () => {
     if (!who.policy.can(who.principal, 'manage', 'media'))
       throw apiError(403, 'Your role can\'t manage media')
@@ -137,7 +138,7 @@ export default defineEventHandler(async (event) => {
       if (!event.req.body)
         throw apiError(400, 'Send the file as the request body')
       await countWrite(event, who)
-      return shown(await measured(await library.upload({ body: event.req.body, filename: params.filename, folder: params.folder, private: params.private === 'true', createdBy: who.principal.id })))
+      return shown(await measured(await library.upload({ body: event.req.body, filename: params.filename, folder: params.folder, private: params.private === 'true', shared: params.shared === 'true', createdBy: who.principal.id })))
     }
     const item = id ? await library.get(id) : undefined
     if (!item)

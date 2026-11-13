@@ -1,7 +1,7 @@
 // Redirects, before anything renders: GET and HEAD requests for site paths (not /api or /_…) whose
 // path matches a redirect get its status and Location, with the request's query string kept.
 import { defineEventHandler, getRequestURL } from 'nuxt/server'
-import { useAtelierEntries } from '../index'
+import { useAtelierEntries, useAtelierSite } from '../index'
 import { findRedirect } from '../redirects'
 import { canonicalPath } from '../routes'
 
@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     return
   let list
   try {
-    list = await (await useAtelierEntries()).redirects.cached()
+    list = await (await useAtelierEntries(useAtelierSite(event))).redirects.cached()
   }
   catch {
     return // no database yet, or migrations pending: serve the page, never fail it over a redirect

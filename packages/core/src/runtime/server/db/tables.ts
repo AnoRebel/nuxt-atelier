@@ -24,6 +24,7 @@
 //   atelier_presence        who has an entry or singleton open, and when they were last seen
 //   atelier_comments        comments on entries and their blocks, in threads; never part of published content
 //   atelier_notifications   a user's notifications: mentions, replies, lock takeovers
+//   atelier_site_roles      with sites: users' roles per site
 //   atelier_form_submissions  what visitors sent through forms; uploaded files are in storage under forms/
 //   atelier_passkeys        their passkeys (WebAuthn credentials), when passkey sign-in is enabled
 //   atelier_jobs            the background job queue: due time, attempts, lock, last error
@@ -222,7 +223,13 @@ export interface ContentSchema {
   blocks?: Record<string, BlockSchema>
   /** The content locales (the `locales` module option): one, `en`, when omitted. */
   locales?: Partial<Locales>
+  /** Several sites (the `sites` module option): site-scoped content and system tables get a site column. */
+  sites?: boolean
 }
+
+/** Whether a collection or singleton's rows belong to a site (`_site`): with sites, unless it's shared. */
+export const siteScoped = (schema: Pick<ContentSchema, 'sites'>, definition: { scope?: 'site' | 'shared' } | undefined) =>
+  !!schema.sites && definition?.scope !== 'shared'
 
 /** A column of an extra table. JSON, so it travels through migrations like the content schema. */
 export interface ColumnSpec {
@@ -303,12 +310,21 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       checkRoute(name, definition.route, definition.fields, true)
   }
 
-  const singletonsTable = (name: string) => kit.table(name, {
-    name: kit.key('name', NAME).primaryKey(),
-    data: kit.json('data').notNull(),
-    version: kit.int('_version').notNull(),
-    updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
-  })
+  // with sites, a singleton has a row per site ('' for a shared one), and paths are per site
+  const singletonsTable = (name: string) => schema.sites
+    ? kit.table(name, {
+        site: kit.key('site', NAME).notNull(),
+        name: kit.key('name', NAME).notNull(),
+        data: kit.json('data').notNull(),
+        version: kit.int('_version').notNull(),
+        updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
+      }, t => [kit.primaryKey([t.site, t.name])])
+    : kit.table(name, {
+        name: kit.key('name', NAME).primaryKey(),
+        data: kit.json('data').notNull(),
+        version: kit.int('_version').notNull(),
+        updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
+      })
   const relationsTable = (name: string) => kit.table(name, {
     source: kit.key('source', NAME).notNull(),
     sourceId: kit.key('source_id', NAME).notNull(),
@@ -321,12 +337,13 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
     kit.index(`${name}_target_idx`).on(t.target, t.targetId),
   ])
   const routesTable = (name: string) => kit.table(name, {
+    ...schema.sites && { site: kit.key('site', NAME).notNull() }, // '' for a shared type's, served on every site
     path: kit.key('path', MAX_PATH).notNull(), // canonical: see canonicalPath()
     locale: kit.key('locale', 35).notNull(), // '' when the pattern is shared by every locale
     source: kit.key('source', NAME).notNull(),
     sourceId: kit.key('source_id', NAME).notNull(), // an entry id, or a singleton's name
   }, t => [
-    kit.primaryKey([t.path, t.locale]),
+    kit.primaryKey(schema.sites ? [t.site, t.path, t.locale] : [t.path, t.locale]),
     kit.index(`${name}_source_idx`).on(t.source, t.sourceId),
   ])
 
@@ -375,6 +392,7 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
     }, t => [kit.index('atelier_audit_at_idx').on(t.at), kit.index('atelier_audit_actor_idx').on(t.actorId)]),
     atelier_tokens: kit.table('atelier_tokens', {
       id: kit.key('_id', ID).primaryKey(),
+      ...schema.sites && { site: kit.key('site', NAME).notNull() }, // a token works on the site it was made on
       name: kit.key('name', 255).notNull(),
       hash: kit.key('hash', 64).notNull(), // SHA-256 of the token; the token itself is shown once
       permissions: kit.json('permissions').notNull(), // content permissions, as in a role
@@ -400,6 +418,14 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
       updatedBy: kit.key('_updated_by', ID),
     }),
+    // with sites: each user's role on each site they may reach (administrators reach every site)
+    ...schema.sites && {
+      atelier_site_roles: kit.table('atelier_site_roles', {
+        userId: kit.key('user_id', ID).notNull(),
+        site: kit.key('site', NAME).notNull(),
+        role: kit.key('role', NAME).notNull(),
+      }, t => [kit.primaryKey([t.userId, t.site])]),
+    },
     atelier_locks: kit.table('atelier_locks', {
       key: kit.key('key', 160).primaryKey(), // <type>:<entry id or singleton name>
       type: kit.key('type', NAME).notNull(),
@@ -471,6 +497,7 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
     }, t => [kit.index('atelier_jobs_due_idx').on(t.status, t.runAt), kit.uniqueIndex('atelier_jobs_key_idx').on(t.key)]),
     atelier_media: kit.table('atelier_media', {
       _id: kit.key('_id', ID).primaryKey(),
+      ...schema.sites && { site: kit.key('site', NAME) }, // null: shared by every site
       key: kit.key('key', 255).notNull(), // the storage driver's key
       filename: kit.key('filename', 255).notNull(),
       mime: kit.key('mime', 127).notNull(), // from the file's content, not its name
@@ -523,12 +550,13 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
     }, t => [kit.index('atelier_webhook_deliveries_webhook_idx').on(t.webhookId, t.at)]),
     atelier_redirects: kit.table('atelier_redirects', {
       id: kit.key('_id', ID).primaryKey(),
+      ...schema.sites && { site: kit.key('site', NAME).notNull() },
       source: kit.key('source', MAX_PATH).notNull(), // a canonical path, or a pattern with :name and a final *
       target: kit.text('target').notNull(), // a site path or an absolute http(s) URL
       status: kit.int('status').notNull(),
       auto: kit.bool('auto').notNull(), // created when an entry's URL changed
       createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
-    }, t => [kit.uniqueIndex('atelier_redirects_source_idx').on(t.source)]),
+    }, t => [kit.uniqueIndex('atelier_redirects_source_idx').on(...schema.sites ? [t.site, t.source] : [t.source])]),
   }
 
   for (const [name, spec] of Object.entries(schema.tables ?? {})) {
@@ -546,6 +574,7 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
         _createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
         _updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
         _createdBy: kit.key('_created_by', ID), // the user who created it, for own-entries-only permissions
+        ...siteScoped(schema, definition) && { _site: kit.key('_site', NAME).notNull() },
         // localized: each locale's version is a row; translations share a group, the first one's id (null: its own)
         ...definition.localized && {
           _locale: kit.key('_locale', 35).notNull().default(defaultLocale),
@@ -563,7 +592,8 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
     // in a localized collection, values are unique within a locale: translations may share one
     for (const table of [collectionTable(name), publishedTable(name)]) {
       tables[table] = kit.table(table, columns(), t => [
-        ...unique.map(key => kit.uniqueIndex(indexName(table, key, 'unique')).on(...definition.localized ? [t._locale, t[key]] : [t[key]])),
+        ...unique.map(key => kit.uniqueIndex(indexName(table, key, 'unique')).on(...siteScoped(schema, definition) ? [t._site] : [], ...definition.localized ? [t._locale, t[key]] : [t[key]])),
+        ...siteScoped(schema, definition) ? [kit.index(indexName(table, '_site', 'idx')).on(t._site)] : [],
         ...definition.localized ? [kit.index(indexName(table, '_group', 'idx')).on(t._group)] : [],
       ])
     }

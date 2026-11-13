@@ -3,7 +3,7 @@
 // (they can hold credentials): those go to the server log.
 import { defineEventHandler } from 'nuxt/server'
 import { pendingMigrations } from '../db/state'
-import { useAtelierDatabase, useAtelierJobs, useAtelierMedia } from '../index'
+import { useAtelierDatabase, useAtelierJobs, useAtelierStorage } from '../index'
 import { logger } from '../logger'
 
 type Check = 'ok' | 'error'
@@ -36,7 +36,7 @@ export default defineEventHandler(async () => {
     : database === 'ok' ? { pending: 0 } : 'error'
   // the storage answers: a lookup of a file that isn't there
   const storage: Check = await within('storage', async () => {
-    await (await useAtelierMedia()).storage.head('atelier-health-check')
+    await (await useAtelierStorage()).head('atelier-health-check')
     return 'ok' as const
   })
   const jobs = database === 'ok'

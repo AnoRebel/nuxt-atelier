@@ -7,7 +7,8 @@ import { defineEventHandler } from 'nuxt/server'
 import { serialiseFields } from '../../shared/fields'
 import { caller } from '../content-access'
 import { apiError } from '../errors'
-import { useAtelierRoles, useAtelierSchema } from '../index'
+import { ADMIN_ROLE } from '../../shared/policy'
+import { atelierSites, siteLocales, useAtelierAuth, useAtelierRoles, useAtelierSchema, useAtelierSiteRoles } from '../index'
 
 const ACTIONS: ContentAction[] = ['create', 'read', 'update', 'delete', 'publish', 'comment']
 const CAPABILITIES: Capability[] = ['users', 'roles', 'settings', 'media', 'redirects', 'forms']
@@ -17,7 +18,11 @@ export default defineEventHandler(async (event) => {
   if (event.req.method !== 'GET')
     throw apiError(405, 'Method not allowed')
   const who = await caller(event)
-  const { collections, singletons, blocks, locales } = await useAtelierSchema()
+  const schema = await useAtelierSchema()
+  const { collections, singletons, blocks } = schema
+  // the site's own locales, when it has them
+  const own = siteLocales(who.site)
+  const locales = { ...schema.locales, ...own.codes && { codes: own.codes }, ...own.default && { default: own.default } }
   const { principal: user, policy } = who
 
   const type = (name: string, definition: { fields: Record<string, unknown>, route?: unknown, localized?: unknown, versioned?: boolean, admin?: unknown }) => {
@@ -41,8 +46,15 @@ export default defineEventHandler(async (event) => {
     ? (await (await useAtelierRoles()).list()).filter(r => r.name !== 'public').map(r => ({ name: r.name, ...r.role.label ? { label: r.role.label } : {} }))
     : undefined
 
+  // with sites: this one, and the ones the user may switch to (administrators: all)
+  const configured = atelierSites()
+  const signedIn = who.site.scoped && user.id ? await (await useAtelierAuth()).getUser(event) : null
+  const reachable = !signedIn
+    ? []
+    : signedIn.role === ADMIN_ROLE ? Object.keys(configured) : Object.keys(await (await useAtelierSiteRoles()).of(signedIn.id))
   return {
     user: { id: user.id, role: user.role },
+    ...who.site.scoped ? { site: who.site.name, sites: reachable.map(name => ({ name, label: configured[name]?.label ?? name })) } : {},
     capabilities,
     ...roles ? { roles } : {},
     locales,

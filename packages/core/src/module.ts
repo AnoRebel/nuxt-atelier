@@ -53,6 +53,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       auth: { signInAttempts: resolved.auth.signInAttempts, signInWindow: resolved.auth.signInWindow, trustProxy: resolved.auth.trustProxy },
       robots: resolved.seo.robots ?? null, // the default robots rules; the admin's override them
       collaboration: { lockTimeout: resolved.collaboration.lockTimeout },
+      sites: { list: resolved.sites ?? null, fallback: resolved.fallbackSite ?? null }, // see sites.ts
       mail: { url: '', from: resolved.mail.from }, // NUXT_ATELIER_MAIL_URL, NUXT_ATELIER_MAIL_FROM
       forms: { minFillTime: resolved.forms.minFillTime, submissionsPerHour: resolved.forms.submissionsPerHour, turnstile: { siteKey: '', secret: '' } }, // NUXT_ATELIER_FORMS_TURNSTILE_SITE_KEY, _SECRET
       sitemap: '', // the sitemap's path for robots.txt, set once every module is set up (below)
@@ -211,6 +212,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     if (resolved.auth.passkeys) // off: no passkey routes, so they 404 and nothing of @simplewebauthn is bundled
       addServerHandler({ route: '/api/_atelier/auth/passkeys/**', handler: resolve('./runtime/server/api/auth/passkeys') })
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/request-id') })
+    addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/site') })
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/csrf') })
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/redirects') })
     addServerHandler({ route: '/api/_atelier/audit', method: 'get', handler: resolve('./runtime/server/api/audit') })

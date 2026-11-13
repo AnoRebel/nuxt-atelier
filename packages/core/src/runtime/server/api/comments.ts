@@ -11,10 +11,10 @@ import { defineEventHandler } from 'nuxt/server'
 import * as v from 'valibot'
 import { notifyUser } from '../collab/notify'
 import { blockIds } from '../collab/store'
-import { entryTopic, publish } from '../collab/realtime'
+import { publish } from '../collab/realtime'
 import { countWrite, segments } from '../content-access'
 import { apiError, readValid } from '../errors'
-import { assertMigrated, requireUser, useAtelierAuth, useAtelierCollab, useAtelierEntries, useAtelierPolicy, useAtelierSchema } from '../index'
+import { assertMigrated, requireUser, useAtelierAuth, useAtelierCollab, useAtelierEntries, useAtelierPolicy, useAtelierSchema, useAtelierSite } from '../index'
 import { readableType } from './collab'
 
 const PREFIX = '/api/_atelier/comments/'
@@ -30,13 +30,13 @@ export default defineEventHandler(async (event) => {
   const [rawType, rawId, commentId, ...rest] = segments(event, PREFIX)
   if (rest.length)
     throw apiError(404, 'Not found')
-  const { type, id } = await readableType(user, rawType, rawId)
+  const { type, id, topic } = await readableType(useAtelierSite(event), user, rawType, rawId)
   const policy = await useAtelierPolicy()
-  const who = { principal: user, policy }
+  const who = { principal: user, policy, site: useAtelierSite(event) }
   const collab = await useAtelierCollab()
   const blocksNow = async () => {
     const schema = await useAtelierSchema()
-    const entries = await useAtelierEntries()
+    const entries = await useAtelierEntries(useAtelierSite(event))
     const entry = schema.singletons[type] ? await entries.getSingleton(type, { stage: 'draft' }) : await entries.get(type, id, { stage: 'draft' })
     return blockIds(entry?.data ?? {})
   }
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
     const found = await Promise.all([...new Set(ids)].map(mention => users.get(mention).catch(() => null)))
     return found.filter((u): u is AuthUser => !!u && policy.can(u, 'read', type)).map(u => u.id)
   }
-  const changed = () => publish(entryTopic(type, id), 'comments')
+  const changed = () => publish(topic, 'comments')
 
   if (!commentId && method === 'GET') {
     const [comments, blocks] = await Promise.all([collab.comments(type, id), blocksNow()])

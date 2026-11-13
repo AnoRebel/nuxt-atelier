@@ -43,10 +43,10 @@ export async function getRow(db: Db, table: Table, id: string): Promise<Record<s
 
 /**
  * Whether no entry other than `exceptId` has `value` in `column`: the check `validateEntry` asks for.
- * In a localized collection, within `locale`.
+ * In a localized collection, within `locale`; with sites, within `site`.
  */
-export async function isUnique(db: Db, table: Table, column: string, value: unknown, exceptId?: string, locale?: string): Promise<boolean> {
+export async function isUnique(db: Db, table: Table, column: string, value: unknown, exceptId?: string, locale?: string, site?: string): Promise<boolean> {
   const rows = await db.select({ id: table._id }).from(table)
-    .where(and(eq(table[column], value), exceptId === undefined ? undefined : ne(table._id, exceptId), locale === undefined ? undefined : eq(table._locale, locale))).limit(1)
+    .where(and(eq(table[column], value), exceptId === undefined ? undefined : ne(table._id, exceptId), locale === undefined ? undefined : eq(table._locale, locale), site === undefined ? undefined : eq(table._site, site))).limit(1)
   return rows.length === 0
 }

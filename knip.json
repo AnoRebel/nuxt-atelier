@@ -109,6 +109,13 @@
         "server/atelier/**/*.ts"
       ]
     },
+    "test/fixtures/sites": {
+      "entry": [
+        "app/**/*.vue",
+        "server/api/**/*.ts",
+        "server/atelier/**/*.ts"
+      ]
+    },
     "test/fixtures/auth": {
       "entry": [
         "server/api/**/*.ts",

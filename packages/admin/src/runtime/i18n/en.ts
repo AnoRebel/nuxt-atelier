@@ -19,6 +19,7 @@ export default {
   'common.actions': 'Actions',
   // navigation
   'nav.label': 'Admin',
+  'nav.site': 'Site',
   'nav.dashboard': 'Dashboard',
   'nav.content': 'Content',
   'nav.settings': 'Settings',
@@ -126,6 +127,8 @@ export default {
   'templates.saveBody': 'New entries can start from this one\'s current values.',
   'templates.name': 'Template name',
   'templates.saved': 'Template saved',
+  'users.sites': 'Sites',
+  'users.noAccess': 'No access',
   // forms
   'forms.submissions': 'Submissions',
   'forms.none': 'No submissions.',

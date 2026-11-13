@@ -10,7 +10,7 @@ import { ContentPermissionsSchema } from '../auth/roles'
 import { READ_ONLY } from '../auth/tokens'
 import { segments } from '../content-access'
 import { apiError, readValid } from '../errors'
-import { assertMigrated, audit, requireUser, useAtelierTokens } from '../index'
+import { assertMigrated, audit, requireUser, useAtelierTokens, useAtelierSite } from '../index'
 
 const NewToken = v.object({
   name: v.pipe(v.string(), v.trim(), v.nonEmpty('Name the token'), v.maxLength(255)),
@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   if (user.role !== ADMIN_ROLE)
     throw apiError(403, 'Only administrators manage API tokens')
-  const tokens = await useAtelierTokens()
+  const tokens = await useAtelierTokens(useAtelierSite(event))
   const [id, ...rest] = segments(event, '/api/_atelier/tokens')
   const method = event.req.method
 

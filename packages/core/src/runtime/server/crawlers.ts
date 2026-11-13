@@ -7,6 +7,7 @@ import type { RobotsSettings } from './settings'
 import { useRuntimeConfig } from 'nuxt/server'
 import { localePath } from '../shared/i18n'
 import { PUBLIC_ROLE } from '../shared/policy'
+import type { SiteContext } from './sites'
 import { useAtelierEntries, useAtelierPolicy, useAtelierSchema, useAtelierSettings } from './index'
 import { robotsGroups } from './crawlers-text'
 import { logger } from './logger'
@@ -21,9 +22,9 @@ const adminBase = () => publicConfig().admin?.base ?? '/admin'
  * The robots groups in effect. When the database can't be read (not set up yet, a site prerendered without
  * one), the module options' rules, so crawlers still get the admin and API kept out.
  */
-export async function useRobotsGroups(): Promise<RobotsGroup[]> {
+export async function useRobotsGroups(site: SiteContext): Promise<RobotsGroup[]> {
   try {
-    return robotsGroups((await (await useAtelierSettings()).get('robots')).value, adminBase())
+    return robotsGroups((await (await useAtelierSettings(site)).get('robots')).value, adminBase())
   }
   catch (error) {
     logger.warn('robots.txt: the robots settings couldn\'t be read, using the module options', { error })
@@ -36,9 +37,9 @@ export async function useRobotsGroups(): Promise<RobotsGroup[]> {
 const PAGE = 500
 
 /** Every published, indexable page of the CMS; none, with a warning, when the database can't be read. */
-export async function sitemapUrls(): Promise<SitemapUrl[]> {
+export async function sitemapUrls(site: SiteContext): Promise<SitemapUrl[]> {
   try {
-    return await readSitemapUrls()
+    return await readSitemapUrls(site)
   }
   catch (error) {
     logger.warn('sitemap: the CMS pages couldn\'t be read, so none are listed', { error })
@@ -47,9 +48,9 @@ export async function sitemapUrls(): Promise<SitemapUrl[]> {
 }
 
 /** Every published, indexable page of the CMS, as paths (and their translations' paths) with their last change. */
-async function readSitemapUrls(): Promise<SitemapUrl[]> {
+async function readSitemapUrls(site: SiteContext): Promise<SitemapUrl[]> {
   const { collections, singletons, locales } = await useAtelierSchema()
-  const entries = await useAtelierEntries()
+  const entries = await useAtelierEntries(site)
   const policy = await useAtelierPolicy()
   const visitor = { id: '', role: PUBLIC_ROLE }
   const i18n = publicConfig().i18n

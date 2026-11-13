@@ -6,7 +6,7 @@ import type { Variant } from '../media/images'
 import { defineEventHandler, getQuery } from 'nuxt/server'
 import { apiError } from '../errors'
 import { segments } from '../content-access'
-import { useAtelierAuth, useAtelierMedia, useAtelierServerConfig } from '../index'
+import { useAtelierAuth, useAtelierMedia, useAtelierServerConfig, useAtelierSite } from '../index'
 import { ASPECTS, FORMATS, resizable, variantFile, variantMime } from '../media/images'
 
 export default defineEventHandler(async (event) => {
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
     throw apiError(405, `${event.req.method} isn't allowed here`)
   const [id, name, ...rest] = segments(event, '/_atelier/media')
   const notFound = () => apiError(404, 'Not found')
-  const library = await useAtelierMedia()
+  const library = await useAtelierMedia(useAtelierSite(event))
   const item = id && name && !rest.length ? await library.get(id) : undefined
   if (!item || item.filename !== name)
     throw notFound()
