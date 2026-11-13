@@ -156,6 +156,7 @@
 - [ ] 14.8 Implement proxy editing mode for opted-in blocks; verify carousel proxy reorder e2e
 - [ ] 14.9 Verify style isolation with a fixture applying hostile global CSS (`* { box-sizing: content-box }`, `button { all: unset }`): admin chrome renders correctly and preview matches the public page screenshot
 - [ ] 14.10 Implement keyboard-only block moving with live-region announcements and run axe on editor chrome; verify no serious/critical violations and keyboard move e2e
+- [ ] 14.13 (moved from 16.4: block comments exist before the preview does) Show comment markers on commented blocks in the preview, opening the thread in the editor's comments panel; verify a block comment's marker appears in the preview e2e
 - [ ] 14.12 (added from blökkli #24, #23, see parent-issues.md) Implement preview placeholders for blocks that render no element, and inline editing of the entry's own fields marked in host templates (same edit state and undo history); verify an empty-teaser placeholder is selectable and a page-title inline edit undoes
 - [ ] 14.11 Write docs: visual editor guide for editors (with screenshots), editor architecture and bridge protocol reference, making blocks editor-friendly, proxy mode, extending the editor
 
@@ -175,12 +176,12 @@
 
 ## 16. Editorial collaboration (editorial-collaboration)
 
-- [ ] 16.1 Implement edit locks with heartbeat renewal (`useIntervalFn`), inactivity expiry, read-only mode for others, and takeover with recoverable draft preservation; verify lock, expiry, and takeover e2e
-- [ ] 16.2 Implement presence indicators via heartbeat polling; verify two-session presence e2e
-- [ ] 16.3 Implement the real-time transport (`atelier.realtime: 'auto'`): `nitro.experimental.websocket` on supported presets, `defineWebSocketHandler` at `/api/_atelier/ws` with session + Origin check in `upgrade`, invalidation events for locks/presence/comments/notifications, 60 s reconciliation poll while connected, 20 s polling fallback; verify cross-session lock push within 2 s e2e, forced-fallback e2e, and forged-Origin upgrade rejection test
-- [ ] 16.4 Implement entry and block comments with threads, mentions, resolve, and orphaned-block handling, displayed in preview and panel; verify comment-on-block and deleted-block tests
-- [ ] 16.5 Implement in-admin notifications and optional email delivery through the `MailAdapter` (SMTP via optional `nodemailer`, HTTP providers); verify mention notification test
-- [ ] 16.6 Write docs: collaboration guide (locks, comments, notifications), real-time transport and platform support, mail adapter configuration
+- [x] 16.1 Implement edit locks with heartbeat renewal (a 20 s interval), inactivity expiry, read-only mode for others, and takeover with recoverable draft preservation; verify lock, expiry, and takeover e2e
+- [x] 16.2 Implement presence indicators via heartbeat polling; verify two-session presence e2e
+- [x] 16.3 Implement the real-time transport (`atelier.realtime: 'auto'`): `nitro.experimental.websocket` on supported presets, `defineWebSocketHandler` at `/api/_atelier/ws` with session + Origin check in `upgrade`, invalidation events for locks/presence/comments/notifications, 60 s reconciliation poll while connected, 20 s polling fallback; verify cross-session lock push within 2 s e2e, forced-fallback e2e, and forged-Origin upgrade rejection test
+- [x] 16.4 Implement entry and block comments with threads, mentions, resolve, and orphaned-block handling, displayed in the panel (preview markers: 14.13); verify comment-on-block and deleted-block tests
+- [x] 16.5 Implement in-admin notifications and optional email delivery through the `MailAdapter` (SMTP via optional `nodemailer`, HTTP providers); verify mention notification test
+- [x] 16.6 Write docs: collaboration guide (locks, comments, notifications), real-time transport and platform support, mail adapter configuration
 
 ## 17. Reusable content (reusable-content)
 

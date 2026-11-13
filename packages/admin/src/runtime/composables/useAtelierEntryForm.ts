@@ -116,6 +116,27 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
   }
 
   const invalidate = () => client.invalidateQueries({ queryKey: ['atelier', `${t.value.kind}s`, t.value.name] })
+  /**
+   * Someone else took the entry over: unsaved changes go to the recovery copy now (offered back on the next
+   * edit), and the form shows the saved entry again, kept current as they save.
+   */
+  async function shelve() {
+    clearTimeout(timer)
+    if (dirty.value) {
+      const copyOf = { values: copy(values.value), savedAt: new Date().toISOString() }
+      storage()?.setItem(recoveryKey.value, JSON.stringify(copyOf))
+      recovery.value = copyOf
+    }
+    await entry.refetch()
+    if (entry.data.value)
+      form.reset(copy(entry.data.value.data))
+  }
+  /** Shows the saved entry again (after someone else's edit), unless the user has changes of their own. */
+  async function reload() {
+    await entry.refetch()
+    if (entry.data.value && !dirty.value)
+      form.reset(copy(entry.data.value.data))
+  }
   const serverErrors = (error: AdminApiError) => {
     for (const { path, message } of error.errors ?? [])
       form.setFieldMeta(path as never, meta => ({ ...meta, errorMap: { ...meta?.errorMap, onServer: message } }) as never)
@@ -170,6 +191,8 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
     restoreRecovery,
     /** Drops the recovery copy (and the offer). */
     discardRecovery: forgetRecovery,
+    shelve,
+    reload,
     /** Saved changes the site doesn't show yet. */
     unpublished: computed(() => !!entry.data.value && entry.data.value.publishedVersion !== entry.data.value.version),
     save,

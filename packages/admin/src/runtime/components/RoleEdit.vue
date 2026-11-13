@@ -29,7 +29,7 @@ const { schema } = useAtelierAdminSchema()
 const { roles, save } = useAtelierRoles()
 const toast = useAdminToast()
 
-const ACTIONS: ContentAction[] = ['create', 'read', 'update', 'delete', 'publish']
+const ACTIONS: ContentAction[] = ['create', 'read', 'update', 'delete', 'publish', 'comment']
 const CAPABILITIES: { value: Capability, label: string }[] = [
   { value: 'users', label: 'capability.users' },
   { value: 'roles', label: 'capability.roles' },

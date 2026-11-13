@@ -98,6 +98,22 @@ describe('blocks', async () => {
     expect(preview).toContain('class="right"') // in previews, empty areas keep their slot as a drop target
   })
 
+  it('keeps comments on a block, marked as about a removed block once it\'s deleted', async () => {
+    const send = async (method: string, path: string, body?: unknown) => {
+      const response = await fetch(`/api/_atelier${path}`, { method, headers: { 'content-type': 'application/json', cookie, 'x-atelier-csrf': csrf }, body: body && JSON.stringify(body) })
+      return { status: response.status, body: await response.json() }
+    }
+    const { body: page } = await save([{ id: 'c1', type: 'Badge', props: { label: 'Old' } }, { id: 'c2', type: 'Quote', props: { text: 'Stays' } }])
+    const path = `/comments/pages/${page.id}`
+    expect((await send('POST', path, { body: 'Reword this', block: 'c1' })).body).toMatchObject({ block: 'c1' })
+    await send('POST', path, { body: 'Nice', block: 'c2' })
+    expect((await send('GET', path)).body.map((c: { block: string, orphaned: boolean }) => [c.block, c.orphaned])).toEqual([['c1', false], ['c2', false]])
+
+    await send('PATCH', `/collections/pages/${page.id}`, { version: 1, data: { content: [{ id: 'c2', type: 'Quote', props: { text: 'Stays' } }] } })
+    expect((await send('GET', path)).body.map((c: { block: string, orphaned: boolean, body: string }) => [c.body, c.orphaned])).toEqual([['Reword this', true], ['Nice', false]])
+    expect((await send('POST', path, { body: 'Too late', block: 'c1' })).status).toBe(400) // not on a block that's gone
+  })
+
   it('skips a block whose type no longer exists, rendering the rest', async () => {
     const { status, body } = await save([{ id: 'u1', type: 'Gone', props: {} }, { id: 'u2', type: 'Card', props: { heading: 'Still here' } }])
     expect(status).toBe(200) // stale content still saves

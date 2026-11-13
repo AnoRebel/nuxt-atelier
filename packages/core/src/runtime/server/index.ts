@@ -30,6 +30,7 @@ import type { AuthAdapter, AuthUser } from './auth/adapter'
 import type { BuiltinAuthAdapter } from './auth/builtin'
 import type { RoleStore } from './auth/roles'
 import type { SettingsStore } from './settings'
+import type { CollabStore } from './collab/store'
 import { createPolicy } from '../shared/policy'
 import { defineAuthAdapter } from './auth/adapter'
 import { createBuiltinAuth } from './auth/builtin'
@@ -38,6 +39,7 @@ import { createAuditLog } from './auth/audit'
 import { clientIp, createRateLimiter } from './auth/rate-limit'
 import { createRoleStore } from './auth/roles'
 import { createSettingsStore } from './settings'
+import { createCollabStore } from './collab/store'
 import { indexChange } from './search/service'
 import { createTokenStore } from './auth/tokens'
 import { apiError } from './errors'
@@ -47,6 +49,7 @@ export * from './define'
 export type { AtelierDriver, Dialect } from './db/driver'
 export { createDatabaseAdapter, ForbiddenError } from './adapter'
 export type { RobotsSettings, SettingKey, SettingsStore } from './settings'
+export type { CollabStore, Comment, Lock, Notification, NotificationKind } from './collab/store'
 export { rebuildSearchIndex, registerSearchAdapter, searchSite, useAtelierSearch } from './search/service'
 export type { SearchResult } from './search/service'
 export type { SearchAdapter, SearchDocument, SearchHit, SearchQuery } from './search/adapter'
@@ -60,6 +63,8 @@ export type { ContentChange } from './cache'
 export type { MediaChanges, MediaItem, MediaLibrary } from './media/library'
 export type { StorageDriver, StoredFile } from './media/storage'
 export { defineJob } from './jobs'
+export { registerMailAdapter, sendMail, useAtelierMail } from './mail'
+export type { MailAdapter, MailMessage } from './mail'
 export type { EnqueueOptions, Job, JobHandler, JobQueue, JobStatus, RunResult } from './jobs'
 export { diffEntries } from '../shared/diff'
 export type { Change } from '../shared/diff'
@@ -261,6 +266,21 @@ export function useAtelierAuth(): Promise<AtelierAuth> {
 let roleStore: Promise<RoleStore> | undefined
 
 /** Roles from the database and from `server/atelier/roles.ts`. */
+let collabStore: Promise<CollabStore> | undefined
+
+/** Edit locks, presence, comments and notifications (collab/store.ts). */
+export function useAtelierCollab(): Promise<CollabStore> {
+  collabStore ??= (async () => {
+    const lockTimeout = (useAtelierServerConfig() as unknown as { collaboration?: { lockTimeout?: number } }).collaboration?.lockTimeout ?? 60
+    // someone is "here" while their 20-second heartbeats keep coming: a missed one or two is still here
+    return createCollabStore(await useAtelierDatabase(), { lockTimeout, presenceTimeout: 50 })
+  })().catch((error) => {
+    collabStore = undefined
+    throw error
+  })
+  return collabStore
+}
+
 let settingsStore: Promise<SettingsStore> | undefined
 
 /** Site settings changed in the admin, over the module options (settings.ts). */

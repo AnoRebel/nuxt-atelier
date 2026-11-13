@@ -20,6 +20,10 @@
 //   atelier_rate_limits     counters for rate-limited actions, shared by every server instance
 //   atelier_roles           roles edited in the admin (code-defined ones are in server/atelier/roles.ts)
 //   atelier_settings        site settings changed in the admin (robots rules…), overriding the module options
+//   atelier_locks           who is editing an entry or singleton, until when (renewed while they work)
+//   atelier_presence        who has an entry or singleton open, and when they were last seen
+//   atelier_comments        comments on entries and their blocks, in threads; never part of published content
+//   atelier_notifications   a user's notifications: mentions, replies, lock takeovers
 //   atelier_passkeys        their passkeys (WebAuthn credentials), when passkey sign-in is enabled
 //   atelier_jobs            the background job queue: due time, attempts, lock, last error
 //   atelier_media           the media library: one row per file, with its metadata and where it's stored
@@ -395,6 +399,43 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
       updatedBy: kit.key('_updated_by', ID),
     }),
+    atelier_locks: kit.table('atelier_locks', {
+      key: kit.key('key', 160).primaryKey(), // <type>:<entry id or singleton name>
+      type: kit.key('type', NAME).notNull(),
+      entry: kit.key('entry', NAME).notNull(),
+      userId: kit.key('user_id', ID).notNull(),
+      acquiredAt: kit.key('acquired_at', TIMESTAMP).notNull(),
+      expiresAt: kit.key('expires_at', TIMESTAMP).notNull(),
+    }),
+    atelier_presence: kit.table('atelier_presence', {
+      key: kit.key('key', 200).primaryKey(), // <type>:<entry>:<user id>
+      type: kit.key('type', NAME).notNull(),
+      entry: kit.key('entry', NAME).notNull(),
+      userId: kit.key('user_id', ID).notNull(),
+      seenAt: kit.key('seen_at', TIMESTAMP).notNull(),
+    }, t => [kit.index('atelier_presence_entry_idx').on(t.type, t.entry)]),
+    atelier_comments: kit.table('atelier_comments', {
+      _id: kit.key('_id', ID).primaryKey(),
+      type: kit.key('type', NAME).notNull(),
+      entry: kit.key('entry', NAME).notNull(),
+      block: kit.key('block', ID), // a block's id, for a comment on that block
+      thread: kit.key('thread', ID), // the thread's first comment; null on that first comment
+      author: kit.key('author', ID).notNull(),
+      body: kit.text('body').notNull(),
+      mentions: kit.json('mentions').notNull(), // user ids
+      resolvedAt: kit.key('resolved_at', TIMESTAMP),
+      resolvedBy: kit.key('resolved_by', ID),
+      createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
+      updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
+    }, t => [kit.index('atelier_comments_entry_idx').on(t.type, t.entry), kit.index('atelier_comments_thread_idx').on(t.thread)]),
+    atelier_notifications: kit.table('atelier_notifications', {
+      _id: kit.key('_id', ID).primaryKey(),
+      userId: kit.key('user_id', ID).notNull(),
+      kind: kit.key('kind', 32).notNull(), // mention, reply, takeover
+      data: kit.json('data').notNull(), // what it's about: the entry, the comment, who
+      readAt: kit.key('read_at', TIMESTAMP),
+      createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
+    }, t => [kit.index('atelier_notifications_user_idx').on(t.userId, t.createdAt)]),
     atelier_passkeys: kit.table('atelier_passkeys', {
       id: kit.key('_id', 255).primaryKey(), // the credential id, base64url
       userId: kit.key('user_id', ID).notNull(),

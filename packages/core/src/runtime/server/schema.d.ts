@@ -16,3 +16,8 @@ declare module '#atelier-migrations' {
 declare module '#atelier-drivers' {
   export const drivers: import('./db/driver').DriverLoaders
 }
+
+// nodemailer, when the app installed it (SMTP email)
+declare module '#atelier-mailer' {
+  export const nodemailer: (() => Promise<{ createTransport: (url: string) => { sendMail: (message: Record<string, unknown>) => Promise<unknown> } }>) | undefined
+}

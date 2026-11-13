@@ -8,7 +8,7 @@ import { createPolicy, PUBLIC_ROLE } from '../shared/policy'
 import { apiError } from './errors'
 import type { MediaSummary } from '../shared/query'
 import { mediaIds } from './db/store'
-import { assertMigrated, useAtelierAuth, useAtelierMedia, useAtelierPolicy, useAtelierRateLimiter, useAtelierRoles, useAtelierSchema, useAtelierServerConfig, useAtelierTokens } from './index'
+import { assertMigrated, useAtelierAuth, useAtelierCollab, useAtelierMedia, useAtelierPolicy, useAtelierRateLimiter, useAtelierRoles, useAtelierSchema, useAtelierServerConfig, useAtelierTokens } from './index'
 
 export interface Caller {
   principal: PolicyUser
@@ -52,6 +52,13 @@ export function stageFor(who: Caller, resource: string, draft: string | undefine
 export function allow(who: Caller, action: ContentAction, resource: string, entry?: { createdBy: string | null }) {
   if (!who.policy.can(who.principal, action, resource, entry))
     throw apiError(403, `Your role can't ${action} ${entry ? 'this entry in ' : ''}"${resource}"`)
+}
+
+/** 423 `locked` while someone else holds the entry's edit lock (collab/store.ts). */
+export async function assertUnlocked(who: Caller, type: string, id: string) {
+  const lock = await (await useAtelierCollab()).lockOf(type, id)
+  if (lock && lock.userId !== who.principal.id)
+    throw apiError(423, 'Someone else is editing this entry', { lockedBy: lock.userId, expiresAt: lock.expiresAt })
 }
 
 /** 403 when the write changes fields the caller can't write, naming them. */

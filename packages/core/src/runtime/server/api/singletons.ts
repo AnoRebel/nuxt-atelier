@@ -17,7 +17,7 @@ import { apiError, readValid, validated } from '../errors'
 import { audit, toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
 import { scheduleRequest } from '../scheduling'
 import { shadowed } from '../shadowing'
-import { allow, assertMigrated, assertWritable, caller, countWrite, limits, mediaOf, present, restorable, segments, select, stageFor } from '../content-access'
+import { allow, assertMigrated, assertUnlocked, assertWritable, caller, countWrite, limits, mediaOf, present, restorable, segments, select, stageFor } from '../content-access'
 
 const PREFIX = '/api/_atelier/singletons'
 const Query = v.object({
@@ -62,6 +62,7 @@ export default defineEventHandler(async (event) => {
     }
     if (!sub && method === 'PATCH') {
       allow(who, 'update', name)
+      await assertUnlocked(who, name, name)
       const { version, data, publish } = await readValid(event, Update)
       if (publish)
         allow(who, 'publish', name)
@@ -72,6 +73,7 @@ export default defineEventHandler(async (event) => {
     }
     if (sub === 'publish' && method === 'POST') {
       allow(who, 'publish', name)
+      await assertUnlocked(who, name, name)
       const { version } = await readValid(event, AtVersion)
       await countWrite(event, who)
       return shape(await entries.publishSingleton(name, { version, authorId: who.principal.id }), true)

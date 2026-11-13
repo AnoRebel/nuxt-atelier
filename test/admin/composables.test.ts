@@ -17,7 +17,7 @@ const schema: AdminSchema = {
     name: 'posts',
     fields: { title: { type: 'text', required: true }, slug: { type: 'slug' }, views: { type: 'number' } },
     readOnly: ['slug'],
-    can: { create: true, read: true, update: true, delete: false, publish: true },
+    can: { create: true, read: true, update: true, delete: false, publish: true, comment: true },
     ownOnly: ['update'],
     routable: false,
     localized: false,

@@ -114,6 +114,17 @@ export const optionsSchema = v.strictObject({
     keep: int(1, 100_000, 50, 'Revisions each entry keeps at least: its newest ones. Older ones are deleted once they\'re also older than `revisions.days`, except, in versioned types, those that were published. Checked daily, as a background job.'),
     days: int(0, 36_500, 30, 'Days every revision is kept, however many there are.'),
   }), {}),
+  collaboration: v.optional(v.strictObject({
+    lockTimeout: int(15, 3600, 60, 'Seconds an edit lock lasts without being renewed: the admin renews it every 20 seconds while its holder has the entry open, so a closed browser frees it after this.'),
+    idleTimeout: int(60, 86_400, 900, 'Seconds without any typing or clicking after which the admin stops renewing a lock, so someone who walked away doesn\'t keep others out.'),
+    realtime: v.optional(v.pipe(
+      v.union([v.literal('auto'), v.literal(false)], 'accepted: "auto", false'),
+      v.description('How the admin hears about locks, presence, comments and notifications: `auto` uses WebSocket on servers that support it (Node, Bun, Deno, Cloudflare), with polling every 20 seconds when it isn\'t available or drops; `false` polls only.'),
+    ), 'auto'),
+  }), {}),
+  mail: v.optional(v.strictObject({
+    from: v.optional(v.pipe(v.string(), v.description('The sender of the CMS\'s email (notifications), e.g. `"Atelier <cms@example.com>"`. Override with `NUXT_ATELIER_MAIL_FROM`. Where email goes out through is a secret: set `NUXT_ATELIER_MAIL_URL` (`smtp://…`, `resend://<key>`, `postmark://<token>`).')), ''),
+  }), {}),
   jobs: v.optional(v.strictObject({
     schedule: v.optional(v.pipe(
       v.union([v.pipe(v.string(), v.regex(/^\S+(?:\s+\S+){4,5}$/, 'expected a cron expression of 5 fields, or 6 with seconds first')), v.literal(false)], 'expected a cron expression like "* * * * *", or false'),

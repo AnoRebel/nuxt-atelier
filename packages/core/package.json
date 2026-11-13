@@ -50,6 +50,7 @@
     "nuxt": ">=4.6.0",
     "pg": "catalog:db",
     "mysql2": "catalog:db",
+    "nodemailer": ">=7.0.0",
     "drizzle-kit": "catalog:db",
     "@simplewebauthn/server": "catalog:auth",
     "sharp": "catalog:media"
@@ -64,7 +65,8 @@
     "magic-string": "catalog:",
     "@vue/compiler-sfc": "catalog:",
     "vue-router": "catalog:",
-    "file-type": "catalog:media"
+    "file-type": "catalog:media",
+    "h3": "^1.15.11"
   },
   "devDependencies": {
     "@nuxt/schema": "catalog:",
@@ -76,6 +78,9 @@
     "sharp": "catalog:media"
   },
   "peerDependenciesMeta": {
+    "nodemailer": {
+      "optional": true
+    },
     "pg": {
       "optional": true
     },

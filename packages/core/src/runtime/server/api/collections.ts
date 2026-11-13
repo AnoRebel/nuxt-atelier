@@ -22,10 +22,10 @@ import type { Entry } from '../db/store'
 import * as v from 'valibot'
 import { defineEventHandler, getQuery } from 'nuxt/server'
 import { apiError, readValid, validated } from '../errors'
-import { audit, toHttpError, useAtelierEntries, useAtelierSchema } from '../index'
+import { audit, toHttpError, useAtelierCollab, useAtelierEntries, useAtelierSchema } from '../index'
 import { scheduleRequest } from '../scheduling'
 import { shadowed } from '../shadowing'
-import { allow, assertInversesWritable, assertMigrated, assertWritable, caller, countWrite, limits, mediaOf, present, restorable, segments, select, stageFor } from '../content-access'
+import { allow, assertInversesWritable, assertMigrated, assertUnlocked, assertWritable, caller, countWrite, limits, mediaOf, present, restorable, segments, select, stageFor } from '../content-access'
 
 const PREFIX = '/api/_atelier/collections'
 const list = (text: string) => text.split(',').map(s => s.trim()).filter(Boolean)
@@ -129,6 +129,7 @@ export default defineEventHandler(async (event) => {
     if (id && !sub && method === 'PATCH') {
       const stored = await load()
       allow(who, 'update', name, stored)
+      await assertUnlocked(who, name, id)
       const { version, data, publish } = await readValid(event, Update)
       if (publish)
         allow(who, 'publish', name, stored)
@@ -154,6 +155,7 @@ export default defineEventHandler(async (event) => {
     if (id && sub === 'publish' && method === 'POST') {
       const stored = await load()
       allow(who, 'publish', name, stored)
+      await assertUnlocked(who, name, id)
       const { version } = await readValid(event, AtVersion)
       await countWrite(event, who)
       return published(await entries.publish(name, id, { version, authorId: who.principal.id }), true)
@@ -168,8 +170,10 @@ export default defineEventHandler(async (event) => {
     if (id && !sub && method === 'DELETE') {
       const stored = await load()
       allow(who, 'delete', name, stored)
+      await assertUnlocked(who, name, id)
       await countWrite(event, who)
       await entries.delete(name, id, who.principal.id)
+      await (await useAtelierCollab()).deleteEntryComments(name, id)
       await audit(event, { action: 'entry.deleted', actorId: who.principal.id, target: { type: name, id } })
       return { ok: true }
     }

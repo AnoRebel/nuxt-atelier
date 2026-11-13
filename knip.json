@@ -242,6 +242,7 @@
     "#atelier/server",
     "#atelier-migrations",
     "#atelier-drivers",
+    "#atelier-mailer",
     "#atelier-better-auth",
     "#atelier-blocks",
     "#components",

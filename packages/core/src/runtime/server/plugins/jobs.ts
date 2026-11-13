@@ -3,6 +3,7 @@ import type { Scheduled } from '../schedule'
 import type { Message } from '../webhooks'
 import { useAtelierAudit, useAtelierEntries, useAtelierJobs, useAtelierMedia, useAtelierServerConfig, useAtelierWebhooks } from '../index'
 import { defineJob } from '../jobs'
+import { defineMailJob } from '../mail'
 import { runScheduled, SCHEDULE_JOB } from '../schedule'
 import { runDelivery, WEBHOOK_JOB } from '../webhook-jobs'
 
@@ -22,6 +23,9 @@ export default () => {
 
   // webhook deliveries, retried with the queue's backoff
   defineJob<{ webhookId: string, message: Message }>(WEBHOOK_JOB, (payload, job) => runDelivery(payload, job.attempts))
+
+  // email (notifications), retried with the queue's backoff
+  defineMailJob()
 
   // scheduled publishing and unpublishing
   defineJob<Scheduled>(SCHEDULE_JOB, async job => runScheduled(await useAtelierEntries(), await useAtelierAudit(), job))

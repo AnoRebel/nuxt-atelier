@@ -2,10 +2,28 @@
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fetch, setup, startServer } from '@nuxt/test-utils/e2e'
+import { request } from 'node:http'
+import { fetch, setup, startServer, url } from '@nuxt/test-utils/e2e'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 interface Session { cookie: string, csrf: string }
+
+/** A WebSocket handshake's answer: 101 when it's accepted, the refusal's status otherwise. */
+function upgrade(target: string, origin: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = request(target, { headers: { 'connection': 'Upgrade', 'upgrade': 'websocket', 'origin': origin, 'sec-websocket-version': '13', 'sec-websocket-key': btoa('0123456789abcdef') } })
+    req.on('upgrade', (response, socket) => {
+      socket.destroy()
+      resolve(response.statusCode ?? 0)
+    })
+    req.on('response', (response) => {
+      response.resume()
+      resolve(response.statusCode ?? 0)
+    })
+    req.on('error', reject)
+    req.end()
+  })
+}
 
 export function contentApiSuite(label: string, rootDir: string) {
   describe(`content API (${label})`, async () => {
@@ -259,6 +277,65 @@ export function contentApiSuite(label: string, rootDir: string) {
       expect((await new Validator().validate(body)).valid).toBe(true)
       expect(Object.keys(body.paths)).toEqual(expect.arrayContaining(['/api/_atelier/collections/articles', '/api/_atelier/collections/authors/{id}', '/api/_atelier/singletons/settings']))
       expect((await api('writer', 'GET', '/openapi.json')).status).toBe(403)
+    })
+
+    it('locks an entry for its editor: others read only, writes refused, takeover notified', async () => {
+      const entry = (await api('writer', 'POST', '/collections/articles', { data: { title: 'Locked' } })).body
+      const path = `/collab/articles/${entry.id}`
+      expect((await api('writer', 'POST', path, { edit: true })).body).toMatchObject({ granted: true, lock: { userId: ids.writer, mine: true } })
+      const refused = await api('other', 'POST', path, { edit: true })
+      expect(refused.body).toMatchObject({ granted: false, lock: { userId: ids.writer, mine: false, name: 'writer@example.com' } })
+      expect(refused.body.viewers.map((v: { userId: string }) => v.userId).toSorted()).toEqual([ids.writer, ids.other].toSorted())
+      expect(await api('admin', 'PATCH', `/collections/articles/${entry.id}`, { version: 1, data: { title: 'Mine now' } }))
+        .toMatchObject({ status: 423, body: { data: { code: 'locked', lockedBy: ids.writer } } })
+      expect((await api('writer', 'PATCH', `/collections/articles/${entry.id}`, { version: 1, data: { title: 'Still mine' } })).status).toBe(200)
+      expect((await api('other', 'POST', path, { takeover: true })).status).toBe(403) // takeover needs the publish permission
+      expect((await api('intern', 'GET', '/collab/articles/nope')).status).toBe(404)
+      expect((await api(null, 'GET', path)).status).toBe(401)
+
+      expect((await api('admin', 'POST', path, { edit: true, takeover: true })).body).toMatchObject({ granted: true, lock: { userId: ids.admin } })
+      const notified = (await api('writer', 'GET', '/notifications')).body
+      expect(notified).toMatchObject({ unread: 1, items: [{ kind: 'takeover', data: { type: 'articles', entry: entry.id, by: ids.admin } }] })
+      expect((await api('admin', 'DELETE', path)).status).toBe(200)
+      expect((await api('other', 'GET', path)).body.lock).toBeNull()
+      await api('writer', 'POST', '/notifications/read', {})
+      expect((await api('writer', 'GET', '/notifications?unread=true')).body).toEqual({ items: [], unread: 0 })
+    })
+
+    it('keeps comment threads with mentions and replies notified, out of the content', async () => {
+      const entry = (await api('writer', 'POST', '/collections/articles', { data: { title: 'Discussed' } })).body
+      const path = `/comments/articles/${entry.id}`
+      const root = await api('writer', 'POST', path, { body: 'Ask @other about this', mentions: [ids.other, 'nobody'] })
+      expect(root).toMatchObject({ status: 200, body: { author: ids.writer, mentions: [ids.other], thread: null, block: null } })
+      expect((await api('other', 'GET', '/notifications')).body.items[0]).toMatchObject({ kind: 'mention', data: { comment: root.body.id, by: ids.writer, excerpt: 'Ask @other about this' } })
+      const reply = await api('admin', 'POST', path, { body: 'Answered', thread: root.body.id })
+      expect(reply.body).toMatchObject({ thread: root.body.id })
+      expect((await api('writer', 'GET', '/notifications')).body.items[0]).toMatchObject({ kind: 'reply', data: { thread: root.body.id, by: ids.admin } })
+
+      expect((await api('writer', 'POST', path, { body: 'On a block', block: 'nope' })).status).toBe(400)
+      expect((await api('writer', 'POST', path, { body: '   ' })).status).toBe(422)
+      expect((await api('intern', 'POST', path, { body: 'Hi' })).status).toBe(404) // not theirs to read
+      expect((await api('admin', 'PATCH', `${path}/${root.body.id}`, { body: 'Rewritten' })).status).toBe(403) // not its author
+      expect((await api('writer', 'PATCH', `${path}/${reply.body.id}`, { resolved: true })).status).toBe(400) // a reply
+      expect((await api('other', 'PATCH', `${path}/${root.body.id}`, { resolved: true })).body).toMatchObject({ resolvedBy: ids.other })
+
+      const thread = (await api('admin', 'GET', path)).body
+      expect(thread.map((c: { body: string, orphaned: boolean, authorName: string }) => [c.body, c.orphaned, c.authorName])).toEqual([['Ask @other about this', false, 'writer@example.com'], ['Answered', false, 'admin@example.com']])
+      expect((await api('admin', 'GET', `/collections/articles/${entry.id}`)).body.data).not.toHaveProperty('comments')
+
+      expect((await api('writer', 'DELETE', `/collections/articles/${entry.id}`)).status).toBe(200)
+      expect((await api('admin', 'GET', path)).status).toBe(404) // the entry, and its comments, gone
+    })
+
+    it('opens the real-time connection only with a fresh ticket, from the site\'s own origin', async () => {
+      const { ticket } = (await api('writer', 'POST', '/collab/ticket', {})).body
+      expect((await api(null, 'POST', '/collab/ticket', {})).status).toBe(401)
+      const { origin } = new URL(url('/'))
+      const ws = (query: string, from: string) => upgrade(url(`/api/_atelier/ws${query}`), from)
+      expect(await ws(`?ticket=${encodeURIComponent(ticket)}`, 'https://evil.example')).toBe(403)
+      expect(await ws('?ticket=forged', origin)).toBe(401)
+      expect(await ws('', origin)).toBe(401)
+      expect(await ws(`?ticket=${encodeURIComponent(ticket)}`, origin)).toBe(101)
     })
 
     it('limits writes per user per minute', async () => {

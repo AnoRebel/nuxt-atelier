@@ -1228,7 +1228,7 @@ button:not(:disabled),
   margin: 0 0 var(--space-2);
 }
 .app-richtext__content :is(ul, ol) {
-  padding-inline-start: var(--space-5, 1.5rem);
+  padding-inline-start: var(--space-5);
 }
 .app-richtext__content blockquote {
   padding-inline-start: var(--space-3);
@@ -1244,4 +1244,72 @@ button:not(:disabled),
 .app-richtext__content a {
   color: var(--accent-primary-base);
   text-decoration: underline;
+}
+
+/* notifications */
+.app-notifications__trigger {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+.app-notifications__count {
+  position: absolute;
+  inset-block-start: -0.55em;
+  inset-inline-end: -0.85em;
+  min-inline-size: 1.5em;
+  padding: 0 0.3em;
+  border-radius: 999px;
+  background: var(--accent-primary-strong);
+  color: var(--content-on-accent);
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.5em;
+  text-align: center;
+}
+
+/* who else has an entry open, and its comments */
+.app-presence {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.app-comments {
+  display: grid;
+  gap: var(--space-4);
+  margin-block-start: var(--space-6);
+}
+.app-comments__list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.app-comment {
+  display: grid;
+  gap: var(--space-2);
+}
+.app-comment[data-resolved] > .app-comment__body {
+  opacity: 0.7;
+}
+.app-comment__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--content-secondary);
+  font-size: 0.85em;
+}
+.app-comment__body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.app-comment__replies {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  border-inline-start: 2px solid var(--border-subtle);
+  list-style: none;
 }
