@@ -7,6 +7,9 @@
     ".": {
       "entry": [
         "test/vue-tsc/NestedSlots.vue"
+      ],
+      "ignoreDependencies": [
+        "axe-core"
       ]
     },
     "packages/*": {
