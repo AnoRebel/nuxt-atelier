@@ -45,6 +45,7 @@ describe('admin accessibility', async () => {
       ['dashboard', '/admin', 'Dashboard'],
       ['list', '/admin/collections/posts', 'Posts'],
       ['new entry', '/admin/collections/posts/new', 'New entry'],
+      ['new article (SEO panel)', '/admin/collections/articles/new', 'New entry'],
       ['singleton', '/admin/singletons/settings', 'Site settings'],
       ['users', '/admin/users', 'Users'],
       ['roles', '/admin/roles', 'Roles'],

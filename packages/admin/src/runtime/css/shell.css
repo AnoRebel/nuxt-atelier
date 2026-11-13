@@ -1066,3 +1066,29 @@ button:not(:disabled),
   flex-wrap: wrap;
   align-items: center;
 }
+.app-seo__previews {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+.app-seo__previews figure {
+  margin: 0;
+}
+.app-seo__url {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--content-secondary);
+  font-size: var(--type-body-sm);
+}
+.app-seo__headline {
+  margin: var(--space-1) 0;
+  color: var(--accent-primary-base);
+  font-weight: var(--weight-semibold);
+}
+.app-seo__image {
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 1.91;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}

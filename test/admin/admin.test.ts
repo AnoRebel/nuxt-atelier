@@ -247,6 +247,28 @@ describe('admin', async () => {
     expect(await (await fetch('/robots.txt')).text()).not.toContain('GPTBot')
   })
 
+  it('previews a routable entry in search results and shares, with advice that never blocks saving', async () => {
+    const page = await signIn()
+    await page.goto(url('/admin/collections/articles/new'))
+    await page.getByLabel('Title *').fill('Hello world')
+    await page.getByLabel('Slug *').fill('hello')
+    const panel = page.locator('[data-seo-panel]')
+    await panel.getByText('Hello world').first().waitFor()
+    await panel.getByText('Add a description').waitFor() // missing description: a warning
+    await page.getByRole('button', { name: 'Save', exact: true }).click() // and it saves anyway
+    await page.waitForURL(/\/admin\/collections\/articles\/(?!new)[^/]+$/)
+    await panel.getByText('/articles/hello').waitFor()
+
+    await page.getByLabel('Excerpt').fill('A short look at what the site is, who writes it, and how often it changes.')
+    await page.locator('[data-seo-checks]').waitFor({ state: 'detached' })
+    await panel.getByText('Nothing to improve.').waitFor()
+
+    // another article with the same title is flagged
+    await page.goto(url('/admin/collections/articles/new'))
+    await page.getByLabel('Title *').fill('Hello world')
+    await panel.getByText('Another entry has the same title').waitFor()
+  })
+
   it('keeps the site\'s CSS out of the admin, and the admin\'s CSS off the site\'s pages', async () => {
     const page = await createPage(url('/admin'))
     await page.getByLabel('Email').waitFor()
