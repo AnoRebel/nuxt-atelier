@@ -62,8 +62,9 @@ export default createConfigForNuxt({
     rules: { '@typescript-eslint/no-explicit-any': 'off' },
   },
   {
-    // the admin's components, and the app's replacements of them, are named after their part (Home, Shell)
-    files: ['packages/admin/src/runtime/components/**/*.vue', '**/app/atelier-admin/**/*.vue'],
+    // the admin's components, and the app's replacements of them, are named after their part (Home, Shell);
+    // the module's components get the Atelier prefix when registered (Form is <AtelierForm>)
+    files: ['packages/admin/src/runtime/components/**/*.vue', '**/app/atelier-admin/**/*.vue', 'packages/core/src/runtime/app/components/*.vue'],
     rules: { 'vue/multi-word-component-names': 'off' },
   },
   {

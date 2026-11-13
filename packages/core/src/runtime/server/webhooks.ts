@@ -11,7 +11,7 @@ import type { Db } from './db/entries'
 import { and, desc, eq, lt } from 'drizzle-orm'
 import { buildTables } from './db/tables'
 
-export const WEBHOOK_EVENTS = ['entry.saved', 'entry.published', 'entry.unpublished', 'entry.deleted'] as const
+export const WEBHOOK_EVENTS = ['entry.saved', 'entry.published', 'entry.unpublished', 'entry.deleted', 'form.submitted'] as const
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number]
 
 export interface Webhook {

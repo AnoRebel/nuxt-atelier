@@ -24,6 +24,7 @@
 //   atelier_presence        who has an entry or singleton open, and when they were last seen
 //   atelier_comments        comments on entries and their blocks, in threads; never part of published content
 //   atelier_notifications   a user's notifications: mentions, replies, lock takeovers
+//   atelier_form_submissions  what visitors sent through forms; uploaded files are in storage under forms/
 //   atelier_passkeys        their passkeys (WebAuthn credentials), when passkey sign-in is enabled
 //   atelier_jobs            the background job queue: due time, attempts, lock, last error
 //   atelier_media           the media library: one row per file, with its metadata and where it's stored
@@ -436,6 +437,15 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       readAt: kit.key('read_at', TIMESTAMP),
       createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
     }, t => [kit.index('atelier_notifications_user_idx').on(t.userId, t.createdAt)]),
+    atelier_form_submissions: kit.table('atelier_form_submissions', {
+      _id: kit.key('_id', ID).primaryKey(),
+      form: kit.key('form', ID).notNull(),
+      version: kit.int('form_version').notNull(), // the form's published version it answered
+      locale: kit.key('locale', 35).notNull(), // '' when the site isn't localized
+      data: kit.json('data').notNull(), // values by field name; files as { name, type, size }
+      emails: kit.key('emails', 1024).notNull(), // its email values, lowercased, between commas: for erasure requests
+      createdAt: kit.key('_created_at', TIMESTAMP).notNull(),
+    }, t => [kit.index('atelier_form_submissions_form_idx').on(t.form, t.createdAt)]),
     atelier_passkeys: kit.table('atelier_passkeys', {
       id: kit.key('_id', 255).primaryKey(), // the credential id, base64url
       userId: kit.key('user_id', ID).notNull(),

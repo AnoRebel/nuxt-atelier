@@ -84,6 +84,16 @@ CREATE TABLE `atelier_notifications` (
 	`_created_at` text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `atelier_form_submissions` (
+	`_id` text PRIMARY KEY,
+	`form` text NOT NULL,
+	`form_version` integer NOT NULL,
+	`locale` text NOT NULL,
+	`data` text NOT NULL,
+	`emails` text NOT NULL,
+	`_created_at` text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `atelier_passkeys` (
 	`_id` text PRIMARY KEY,
 	`user_id` text NOT NULL,
@@ -93,6 +103,16 @@ CREATE TABLE `atelier_passkeys` (
 	`name` text,
 	`_created_at` text NOT NULL,
 	`last_used_at` text
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_relations` (
+	`source` text NOT NULL,
+	`source_id` text NOT NULL,
+	`field` text NOT NULL,
+	`position` integer NOT NULL,
+	`target` text NOT NULL,
+	`target_id` text NOT NULL,
+	CONSTRAINT `atelier_relations_pk` PRIMARY KEY(`source`, `source_id`, `field`, `position`)
 );
 --> statement-breakpoint
 CREATE TABLE `atelier_jobs` (
@@ -107,16 +127,6 @@ CREATE TABLE `atelier_jobs` (
 	`locked_until` text,
 	`last_error` text,
 	`_created_at` text NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE `atelier_relations` (
-	`source` text NOT NULL,
-	`source_id` text NOT NULL,
-	`field` text NOT NULL,
-	`position` integer NOT NULL,
-	`target` text NOT NULL,
-	`target_id` text NOT NULL,
-	CONSTRAINT `atelier_relations_pk` PRIMARY KEY(`source`, `source_id`, `field`, `position`)
 );
 --> statement-breakpoint
 CREATE TABLE `atelier_media` (
@@ -202,6 +212,46 @@ CREATE TABLE `atelier_p_notes` (
 	`title` text
 );
 --> statement-breakpoint
+CREATE TABLE `atelier_c_atelier_forms` (
+	`_id` text PRIMARY KEY,
+	`_version` integer NOT NULL,
+	`_created_at` text NOT NULL,
+	`_updated_at` text NOT NULL,
+	`_created_by` text,
+	`title` text,
+	`fields` text,
+	`submitLabel` text,
+	`success` text,
+	`notify` text,
+	`confirmation` text,
+	`retentionDays` integer
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_p_atelier_forms` (
+	`_id` text PRIMARY KEY,
+	`_version` integer NOT NULL,
+	`_created_at` text NOT NULL,
+	`_updated_at` text NOT NULL,
+	`_created_by` text,
+	`title` text,
+	`fields` text,
+	`submitLabel` text,
+	`success` text,
+	`notify` text,
+	`confirmation` text,
+	`retentionDays` integer
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_p_relations` (
+	`source` text NOT NULL,
+	`source_id` text NOT NULL,
+	`field` text NOT NULL,
+	`position` integer NOT NULL,
+	`target` text NOT NULL,
+	`target_id` text NOT NULL,
+	CONSTRAINT `atelier_p_relations_pk` PRIMARY KEY(`source`, `source_id`, `field`, `position`)
+);
+--> statement-breakpoint
 CREATE TABLE `atelier_c_atelier_templates` (
 	`_id` text PRIMARY KEY,
 	`_version` integer NOT NULL,
@@ -224,16 +274,6 @@ CREATE TABLE `atelier_p_atelier_templates` (
 	`description` text,
 	`type` text,
 	`data` text
-);
---> statement-breakpoint
-CREATE TABLE `atelier_p_relations` (
-	`source` text NOT NULL,
-	`source_id` text NOT NULL,
-	`field` text NOT NULL,
-	`position` integer NOT NULL,
-	`target` text NOT NULL,
-	`target_id` text NOT NULL,
-	CONSTRAINT `atelier_p_relations_pk` PRIMARY KEY(`source`, `source_id`, `field`, `position`)
 );
 --> statement-breakpoint
 CREATE TABLE `atelier_routes` (
@@ -297,10 +337,11 @@ CREATE INDEX `atelier_presence_entry_idx` ON `atelier_presence` (`type`,`entry`)
 CREATE INDEX `atelier_comments_entry_idx` ON `atelier_comments` (`type`,`entry`);--> statement-breakpoint
 CREATE INDEX `atelier_comments_thread_idx` ON `atelier_comments` (`thread`);--> statement-breakpoint
 CREATE INDEX `atelier_notifications_user_idx` ON `atelier_notifications` (`user_id`,`_created_at`);--> statement-breakpoint
+CREATE INDEX `atelier_form_submissions_form_idx` ON `atelier_form_submissions` (`form`,`_created_at`);--> statement-breakpoint
 CREATE INDEX `atelier_passkeys_user_idx` ON `atelier_passkeys` (`user_id`);--> statement-breakpoint
+CREATE INDEX `atelier_relations_target_idx` ON `atelier_relations` (`target`,`target_id`);--> statement-breakpoint
 CREATE INDEX `atelier_jobs_due_idx` ON `atelier_jobs` (`status`,`run_at`);--> statement-breakpoint
 CREATE UNIQUE INDEX `atelier_jobs_key_idx` ON `atelier_jobs` (`key`);--> statement-breakpoint
-CREATE INDEX `atelier_relations_target_idx` ON `atelier_relations` (`target`,`target_id`);--> statement-breakpoint
 CREATE INDEX `atelier_media_folder_idx` ON `atelier_media` (`folder`);--> statement-breakpoint
 CREATE INDEX `atelier_media_created_idx` ON `atelier_media` (`_created_at`);--> statement-breakpoint
 CREATE INDEX `atelier_webhook_deliveries_webhook_idx` ON `atelier_webhook_deliveries` (`webhook_id`,`at`);--> statement-breakpoint
