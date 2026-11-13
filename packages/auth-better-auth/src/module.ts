@@ -34,6 +34,7 @@ const module: NuxtModule = defineNuxtModule({
 
     addServerPlugin(resolve('./runtime/server/plugin'))
     addServerHandler({ route: '/api/auth/**', handler: resolve('./runtime/server/handler') })
+    addServerHandler({ route: '/api/_atelier/auth/oauth/**', method: 'get', handler: resolve('./runtime/server/oauth') })
   },
 })
 

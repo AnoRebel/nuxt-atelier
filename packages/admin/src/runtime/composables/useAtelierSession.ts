@@ -8,9 +8,10 @@ export function useAtelierSession() {
   const client = useQueryClient()
   const me = useQuery({ queryKey: ['atelier', 'me'], queryFn: () => atelierFetch<{ user: AdminUser | null }>('/auth/me') })
   const setup = useQuery({ queryKey: ['atelier', 'setup'], queryFn: () => atelierFetch<{ needed: boolean }>('/setup') })
+  const providers = useQuery({ queryKey: ['atelier', 'providers'], queryFn: () => atelierFetch<{ providers: { id: string, name: string, url: string }[] }>('/auth/providers'), staleTime: Infinity })
   // a new user sees other data: drop everything cached, then read who's signed in
   const reset = async () => {
-    client.removeQueries({ predicate: q => q.queryKey[1] !== 'me' && q.queryKey[1] !== 'setup' })
+    client.removeQueries({ predicate: q => !['me', 'setup', 'providers'].includes(q.queryKey[1] as string) })
     await client.invalidateQueries({ queryKey: ['atelier'] })
   }
 
@@ -30,6 +31,8 @@ export function useAtelierSession() {
     loading: computed(() => me.isPending.value || setup.isPending.value),
     /** No user exists yet: show first-run setup. */
     setupNeeded: computed(() => setup.data.value?.needed ?? false),
+    /** Other ways to sign in (the auth adapter's OAuth providers): links that come back to `redirect`. */
+    providers: computed(() => providers.data.value?.providers ?? []),
     signIn,
     signOut,
     createAdmin,

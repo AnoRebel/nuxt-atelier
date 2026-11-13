@@ -170,7 +170,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
         return transformBlockSfc(code, id)
       },
     })
-    for (const [route, method] of [['login', 'post'], ['logout', 'post'], ['me', 'get']] as const)
+    for (const [route, method] of [['login', 'post'], ['logout', 'post'], ['me', 'get'], ['providers', 'get']] as const)
       addServerHandler({ route: `/api/_atelier/auth/${route}`, method, handler: resolve(`./runtime/server/api/auth/${route}.${method}`) })
     if (resolved.auth.passkeys) // off: no passkey routes, so they 404 and nothing of @simplewebauthn is bundled
       addServerHandler({ route: '/api/_atelier/auth/passkeys/**', handler: resolve('./runtime/server/api/auth/passkeys') })

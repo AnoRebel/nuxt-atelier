@@ -10,7 +10,9 @@ import CnButton from '../crystal-neuo/components/Button.vue'
 import CnInput from '../crystal-neuo/components/Input.vue'
 import Icon from './Icon'
 
-const { signIn } = useAtelierSession()
+const { signIn, providers } = useAtelierSession()
+// back to where the user was in the admin after signing in with a provider
+const providerLink = (url: string) => `${url}${url.includes('?') ? '&' : '?'}redirect=${encodeURIComponent(location.pathname + location.search)}`
 const { passkeys } = useAtelierAdmin()
 const client = useQueryClient()
 const form = reactive({ email: '', password: '' })
@@ -92,4 +94,20 @@ async function withPasskey() {
       </CnButton>
     </div>
   </form>
+  <div
+    v-if="providers.length"
+    class="app-stack app-providers"
+  >
+    <p class="app-muted">
+      Or continue with
+    </p>
+    <a
+      v-for="p in providers"
+      :key="p.id"
+      :href="providerLink(p.url)"
+      class="cn-button cn-button--secondary cn-button--size-md"
+    >
+      {{ p.name }}
+    </a>
+  </div>
 </template>
