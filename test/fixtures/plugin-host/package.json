@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@nuxt-atelier/admin": "workspace:*",
     "@nuxt-atelier/fixture-plugin-events": "workspace:*",
     "nuxt": "catalog:"
   }

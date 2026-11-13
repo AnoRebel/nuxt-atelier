@@ -54,7 +54,6 @@
     },
     "packages/admin": {
       "entry": [
-        "src/module.ts",
         "src/runtime/pages/*.vue",
         "src/runtime/passkeys*.ts",
         "src/runtime/composables/*.ts",
