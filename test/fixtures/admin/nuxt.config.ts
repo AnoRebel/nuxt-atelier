@@ -4,7 +4,7 @@ export default defineNuxtConfig({
   modules: ['../../../packages/core/src/module', '../../../packages/admin/src/module'],
   css: ['~/assets/hostile.css'],
   compatibilityDate: '2026-10-01',
-  atelier: { migrations: { autoApply: true } },
+  atelier: { migrations: { autoApply: true }, locales: { codes: ['en', 'de'] } },
   // an admin page of the app's own, for those who manage settings
   atelierAdmin: {
     // a partial German admin: what it lacks shows in English

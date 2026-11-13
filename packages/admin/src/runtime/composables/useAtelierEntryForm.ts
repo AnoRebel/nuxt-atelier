@@ -15,6 +15,8 @@ export interface EntryFormTarget {
   name: string
   /** A collection entry's id; none for a new entry. */
   id?: string
+  /** Localized collections: a new entry's locale (the default locale when unset). */
+  locale?: string
 }
 
 type Saved = Entry & { version: number }
@@ -121,7 +123,7 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
 
   const save = useMutation({
     mutationFn: (data: Record<string, unknown>) => isNew.value
-      ? atelierFetch<Saved>(base.value, { method: 'POST', body: { data } })
+      ? atelierFetch<Saved>(base.value, { method: 'POST', body: { data, ...t.value.locale ? { locale: t.value.locale } : {} } })
       : atelierFetch<Saved>(url.value, { method: 'PATCH', body: { version: version.value, data } }),
     onSuccess: async (saved) => {
       forgetRecovery()
@@ -136,6 +138,11 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
     onSuccess: invalidate,
   })
   const unpublish = useMutation({ mutationFn: () => atelierFetch<Saved>(`${url.value}/unpublish`, { method: 'POST' }), onSuccess: invalidate })
+  /** Localized collections: a new version of this entry in `locale`, prefilled with this one's data. */
+  const translate = useMutation({
+    mutationFn: (locale: string) => atelierFetch<Saved>(`${url.value}/translations`, { method: 'POST', body: { locale } }),
+    onSuccess: invalidate,
+  })
   const remove = useMutation({ mutationFn: () => atelierFetch(url.value, { method: 'DELETE' }), onSuccess: () => (forgetRecovery(), invalidate()) })
 
   /**
@@ -166,6 +173,10 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
     /** Saved changes the site doesn't show yet. */
     unpublished: computed(() => !!entry.data.value && entry.data.value.publishedVersion !== entry.data.value.version),
     save,
+    translate,
+    /** Localized collections: this version's locale, and the ids of its translations by locale. */
+    locale: computed(() => entry.data.value?.locale ?? t.value.locale),
+    translations: computed(() => entry.data.value?.translations ?? {}),
     publish,
     unpublish,
     remove,
