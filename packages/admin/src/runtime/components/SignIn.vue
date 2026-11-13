@@ -9,6 +9,9 @@ import CnAlert from '../crystal-neuo/components/Alert.vue'
 import CnButton from '../crystal-neuo/components/Button.vue'
 import CnInput from '../crystal-neuo/components/Input.vue'
 import Icon from './Icon'
+import { useAdminI18n } from '../i18n'
+
+const { t } = useAdminI18n()
 
 const { signIn, providers } = useAtelierSession()
 // back to where the user was in the admin after signing in with a provider
@@ -26,7 +29,7 @@ async function submit() {
   }
   catch (e) {
     const failure = e as AdminApiError
-    error.value = failure.status === 429 ? 'Too many attempts. Try again in a few minutes.' : failure.status === 401 ? 'Wrong email or password.' : failure.message
+    error.value = failure.status === 429 ? t('signIn.tooMany') : failure.status === 401 ? t('signIn.wrong') : failure.message
   }
 }
 
@@ -39,7 +42,7 @@ async function withPasskey() {
     await client.invalidateQueries({ queryKey: ['atelier'] })
   }
   catch (e) {
-    error.value = (e as AdminApiError).message || 'The passkey sign-in didn\'t complete.'
+    error.value = (e as AdminApiError).message || t('signIn.passkeyFailed')
   }
   finally {
     passkeyPending.value = false
@@ -49,7 +52,7 @@ async function withPasskey() {
 
 <template>
   <h1 class="app-page__title">
-    Sign in
+    {{ t('signIn.title') }}
   </h1>
   <form
     class="app-form"
@@ -57,14 +60,14 @@ async function withPasskey() {
   >
     <CnInput
       v-model="form.email"
-      label="Email"
+      :label="t('common.email')"
       type="email"
       autocomplete="username webauthn"
       required
     />
     <CnInput
       v-model="form.password"
-      label="Password"
+      :label="t('common.password')"
       type="password"
       autocomplete="current-password"
       required
@@ -81,7 +84,7 @@ async function withPasskey() {
         type="submit"
         :loading="signIn.isPending.value"
       >
-        Sign in
+        {{ t('signIn.title') }}
       </CnButton>
       <CnButton
         v-if="passkeys"
@@ -90,7 +93,7 @@ async function withPasskey() {
         @click="withPasskey"
       >
         <Icon name="key-round" />
-        Sign in with a passkey
+        {{ t('signIn.passkey') }}
       </CnButton>
     </div>
   </form>
@@ -99,7 +102,7 @@ async function withPasskey() {
     class="app-stack app-providers"
   >
     <p class="app-muted">
-      Or continue with
+      {{ t('signIn.or') }}
     </p>
     <a
       v-for="p in providers"

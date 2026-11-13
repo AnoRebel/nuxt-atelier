@@ -20,8 +20,10 @@ import { useAdminToast } from '../toast'
 import Icon from './Icon'
 import NotFound from './NotFound.vue'
 import Page from './Page.vue'
+import { useAdminI18n } from '../i18n'
 
 const props = defineProps<{ name: string }>()
+const { t } = useAdminI18n()
 const { to } = useAtelierAdmin()
 const toast = useAdminToast()
 const list = useAtelierCollection(() => props.name)
@@ -45,8 +47,8 @@ function toggle(id: string, on: boolean) {
 const toggleAll = (on: boolean) => selection.value = new Set(on ? list.entries.value.map(e => e.id) : [])
 
 const status = (e: Entry) => e.publishedVersion === null
-  ? { label: 'Draft', variant: 'neutral' as const }
-  : e.publishedVersion === e.version ? { label: 'Published', variant: 'success' as const } : { label: 'Changed', variant: 'warning' as const }
+  ? { label: t('status.draft'), variant: 'neutral' as const }
+  : e.publishedVersion === e.version ? { label: t('status.published'), variant: 'success' as const } : { label: t('status.changed'), variant: 'warning' as const }
 const text = (value: unknown) => value === null || value === undefined ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value)
 const sortBy = (key: string) => state.sort = state.sort === key ? `-${key}` : key
 const sortState = (key: string) => state.sort === key ? 'ascending' : state.sort === `-${key}` ? 'descending' : undefined
@@ -58,9 +60,9 @@ const setColumn = (key: string, on: boolean) => state.columns = on ? [...state.c
 function report(action: string, result: BulkResult) {
   selection.value = new Set()
   if (result.failed.length)
-    toast.add({ color: 'error', title: `${action}: ${result.failed.length} of ${result.failed.length + result.succeeded.length} failed`, description: result.failed.map(f => f.error.message).join('\n') })
+    toast.add({ color: 'error', title: t('list.failed', { action, failed: result.failed.length, total: result.failed.length + result.succeeded.length }), description: result.failed.map(f => f.error.message).join('\n') })
   else
-    toast.add({ color: 'success', title: `${action}: ${result.succeeded.length} done` })
+    toast.add({ color: 'success', title: t('list.done', { action, count: result.succeeded.length }) })
 }
 function download(format: 'json' | 'csv') {
   const blob = new Blob([list.exportEntries(selected.value.length ? selected.value : list.entries.value, format)], { type: format === 'json' ? 'application/json' : 'text/csv' })
@@ -71,13 +73,13 @@ function download(format: 'json' | 'csv') {
 const bulk = computed(() => [
   ...type.value?.can.publish && type.value.versioned
     ? [
-        { label: 'Publish', onSelect: async () => report('Publish', await list.publish.mutateAsync(selected.value)) },
-        { label: 'Unpublish', onSelect: async () => report('Unpublish', await list.unpublish.mutateAsync(selected.value)) },
+        { label: t('list.publish'), onSelect: async () => report(t('list.publish'), await list.publish.mutateAsync(selected.value)) },
+        { label: t('list.unpublish'), onSelect: async () => report(t('list.unpublish'), await list.unpublish.mutateAsync(selected.value)) },
       ]
     : [],
-  { label: 'Export JSON', onSelect: () => download('json') },
-  { label: 'Export CSV', onSelect: () => download('csv') },
-  ...type.value?.can.delete ? [{ separator: true as const }, { label: 'Delete', danger: true, onSelect: async () => report('Delete', await list.remove.mutateAsync(selected.value)) }] : [],
+  { label: t('list.exportJson'), onSelect: () => download('json') },
+  { label: t('list.exportCsv'), onSelect: () => download('csv') },
+  ...type.value?.can.delete ? [{ separator: true as const }, { label: t('common.delete'), danger: true, onSelect: async () => report(t('common.delete'), await list.remove.mutateAsync(selected.value)) }] : [],
 ])
 </script>
 
@@ -95,15 +97,15 @@ const bulk = computed(() => [
         class="cn-button cn-button--primary cn-button--size-md"
       >
         <Icon name="plus" />
-        New
+        {{ t('list.new') }}
       </NuxtLink>
     </template>
     <template #toolbar>
       <CnInput
         v-model="state.search"
-        label="Search"
+        :label="t('list.search')"
         type="search"
-        placeholder="Search"
+        :placeholder="t('list.search')"
       />
       <div class="app-row">
         <CnMenu
@@ -112,7 +114,7 @@ const bulk = computed(() => [
           trigger-variant="secondary"
         >
           <template #trigger>
-            {{ selected.length }} selected
+            {{ t('list.selected', { count: selected.length }) }}
             <Icon name="chevron-down" />
           </template>
         </CnMenu>
@@ -120,7 +122,7 @@ const bulk = computed(() => [
           variant="secondary"
           @click="columnsOpen = true"
         >
-          Columns
+          {{ t('list.columns') }}
         </CnButton>
       </div>
     </template>
@@ -136,7 +138,7 @@ const bulk = computed(() => [
               <CnCheckbox
                 :checked="allSelected"
                 :indeterminate="!!selected.length && !allSelected"
-                label="Select all"
+                :label="t('list.selectAll')"
                 class="app-check"
                 @update:checked="toggleAll"
               />
@@ -160,7 +162,7 @@ const bulk = computed(() => [
               </button>
             </th>
             <th scope="col">
-              Status
+              {{ t('list.status') }}
             </th>
             <th
               scope="col"
@@ -171,7 +173,7 @@ const bulk = computed(() => [
                 class="app-sort"
                 @click="sortBy('_updatedAt')"
               >
-                Updated
+                {{ t('list.updated') }}
                 <Icon
                   v-if="sortState('_updatedAt')"
                   :name="sortState('_updatedAt') === 'ascending' ? 'chevron-up' : 'chevron-down'"
@@ -200,7 +202,7 @@ const bulk = computed(() => [
               <div class="app-empty">
                 <Icon name="files" />
                 <p class="app-empty__title">
-                  {{ state.search ? 'No matches' : 'No entries yet' }}
+                  {{ state.search ? t('list.noMatches') : t('list.empty') }}
                 </p>
               </div>
             </td>
@@ -214,7 +216,7 @@ const bulk = computed(() => [
             <td>
               <CnCheckbox
                 :checked="selection.has(entry.id)"
-                label="Select"
+                :label="t('list.select')"
                 class="app-check"
                 @update:checked="(on: boolean) => toggle(entry.id, on)"
               />
@@ -227,7 +229,7 @@ const bulk = computed(() => [
                 v-if="i === 0"
                 :to="to('collections', name, entry.id)"
               >
-                {{ text(entry.data[key]) || '(untitled)' }}
+                {{ text(entry.data[key]) || t('common.untitled') }}
               </NuxtLink>
               <template v-else>
                 {{ text(entry.data[key]) }}
@@ -249,7 +251,7 @@ const bulk = computed(() => [
       </table>
     </div>
     <div class="app-row app-row--between">
-      <span class="app-muted">{{ list.total.value }} {{ list.total.value === 1 ? 'entry' : 'entries' }}</span>
+      <span class="app-muted">{{ list.total.value === 1 ? t('list.countOne') : t('list.count', { count: list.total.value }) }}</span>
       <CnPagination
         v-if="list.pages.value > 1"
         v-model:page="state.page"
@@ -259,7 +261,7 @@ const bulk = computed(() => [
 
     <CnModal
       v-model:open="columnsOpen"
-      title="Columns"
+      :title="t('list.columns')"
       size="sm"
     >
       <div class="app-stack">
@@ -273,7 +275,7 @@ const bulk = computed(() => [
       </div>
       <div class="cn-modal__actions">
         <CnButton @click="columnsOpen = false">
-          Done
+          {{ t('common.done') }}
         </CnButton>
       </div>
     </CnModal>

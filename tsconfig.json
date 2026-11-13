@@ -13,6 +13,9 @@
       ],
       "#atelier-admin-pages": [
         "./test/admin/stubs/pages.ts"
+      ],
+      "#atelier-admin-languages": [
+        "./test/admin/stubs/languages.ts"
       ]
     }
   },

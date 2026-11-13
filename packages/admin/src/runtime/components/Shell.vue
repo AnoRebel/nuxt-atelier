@@ -16,6 +16,9 @@ import CnMenu from '../crystal-neuo/components/Menu.vue'
 import { useOverrides } from '../overrides'
 import Brand from './Brand.vue'
 import Icon from './Icon'
+import { useAdminI18n } from '../i18n'
+
+const { t } = useAdminI18n()
 
 const route = useRoute()
 const { base } = useAtelierAdmin()
@@ -48,9 +51,9 @@ const topEntries = computed(() => groups.value.map(g => ({
   menu: g.items.map(i => ({ label: i.label, onSelect: () => navigateTo(i.to) })),
 })))
 const account = computed(() => [
-  { label: 'Appearance', onSelect: openModal },
+  { label: t('common.appearance'), onSelect: openModal },
   { separator: true as const },
-  { label: 'Sign out', onSelect: () => signOut.mutate() },
+  { label: t('nav.signOut'), onSelect: () => signOut.mutate() },
 ])
 </script>
 
@@ -70,7 +73,7 @@ const account = computed(() => [
       v-if="nav === 'sidebar'"
       class="app-side"
       :class="{ 'cn-glass': sidebar !== 'expanded' }"
-      aria-label="Admin"
+      :aria-label="t('nav.label')"
     >
       <div class="app-side__head">
         <component
@@ -80,7 +83,7 @@ const account = computed(() => [
       </div>
       <nav
         class="app-nav"
-        aria-label="Admin"
+        :aria-label="t('nav.label')"
       >
         <div
           v-for="g in groups"
@@ -128,7 +131,7 @@ const account = computed(() => [
         <button
           type="button"
           class="app-icon-button app-menu-toggle"
-          aria-label="Open navigation"
+          :aria-label="t('nav.open')"
           :aria-expanded="drawerOpen"
           @click="drawerOpen = true"
         >
@@ -138,7 +141,7 @@ const account = computed(() => [
           v-if="nav === 'sidebar'"
           type="button"
           class="app-icon-button app-rail-toggle"
-          :aria-label="rail ? 'Expand sidebar' : 'Collapse sidebar'"
+          :aria-label="rail ? t('nav.expand') : t('nav.collapse')"
           :aria-pressed="rail"
           @click="toggleRail"
         >
@@ -148,7 +151,7 @@ const account = computed(() => [
           <component :is="brand" />
           <nav
             class="app-topbar__nav"
-            aria-label="Admin"
+            :aria-label="t('nav.label')"
           >
             <template
               v-for="e in topEntries"
@@ -180,7 +183,7 @@ const account = computed(() => [
           <button
             type="button"
             class="app-icon-button"
-            aria-label="Appearance"
+            :aria-label="t('common.appearance')"
             aria-haspopup="dialog"
             @click="openModal"
           >
@@ -214,12 +217,12 @@ const account = computed(() => [
 
     <CnDrawer
       v-model:open="drawerOpen"
-      title="Navigation"
+      :title="t('nav.title')"
       size="sm"
     >
       <nav
         class="app-nav app-drawer-nav"
-        aria-label="Admin"
+        :aria-label="t('nav.label')"
       >
         <div
           v-for="g in groups"

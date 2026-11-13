@@ -17,6 +17,9 @@ import { useAdminToast } from '../toast'
 import Icon from './Icon'
 import NotFound from './NotFound.vue'
 import Page from './Page.vue'
+import { useAdminI18n } from '../i18n'
+
+const { t } = useAdminI18n()
 
 const { manages } = useAtelierPermissions()
 const { schema } = useAtelierAdminSchema()
@@ -44,7 +47,7 @@ async function submit() {
       await update.mutateAsync({ id: editing.value, ...body })
     else
       await create.mutateAsync(body)
-    toast.add({ color: 'success', title: editing.value ? 'User saved' : 'User created' })
+    toast.add({ color: 'success', title: editing.value ? t('users.saved') : t('users.created') })
     editing.value = undefined
   }
   catch (e) {
@@ -58,10 +61,10 @@ async function confirmDelete() {
   const user = deleting.value!
   try {
     await remove.mutateAsync(user.id)
-    toast.add({ color: 'success', title: `${user.email} deleted` })
+    toast.add({ color: 'success', title: t('users.deleted', { email: user.email }) })
   }
   catch (e) {
-    toast.add({ color: 'error', title: 'Not deleted', description: (e as AdminApiError).message })
+    toast.add({ color: 'error', title: t('common.notDeleted'), description: (e as AdminApiError).message })
   }
 }
 </script>
@@ -73,41 +76,41 @@ async function confirmDelete() {
   />
   <Page
     v-else
-    title="Users"
+    :title="t('nav.users')"
     icon="users"
-    description="Everyone who can sign in to the admin, and their role."
+    :description="t('users.description')"
   >
     <template #actions>
       <CnButton @click="edit(null)">
         <Icon name="plus" />
-        New user
+        {{ t('users.new') }}
       </CnButton>
     </template>
     <div class="app-table-wrap">
       <table class="cn-table">
         <caption class="sr-only">
-          Users
+          {{ t('nav.users') }}
         </caption>
         <thead>
           <tr>
             <th scope="col">
-              Name
+              {{ t('common.name') }}
             </th>
             <th scope="col">
-              Email
+              {{ t('common.email') }}
             </th>
             <th scope="col">
-              Role
+              {{ t('common.role') }}
             </th>
             <th scope="col">
-              <span class="sr-only">Actions</span>
+              <span class="sr-only">{{ t('common.actions') }}</span>
             </th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading">
             <td colspan="4">
-              Loading…
+              {{ t('common.loading') }}
             </td>
           </tr>
           <tr
@@ -128,15 +131,15 @@ async function confirmDelete() {
               <CnButton
                 variant="ghost"
                 size="sm"
-                :aria-label="`Edit ${user.email}`"
+                :aria-label="t('users.editOne', { email: user.email })"
                 @click="edit(user)"
               >
-                Edit
+                {{ t('common.edit') }}
               </CnButton>
               <CnButton
                 variant="ghost"
                 size="sm"
-                :aria-label="`Delete ${user.email}`"
+                :aria-label="t('users.deleteOne', { email: user.email })"
                 @click="deleting = user"
               >
                 <Icon name="trash-2" />
@@ -149,7 +152,7 @@ async function confirmDelete() {
 
     <CnModal
       v-model:open="open"
-      :title="editing ? 'Edit user' : 'New user'"
+      :title="editing ? t('users.edit') : t('users.new')"
     >
       <form
         class="app-form"
@@ -157,27 +160,27 @@ async function confirmDelete() {
       >
         <CnInput
           v-model="form.email"
-          label="Email"
+          :label="t('common.email')"
           type="email"
           required
           autocomplete="off"
         />
         <CnInput
           v-model="form.name"
-          label="Name"
+          :label="t('common.name')"
           autocomplete="off"
         />
         <CnSelect
           v-model="form.role"
-          label="Role"
+          :label="t('common.role')"
           :options="roleOptions"
         />
         <CnInput
           v-model="form.password"
-          label="Password"
+          :label="t('common.password')"
           type="password"
           autocomplete="new-password"
-          :hint="editing ? 'Leave empty to keep it. A new password signs them out everywhere.' : 'At least 8 characters. Leave empty if they sign in another way.'"
+          :hint="editing ? t('users.passwordKeep') : t('users.passwordNew')"
         />
         <CnAlert
           v-if="error"
@@ -191,22 +194,22 @@ async function confirmDelete() {
             variant="ghost"
             @click="editing = undefined"
           >
-            Cancel
+            {{ t('common.cancel') }}
           </CnButton>
           <CnButton
             type="submit"
             :loading="create.isPending.value || update.isPending.value"
           >
-            {{ editing ? 'Save' : 'Create user' }}
+            {{ editing ? t('common.save') : t('users.create') }}
           </CnButton>
         </div>
       </form>
     </CnModal>
     <CnDialog
       v-model:open="confirmOpen"
-      :title="`Delete ${deleting?.email}?`"
-      description="They can't sign in any more. Their entries stay."
-      confirm-label="Delete"
+      :title="t('users.deleteTitle', { email: deleting?.email })"
+      :description="t('users.deleteBody')"
+      :confirm-label="t('common.delete')"
       variant="destructive"
       @confirm="confirmDelete"
     />

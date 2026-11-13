@@ -20,6 +20,7 @@ import CnToggle from '../crystal-neuo/components/Toggle.vue'
 import { pascal, useOverrides } from '../overrides'
 import Icon from './Icon'
 import RelatedCreate from './RelatedCreate.vue'
+import { useAdminI18n } from '../i18n'
 
 defineOptions({ name: 'AtelierAdminFieldInput' })
 
@@ -33,6 +34,7 @@ const props = defineProps<{
   sibling: Record<string, unknown>
   readOnly?: boolean
 }>()
+const { t } = useAdminI18n()
 
 const label = computed(() => (props.field.label ?? humanize(props.name.split('.').pop()!)) + (props.field.required ? ' *' : ''))
 const visible = computed(() => applies(props.field, props.sibling ?? {}, props.root ?? {}))
@@ -145,7 +147,7 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
                 @click="list.removeValue(i)"
               >
                 <Icon name="trash-2" />
-                Remove
+                {{ t('field.remove') }}
               </CnButton>
             </div>
           </div>
@@ -157,7 +159,7 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
               @click="list.pushValue({})"
             >
               <Icon name="plus" />
-              Add
+              {{ t('field.add') }}
             </CnButton>
           </div>
         </fieldset>
@@ -263,7 +265,7 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
             :model-value="docText(f.state.value)"
             :label="label"
             :rows="8"
-            :hint="field.help ?? 'Paragraphs separated by a blank line.'"
+            :hint="field.help ?? t('field.richTextHint')"
             :error="errorOf(f)"
             :disabled="readOnly"
             @update:model-value="(v: string) => f.handleChange(textDoc(v))"
@@ -284,7 +286,7 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
             :model-value="json(f.state.value)"
             :label="label"
             :rows="6"
-            :hint="field.help ?? 'JSON'"
+            :hint="field.help ?? t('field.jsonHint')"
             :error="errorOf(f)"
             :disabled="readOnly"
             @update:model-value="(v: string) => parseJson(v, f.handleChange)"
@@ -295,7 +297,7 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
             :model-value="(f.state.value as string) ?? ''"
             :label="label"
             :type="inputType[field.type] ?? 'text'"
-            :hint="field.type === 'media' ? (field.help ?? 'A media item id') : field.help"
+            :hint="field.type === 'media' ? (field.help ?? t('field.mediaHint')) : field.help"
             :error="errorOf(f)"
             :disabled="readOnly"
             :maxlength="'maxLength' in field ? field.maxLength : undefined"
@@ -310,7 +312,7 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
                 @click="creating = true"
               >
                 <Icon name="plus" />
-                New {{ singularLabel(target).toLowerCase() }}
+                {{ t('field.newRelated', { name: singularLabel(target).toLowerCase() }) }}
               </CnButton>
             </div>
             <RelatedCreate

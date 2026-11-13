@@ -10,6 +10,7 @@ import { useBranding } from '../branding'
 import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
 import { allowed } from '../composables/useAtelierNavigation'
 import { useAtelierSession } from '../composables/useAtelierSession'
+import { startLanguage, useAdminI18n } from '../i18n'
 import { useOverrides } from '../overrides'
 import AppearanceModal from './AppearanceModal.vue'
 import AuthFrame from './AuthFrame.vue'
@@ -28,6 +29,7 @@ import Users from './Users.vue'
 
 const props = defineProps<{ root: HTMLElement }>()
 
+const { t } = useAdminI18n()
 const view = useOverrides()
 const views = {
   Home: view('Home', Home),
@@ -43,6 +45,9 @@ const views = {
 
 const branding = useBranding()
 setDefaultAppearance(branding.value.appearance)
+// the interface language, loaded before the first screen so it doesn't flash in English
+const languageReady = ref(false)
+void startLanguage(branding.value.language).finally(() => languageReady.value = true)
 const { appearance } = useAppearance()
 const media = matchMedia('(prefers-color-scheme: dark)')
 const systemDark = ref(media.matches)
@@ -82,12 +87,12 @@ const pageAllowed = computed(() => !!page.value && !!schema.value && allowed(pag
 
 <template>
   <div
-    v-if="session.loading.value"
+    v-if="session.loading.value || !languageReady"
     class="app-loading"
     role="status"
   >
     <Icon name="loader-circle" />
-    <span class="sr-only">Loading</span>
+    <span class="sr-only">{{ t('common.loading') }}</span>
   </div>
   <AuthFrame v-else-if="session.setupNeeded.value || !session.user.value">
     <component

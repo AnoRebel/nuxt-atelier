@@ -51,7 +51,20 @@ export interface AdminPage {
   component: string
 }
 
+/** An admin interface language: its own name, and its messages (JSON files, merged in order). */
+export interface AdminLanguage {
+  /** Its name in that language: `Deutsch`. */
+  name: string
+  /** Catalog files (`~/admin-i18n/de.json`); a key missing from them shows in English. */
+  messages: string | string[]
+}
+
 export interface ModuleOptions {
+  /**
+   * Admin interface languages by code (`de`, `pt-br`), loaded when someone picks one. English ships with the
+   * admin; giving `en` adds to or changes its text. Plugins add theirs with the `atelier:admin:languages` hook.
+   */
+  languages?: Record<string, AdminLanguage>
   /** Pages added to the admin. Plugins add theirs with the `atelier:admin:pages` hook. */
   pages?: AdminPage[]
   /** More Lucide icons to bundle, for custom pages and content types. */
@@ -62,6 +75,8 @@ declare module '@nuxt/schema' {
   interface NuxtHooks {
     /** Add or change admin pages: plugins push theirs. */
     'atelier:admin:pages': (pages: AdminPage[]) => void | Promise<void>
+    /** Add admin interface languages, or messages to one (a plugin's own pages' text). */
+    'atelier:admin:languages': (languages: Record<string, AdminLanguage>) => void | Promise<void>
   }
 }
 
@@ -73,7 +88,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       nuxt: '>=4.6.0',
     },
   },
-  defaults: { pages: [], icons: [] },
+  defaults: { pages: [], icons: [], languages: {} },
   setup(options, nuxt) {
     const { resolve } = createResolver(import.meta.url)
     // the core's options as written, so the order of the two modules doesn't matter
@@ -95,7 +110,11 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     nuxt.options.alias['#atelier-admin-passkeys'] = resolve(core?.auth?.passkeys === true ? './runtime/passkeys' : './runtime/passkeys-off')
     // icons: the kit's, the pages', and `icons` (for content types' `admin.icon`, say)
     const pages: AdminPage[] = [...options.pages ?? []]
-    nuxt.hook('modules:done', () => nuxt.callHook('atelier:admin:pages', pages))
+    const languages: Record<string, AdminLanguage> = { ...options.languages }
+    nuxt.hook('modules:done', async () => {
+      await nuxt.callHook('atelier:admin:pages', pages)
+      await nuxt.callHook('atelier:admin:languages', languages)
+    })
     nuxt.options.alias['#atelier-admin-icons'] = addTemplate({
       filename: 'atelier/admin-icons.mjs',
       getContents: () => iconsTemplate([...new Set([...ICONS, ...options.icons ?? [], ...pages.flatMap(p => p.icon ? [p.icon] : [])])]),
@@ -110,11 +129,26 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
         return `export default [\n${entries.join('\n')}\n]\n`
       },
     }).dst
+    // admin languages, each loaded when chosen
+    nuxt.options.alias['#atelier-admin-languages'] = addTemplate({
+      filename: 'atelier/admin-languages.mjs',
+      getContents: async () => {
+        const entries = await Promise.all(Object.entries(languages).map(async ([code, { name, messages }]) => {
+          const files = await Promise.all([messages].flat().map(file => resolvePath(file)))
+          return `  { code: ${JSON.stringify(code.toLowerCase())}, name: ${JSON.stringify(name)}, messages: [${files.map(f => `() => import(${JSON.stringify(f)})`).join(', ')}] },`
+        }))
+        return `export default [\n${entries.join('\n')}\n]\n`
+      },
+    }).dst
     addTypeTemplate({
       filename: 'types/atelier-admin.d.ts',
       getContents: () => `declare module '#atelier-admin-pages' {
   const pages: { path: string, label: string, icon?: string, group?: string, order?: number, requires: string[], component: () => Promise<{ default: import('vue').Component }> }[]
   export default pages
+}
+declare module '#atelier-admin-languages' {
+  const languages: { code: string, name: string, messages: (() => Promise<{ default: Record<string, string> }>)[] }[]
+  export default languages
 }
 declare module '#atelier-admin-icons' {
   const icons: Record<string, { body: string, width: number, height: number }>
@@ -153,6 +187,7 @@ declare module '#atelier-admin-passkeys' {
       'useAtelierAdminPortal',
       'useAtelierDashboard',
     ].map(name => ({ name, from: resolve(`./runtime/composables/${name}`) })))
+    addImports({ name: 'useAdminI18n', from: resolve('./runtime/i18n') })
   },
 })
 

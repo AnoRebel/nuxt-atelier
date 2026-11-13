@@ -6,6 +6,9 @@ import { useAtelierSession } from '../composables/useAtelierSession'
 import CnAlert from '../crystal-neuo/components/Alert.vue'
 import CnButton from '../crystal-neuo/components/Button.vue'
 import CnInput from '../crystal-neuo/components/Input.vue'
+import { useAdminI18n } from '../i18n'
+
+const { t } = useAdminI18n()
 
 const { createAdmin } = useAtelierSession()
 const form = reactive({ name: '', email: '', password: '' })
@@ -24,10 +27,10 @@ async function submit() {
 
 <template>
   <h1 class="app-page__title">
-    Welcome
+    {{ t('setup.title') }}
   </h1>
   <p class="app-muted">
-    Create the first administrator account.
+    {{ t('setup.intro') }}
   </p>
   <form
     class="app-form"
@@ -35,21 +38,21 @@ async function submit() {
   >
     <CnInput
       v-model="form.name"
-      label="Name"
+      :label="t('common.name')"
       autocomplete="name"
     />
     <CnInput
       v-model="form.email"
-      label="Email"
+      :label="t('common.email')"
       type="email"
       autocomplete="email"
       required
     />
     <CnInput
       v-model="form.password"
-      label="Password"
+      :label="t('common.password')"
       type="password"
-      hint="At least 8 characters."
+      :hint="t('setup.passwordHint')"
       autocomplete="new-password"
       required
       minlength="8"
@@ -66,7 +69,7 @@ async function submit() {
         type="submit"
         :loading="createAdmin.isPending.value"
       >
-        Create administrator
+        {{ t('setup.submit') }}
       </CnButton>
     </div>
   </form>
