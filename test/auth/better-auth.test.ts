@@ -133,4 +133,20 @@ describe('Better Auth adapter', async () => {
     expect(grant.status).toBe(200)
     expect(await guest.me()).toMatchObject({ role: 'editor' })
   })
+
+  it('lists its providers for the sign-in screen, and signs in through a plain link that comes back', async () => {
+    const leo = browser()
+    const { providers } = await (await leo.request('/api/_atelier/auth/providers')).json()
+    expect(providers).toEqual([{ id: 'mock', name: 'mock', url: '/api/_atelier/auth/oauth/mock' }])
+    expect((await leo.request('/api/_atelier/auth/oauth/mock?redirect=//evil.example')).status).toBe(400)
+    expect((await leo.request('/api/_atelier/auth/oauth/nope?redirect=/admin')).status).toBe(404)
+
+    signingIn = { email: 'leo@cms.example', name: 'Leo' }
+    const start = await leo.request('/api/_atelier/auth/oauth/mock?redirect=/admin/collections')
+    expect(start.status).toBe(302)
+    const authorize = await leo.request(start.headers.get('location')!) // the provider
+    const callback = await leo.request(authorize.headers.get('location')!) // back to Better Auth
+    expect(callback.headers.get('location')).toMatch(/\/admin\/collections$/)
+    expect(await leo.me()).toMatchObject({ email: 'leo@cms.example', role: 'editor' })
+  })
 })

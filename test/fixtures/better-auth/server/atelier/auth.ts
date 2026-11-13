@@ -5,6 +5,8 @@ const provider = process.env.MOCK_OAUTH_URL ?? 'http://127.0.0.1:9'
 
 export default defineAtelierBetterAuth({
   betterAuth: {
+    // every test signs in from one address: Better Auth's per-IP limit would refuse the later ones
+    rateLimit: { enabled: false },
     plugins: [genericOAuth({
       config: [{
         providerId: 'mock',

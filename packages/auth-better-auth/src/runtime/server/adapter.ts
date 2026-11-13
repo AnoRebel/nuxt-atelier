@@ -89,6 +89,11 @@ export async function createBetterAuthAdapter(config: AtelierBetterAuthConfig): 
   return {
     name: 'better-auth',
 
+    // social and generic OAuth providers alike (the generic-oauth plugin adds its own to the same list);
+    // each link starts the sign-in through the CMS (runtime/server/oauth.ts), then comes back
+    oauthProviders: () => (context.socialProviders as { id: string, name?: string }[])
+      .map(p => ({ id: p.id, name: p.name || p.id, url: `/api/_atelier/auth/oauth/${encodeURIComponent(p.id)}` })),
+
     async getUser(event) {
       const session = await auth.api.getSession({ headers: event.req.headers })
       const user = session?.user as BetterAuthUser | undefined
