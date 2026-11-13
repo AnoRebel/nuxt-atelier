@@ -7,6 +7,8 @@ export default defineNuxtConfig({
   atelier: { migrations: { autoApply: true } },
   // an admin page of the app's own, for those who manage settings
   atelierAdmin: {
+    // a partial German admin: what it lacks shows in English
+    languages: { de: { name: 'Deutsch', messages: '~/admin-i18n/de.json' } },
     pages: [{ path: 'tools', label: 'Site tools', icon: 'wrench', requires: 'settings', component: '~/admin/SiteTools.vue' }],
   },
 })

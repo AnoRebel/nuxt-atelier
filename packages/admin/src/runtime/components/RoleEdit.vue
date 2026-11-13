@@ -18,6 +18,9 @@ import CnSelect from '../crystal-neuo/components/Select.vue'
 import { useAdminToast } from '../toast'
 import NotFound from './NotFound.vue'
 import Page from './Page.vue'
+import { useAdminI18n } from '../i18n'
+
+const { t } = useAdminI18n()
 
 const props = defineProps<{ name?: string }>()
 const { to } = useAtelierAdmin()
@@ -28,11 +31,11 @@ const toast = useAdminToast()
 
 const ACTIONS: ContentAction[] = ['create', 'read', 'update', 'delete', 'publish']
 const CAPABILITIES: { value: Capability, label: string }[] = [
-  { value: 'users', label: 'Users' },
-  { value: 'roles', label: 'Roles' },
-  { value: 'media', label: 'Media' },
-  { value: 'redirects', label: 'Redirects' },
-  { value: 'settings', label: 'Settings' },
+  { value: 'users', label: 'capability.users' },
+  { value: 'roles', label: 'capability.roles' },
+  { value: 'media', label: 'capability.media' },
+  { value: 'redirects', label: 'capability.redirects' },
+  { value: 'settings', label: 'capability.settings' },
 ]
 
 const existing = computed(() => props.name ? roles.value.find(r => r.name === props.name) : undefined)
@@ -48,7 +51,7 @@ watch(existing, (entry) => {
 }, { immediate: true })
 
 const types = computed(() => [
-  { name: '*', label: 'Every other type', fields: {} },
+  { name: '*', label: t('roles.everyOther'), fields: {} },
   ...(schema.value?.collections ?? []).map(c => ({ name: c.name, label: c.labels?.plural ?? humanize(c.name), fields: c.fields })),
   ...(schema.value?.singletons ?? []).map(s => ({ name: s.name, label: s.label ?? humanize(s.name), fields: s.fields })),
 ])
@@ -77,7 +80,7 @@ function setFieldAccess(type: string, field: string, access: string) {
   if (access === 'readOnly')
     r.readOnly.push(field)
 }
-const ACCESS = [{ value: '', label: 'Can change' }, { value: 'readOnly', label: 'Read only' }, { value: 'hidden', label: 'Hidden' }]
+const ACCESS = computed(() => [{ value: '', label: t('roles.canChange') }, { value: 'readOnly', label: t('roles.readOnly') }, { value: 'hidden', label: t('roles.hidden') }])
 
 async function submit() {
   error.value = ''
@@ -91,7 +94,7 @@ async function submit() {
   const role: Role = { ...form.label ? { label: form.label } : {}, capabilities: form.capabilities, content }
   try {
     await save.mutateAsync({ name: form.name, role })
-    toast.add({ color: 'success', title: 'Role saved' })
+    toast.add({ color: 'success', title: t('roles.saved') })
     if (!props.name)
       await navigateTo(to('roles', form.name), { replace: true })
   }
@@ -108,8 +111,8 @@ async function submit() {
   />
   <Page
     v-else
-    :title="name ? `Role: ${form.label || name}` : 'New role'"
-    :breadcrumb="[{ label: 'Roles', to: to('roles') }, { label: name ?? 'New role' }]"
+    :title="name ? t('roles.title', { name: form.label || name }) : t('roles.new')"
+    :breadcrumb="[{ label: t('nav.roles'), to: to('roles') }, { label: name ?? t('roles.new') }]"
   >
     <form
       class="app-form"
@@ -118,25 +121,25 @@ async function submit() {
       <CnInput
         v-if="!name"
         v-model="form.name"
-        label="Name"
-        hint="Lowercase letters, digits and “-”, like “editor”. It can't be changed later."
+        :label="t('common.name')"
+        :hint="t('roles.nameHint')"
         required
         pattern="[a-z][a-z0-9-]*"
       />
       <CnInput
         v-model="form.label"
-        label="Label"
-        hint="Shown in the admin, like “Editor”."
+        :label="t('roles.label')"
+        :hint="t('roles.labelHint')"
       />
 
       <fieldset class="app-fieldset">
         <legend class="cn-label">
-          Manages
+          {{ t('roles.manages') }}
         </legend>
         <CnCheckbox
           v-for="c in CAPABILITIES"
           :key="c.value"
-          :label="c.label"
+          :label="t(c.label)"
           :checked="form.capabilities.includes(c.value)"
           @update:checked="(on: boolean) => form.capabilities = on ? [...form.capabilities, c.value] : form.capabilities.filter(x => x !== c.value)"
         />
@@ -145,51 +148,51 @@ async function submit() {
       <div class="app-table-wrap">
         <table class="cn-table app-permissions">
           <caption class="cn-label">
-            Content
+            {{ t('roles.content') }}
           </caption>
           <thead>
             <tr>
               <th scope="col">
-                Type
+                {{ t('roles.type') }}
               </th>
               <th
                 v-for="a in ACTIONS"
                 :key="a"
                 scope="col"
               >
-                {{ humanize(a) }}
+                {{ t(`action.${a}`) }}
               </th>
               <th scope="col">
-                Own entries only
+                {{ t('roles.ownOnly') }}
               </th>
             </tr>
           </thead>
           <tbody>
             <tr
-              v-for="t in types"
-              :key="t.name"
+              v-for="ty in types"
+              :key="ty.name"
             >
               <th scope="row">
-                {{ t.label }}
+                {{ ty.label }}
               </th>
               <td
                 v-for="a in ACTIONS"
                 :key="a"
               >
                 <CnCheckbox
-                  :label="`${humanize(a)} ${t.label}`"
+                  :label="t('roles.actionOn', { action: t(`action.${a}`), type: ty.label })"
                   class="app-check"
-                  :checked="has(t.name, a)"
-                  @update:checked="(on: boolean) => toggle(t.name, a, on)"
+                  :checked="has(ty.name, a)"
+                  @update:checked="(on: boolean) => toggle(ty.name, a, on)"
                 />
               </td>
               <td>
                 <CnCheckbox
-                  :label="`Only their own ${t.label}`"
+                  :label="t('roles.ownOnlyOf', { type: ty.label })"
                   class="app-check"
-                  :disabled="!form.content[t.name]"
-                  :checked="ownOnly(t.name)"
-                  @update:checked="(on: boolean) => setOwnOnly(t.name, on)"
+                  :disabled="!form.content[ty.name]"
+                  :checked="ownOnly(ty.name)"
+                  @update:checked="(on: boolean) => setOwnOnly(ty.name, on)"
                 />
               </td>
             </tr>
@@ -198,23 +201,23 @@ async function submit() {
       </div>
 
       <template
-        v-for="t in types"
-        :key="t.name"
+        v-for="ty in types"
+        :key="ty.name"
       >
         <details
-          v-if="form.content[t.name] && Object.keys(t.fields).length"
+          v-if="form.content[ty.name] && Object.keys(ty.fields).length"
           class="app-fieldset"
         >
           <summary class="cn-label">
-            Fields of {{ t.label }}
+            {{ t('roles.fieldsOf', { type: ty.label }) }}
           </summary>
           <CnSelect
-            v-for="(field, key) in t.fields"
+            v-for="(field, key) in ty.fields"
             :key="key"
             :label="field.label ?? humanize(String(key))"
             :options="ACCESS"
-            :model-value="fieldAccess(t.name, String(key))"
-            @update:model-value="(v: string) => setFieldAccess(t.name, String(key), v)"
+            :model-value="fieldAccess(ty.name, String(key))"
+            @update:model-value="(v: string) => setFieldAccess(ty.name, String(key), v)"
           />
         </details>
       </template>
@@ -231,7 +234,7 @@ async function submit() {
           type="submit"
           :loading="save.isPending.value"
         >
-          Save role
+          {{ t('roles.save') }}
         </CnButton>
       </div>
     </form>

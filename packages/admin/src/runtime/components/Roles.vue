@@ -14,12 +14,15 @@ import { useAdminToast } from '../toast'
 import Icon from './Icon'
 import NotFound from './NotFound.vue'
 import Page from './Page.vue'
+import { useAdminI18n } from '../i18n'
+
+const { t } = useAdminI18n()
 
 const { to } = useAtelierAdmin()
 const { manages } = useAtelierPermissions()
 const { roles, loading, remove } = useAtelierRoles()
 const toast = useAdminToast()
-const SOURCE = { builtin: 'Built in', code: 'In code', database: 'Editable' } as const
+const SOURCE = { builtin: 'roles.builtin', code: 'roles.code', database: 'roles.database' } as const
 
 const deleting = ref<RoleEntry | null>(null)
 const confirmOpen = computed({ get: () => !!deleting.value, set: (on: boolean) => !on && (deleting.value = null) })
@@ -27,10 +30,10 @@ async function confirmDelete() {
   const role = deleting.value!
   try {
     await remove.mutateAsync(role.name)
-    toast.add({ color: 'success', title: `Role "${role.role.label ?? role.name}" deleted` })
+    toast.add({ color: 'success', title: t('roles.deleted', { name: role.role.label ?? role.name }) })
   }
   catch (e) {
-    toast.add({ color: 'error', title: 'Not deleted', description: (e as AdminApiError).message })
+    toast.add({ color: 'error', title: t('common.notDeleted'), description: (e as AdminApiError).message })
   }
 }
 </script>
@@ -42,9 +45,9 @@ async function confirmDelete() {
   />
   <Page
     v-else
-    title="Roles"
+    :title="t('nav.roles')"
     icon="shield"
-    description="What each role may read, change and publish. Roles defined in code are changed in code."
+    :description="t('roles.description')"
   >
     <template #actions>
       <NuxtLink
@@ -52,34 +55,34 @@ async function confirmDelete() {
         class="cn-button cn-button--primary cn-button--size-md"
       >
         <Icon name="plus" />
-        New role
+        {{ t('roles.new') }}
       </NuxtLink>
     </template>
     <div class="app-table-wrap">
       <table class="cn-table">
         <caption class="sr-only">
-          Roles
+          {{ t('nav.roles') }}
         </caption>
         <thead>
           <tr>
             <th scope="col">
-              Role
+              {{ t('common.role') }}
             </th>
             <th scope="col">
-              Name
+              {{ t('common.name') }}
             </th>
             <th scope="col">
-              Source
+              {{ t('roles.source') }}
             </th>
             <th scope="col">
-              <span class="sr-only">Actions</span>
+              <span class="sr-only">{{ t('common.actions') }}</span>
             </th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading">
             <td colspan="4">
-              Loading…
+              {{ t('common.loading') }}
             </td>
           </tr>
           <tr
@@ -103,7 +106,7 @@ async function confirmDelete() {
                 :variant="entry.source === 'database' ? 'success' : 'neutral'"
                 size="sm"
               >
-                {{ SOURCE[entry.source] }}
+                {{ t(SOURCE[entry.source]) }}
               </CnBadge>
             </td>
             <td class="app-actions-cell">
@@ -111,7 +114,7 @@ async function confirmDelete() {
                 v-if="entry.source === 'database'"
                 variant="ghost"
                 size="sm"
-                :aria-label="`Delete ${entry.name}`"
+                :aria-label="t('roles.deleteOne', { name: entry.name })"
                 @click="deleting = entry"
               >
                 <Icon name="trash-2" />
@@ -123,9 +126,9 @@ async function confirmDelete() {
     </div>
     <CnDialog
       v-model:open="confirmOpen"
-      :title="`Delete the role ${deleting?.role.label ?? deleting?.name}?`"
-      description="Only a role no user has can be deleted."
-      confirm-label="Delete"
+      :title="t('roles.deleteTitle', { name: deleting?.role.label ?? deleting?.name })"
+      :description="t('roles.deleteBody')"
+      :confirm-label="t('common.delete')"
       variant="destructive"
       @confirm="confirmDelete"
     />

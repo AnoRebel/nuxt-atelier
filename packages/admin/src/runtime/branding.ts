@@ -7,6 +7,7 @@
 //       favicon: '/admin-icon.svg',
 //       tokens: { '--accent-primary-base': '#e4572e' }, // crystal-neuo tokens
 //       appearance: { material: 'folio', nav: 'top' },   // the default appearance, before a viewer picks theirs
+//       language: 'de',                                 // the default admin language (one installed)
 //     },
 //   })
 import type { Appearance } from './appearance'
@@ -19,6 +20,8 @@ interface AdminBranding {
   favicon?: string
   tokens?: Record<string, string>
   appearance?: Partial<Appearance>
+  /** The admin's language until a viewer picks theirs (an installed one's code). */
+  language?: string
 }
 
 export function useBranding() {
@@ -30,5 +33,6 @@ export function useBranding() {
     // custom properties only: a token can't smuggle in other declarations
     tokens: Object.fromEntries(Object.entries(config.atelierAdmin?.tokens ?? {}).filter(([key, value]) => /^--[\w-]+$/.test(key) && !/[;{}]/.test(value))),
     appearance: config.atelierAdmin?.appearance ?? {},
+    language: config.atelierAdmin?.language,
   }))
 }

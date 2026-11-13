@@ -11,6 +11,7 @@ export default defineConfig({
     alias: {
       '#imports': fileURLToPath(new URL('./test/admin/stubs/imports.ts', import.meta.url)),
       '#atelier-admin-pages': fileURLToPath(new URL('./test/admin/stubs/pages.ts', import.meta.url)),
+      '#atelier-admin-languages': fileURLToPath(new URL('./test/admin/stubs/languages.ts', import.meta.url)),
       '#atelier/shared': fileURLToPath(new URL('./packages/core/src/runtime/shared', import.meta.url)),
     },
   },

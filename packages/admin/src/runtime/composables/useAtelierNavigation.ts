@@ -3,6 +3,7 @@
 import type { Capability } from '../types'
 import { computed } from 'vue'
 import customPages from '#atelier-admin-pages'
+import { useAdminI18n } from '../i18n'
 import { useAtelierAdmin } from './useAtelierAdmin'
 import { useAtelierAdminSchema } from './useAtelierAdminSchema'
 
@@ -25,8 +26,8 @@ export const singularLabel = (type: { name: string, labels?: { singular?: string
 
 /** Admin areas shown to those who manage them. */
 const AREAS: { capability: Capability, label: string, icon: string, path: string }[] = [
-  { capability: 'users', label: 'Users', icon: 'users', path: 'users' },
-  { capability: 'roles', label: 'Roles', icon: 'shield', path: 'roles' },
+  { capability: 'users', label: 'nav.users', icon: 'users', path: 'users' },
+  { capability: 'roles', label: 'nav.roles', icon: 'shield', path: 'roles' },
 ]
 
 /** Whether a user managing `capabilities` may open a page that requires any one of `requires` (none: everyone). */
@@ -36,20 +37,21 @@ export const allowed = (requires: readonly string[], capabilities: readonly stri
 export function useAtelierNavigation() {
   const { to } = useAtelierAdmin()
   const { schema } = useAtelierAdminSchema()
+  const { t } = useAdminI18n()
   const items = computed<NavigationItem[]>(() => {
     const s = schema.value
     if (!s)
       return []
     return [
-      { label: 'Dashboard', icon: 'i-lucide-layout-dashboard', to: to() },
-      ...s.collections.map(c => ({ label: c.labels?.plural ?? humanize(c.name), icon: c.admin?.icon ?? 'i-lucide-files', to: to('collections', c.name), group: c.admin?.group ?? 'Content' })),
-      ...s.singletons.map(t => ({ label: t.label ?? humanize(t.name), icon: t.admin?.icon ?? 'i-lucide-file-text', to: to('singletons', t.name), group: t.admin?.group ?? 'Content' })),
-      ...AREAS.filter(a => s.capabilities.includes(a.capability)).map(a => ({ label: a.label, icon: a.icon, to: to(a.path), group: 'Settings' })),
+      { label: t('nav.dashboard'), icon: 'i-lucide-layout-dashboard', to: to() },
+      ...s.collections.map(c => ({ label: c.labels?.plural ?? humanize(c.name), icon: c.admin?.icon ?? 'i-lucide-files', to: to('collections', c.name), group: c.admin?.group ?? t('nav.content') })),
+      ...s.singletons.map(one => ({ label: one.label ?? humanize(one.name), icon: one.admin?.icon ?? 'i-lucide-file-text', to: to('singletons', one.name), group: one.admin?.group ?? t('nav.content') })),
+      ...AREAS.filter(a => s.capabilities.includes(a.capability)).map(a => ({ label: t(a.label), icon: a.icon, to: to(a.path), group: t('nav.settings') })),
       // the app's and plugins' pages, for those allowed to open them
       ...customPages
         .filter(p => allowed(p.requires, s.capabilities))
         .toSorted((a, b) => (a.order ?? 0) - (b.order ?? 0))
-        .map(p => ({ label: p.label, icon: p.icon ?? 'file-text', to: to(...p.path.split('/')), group: p.group ?? 'Tools' })),
+        .map(p => ({ label: p.label, icon: p.icon ?? 'file-text', to: to(...p.path.split('/')), group: p.group ?? t('nav.tools') })),
     ]
   })
   return { items }

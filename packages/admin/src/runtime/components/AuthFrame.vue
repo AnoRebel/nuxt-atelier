@@ -5,6 +5,9 @@ import { useAppearance } from '../appearance'
 import { useOverrides } from '../overrides'
 import Brand from './Brand.vue'
 import Icon from './Icon'
+import { useAdminI18n } from '../i18n'
+
+const { t } = useAdminI18n()
 
 const { openModal } = useAppearance()
 const brand = useOverrides()('Brand', Brand)
@@ -14,14 +17,14 @@ const brand = useOverrides()('Brand', Brand)
   <div class="app-auth">
     <aside
       class="app-auth__brand"
-      aria-label="About"
+      :aria-label="t('auth.about')"
     >
       <div class="app-auth__brand-top">
         <component :is="brand" />
         <button
           type="button"
           class="app-icon-button"
-          aria-label="Appearance"
+          :aria-label="t('common.appearance')"
           aria-haspopup="dialog"
           @click="openModal"
         >
@@ -30,12 +33,12 @@ const brand = useOverrides()('Brand', Brand)
       </div>
       <div class="app-auth__pitch">
         <p class="app-auth__headline">
-          Your site's content, in one place.
+          {{ t('auth.pitch') }}
         </p>
         <ul class="app-auth__points">
-          <li><Icon name="check" />Pages, posts and settings</li>
-          <li><Icon name="check" />Drafts, history and publishing</li>
-          <li><Icon name="check" />Roles for everyone who edits</li>
+          <li><Icon name="check" />{{ t('auth.point1') }}</li>
+          <li><Icon name="check" />{{ t('auth.point2') }}</li>
+          <li><Icon name="check" />{{ t('auth.point3') }}</li>
         </ul>
       </div>
       <div

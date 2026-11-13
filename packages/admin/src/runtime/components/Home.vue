@@ -16,6 +16,9 @@ import CnButton from '../crystal-neuo/components/Button.vue'
 import { useAdminToast } from '../toast'
 import Icon from './Icon'
 import Page from './Page.vue'
+import { useAdminI18n } from '../i18n'
+
+const { t } = useAdminI18n()
 
 const { to } = useAtelierAdmin()
 const { items } = useAtelierNavigation()
@@ -28,7 +31,7 @@ const typeLabel = (name: string) => schema.value?.collections.find(c => c.name =
   ?? schema.value?.singletons.find(s => s.name === name)?.label ?? humanize(name)
 const entryTitle = (type: string, data: Record<string, unknown>) => {
   const key = titleField(schema.value?.collections.find(c => c.name === type))
-  return String((key && data[key]) || '(untitled)')
+  return String((key && data[key]) || t('common.untitled'))
 }
 const when = (iso: string) => new Date(iso).toLocaleString()
 const link = (type: string, id: string, singleton = false) => singleton ? to('singletons', type) : to('collections', type, id)
@@ -37,26 +40,26 @@ const failed = computed(() => dashboard.value?.failedJobs ?? [])
 async function retryJob(id: string) {
   try {
     await retry.mutateAsync(id)
-    toast.add({ color: 'success', title: 'Queued again' })
+    toast.add({ color: 'success', title: t('home.queuedAgain') })
   }
   catch (e) {
-    toast.add({ color: 'error', title: 'Not retried', description: (e as AdminApiError).message })
+    toast.add({ color: 'error', title: t('home.notRetried'), description: (e as AdminApiError).message })
   }
 }
 </script>
 
 <template>
   <Page
-    title="Dashboard"
-    :description="`Signed in as ${user?.name || user?.email}.`"
+    :title="t('nav.dashboard')"
+    :description="t('home.signedInAs', { name: user?.name || user?.email })"
   >
     <CnAlert
       v-if="dashboard?.pendingMigrations"
       variant="warning"
-      title="Migrations are pending"
+      :title="t('home.migrationsTitle')"
       data-widget="migrations"
     >
-      {{ dashboard.pendingMigrations }} database migration{{ dashboard.pendingMigrations === 1 ? '' : 's' }} not applied yet: content can't be read or saved until they are. Run <code>atelier migrate</code>, or deploy with migrations applied on start.
+      {{ t('home.migrations', { count: dashboard.pendingMigrations }) }}
     </CnAlert>
 
     <section
@@ -65,26 +68,26 @@ async function retryJob(id: string) {
       data-widget="failed-jobs"
     >
       <h2 class="app-section__title">
-        <Icon name="triangle-alert" /> Failed background jobs
+        <Icon name="triangle-alert" /> {{ t('home.failedJobs') }}
       </h2>
       <div class="app-table-wrap">
         <table class="cn-table">
           <caption class="sr-only">
-            Failed background jobs
+            {{ t('home.failedJobs') }}
           </caption>
           <thead>
             <tr>
               <th scope="col">
-                Job
+                {{ t('home.job') }}
               </th>
               <th scope="col">
-                Error
+                {{ t('home.error') }}
               </th>
               <th scope="col">
-                Last tried
+                {{ t('home.lastTried') }}
               </th>
               <th scope="col">
-                <span class="sr-only">Actions</span>
+                <span class="sr-only">{{ t('common.actions') }}</span>
               </th>
             </tr>
           </thead>
@@ -95,15 +98,15 @@ async function retryJob(id: string) {
             >
               <td><code>{{ job.name }}</code></td>
               <td>{{ job.lastError ?? '—' }}</td>
-              <td>{{ when(job.runAt) }} ({{ job.attempts }} tries)</td>
+              <td>{{ when(job.runAt) }} ({{ t('home.tries', { count: job.attempts }) }})</td>
               <td class="app-actions-cell">
                 <CnButton
                   size="sm"
                   variant="secondary"
-                  :aria-label="`Retry ${job.name}`"
+                  :aria-label="t('home.retryJob', { name: job.name })"
                   @click="retryJob(job.id)"
                 >
-                  Retry
+                  {{ t('home.retry') }}
                 </CnButton>
               </td>
             </tr>
@@ -118,7 +121,7 @@ async function retryJob(id: string) {
         data-widget="drafts"
       >
         <h2 class="app-section__title">
-          Your drafts
+          {{ t('home.drafts') }}
         </h2>
         <ul
           v-if="dashboard?.drafts.length"
@@ -137,7 +140,7 @@ async function retryJob(id: string) {
               variant="warning"
               size="sm"
             >
-              Changed
+              {{ t('status.changed') }}
             </CnBadge>
           </li>
         </ul>
@@ -145,7 +148,7 @@ async function retryJob(id: string) {
           v-else
           class="app-muted"
         >
-          No unpublished drafts of yours.
+          {{ t('home.noDrafts') }}
         </p>
       </section>
 
@@ -154,7 +157,7 @@ async function retryJob(id: string) {
         data-widget="scheduled"
       >
         <h2 class="app-section__title">
-          Scheduled
+          {{ t('home.scheduled') }}
         </h2>
         <ul
           v-if="dashboard?.scheduled.length"
@@ -168,7 +171,7 @@ async function retryJob(id: string) {
               :variant="s.action === 'publish' ? 'success' : 'neutral'"
               size="sm"
             >
-              {{ s.action === 'publish' ? 'Publish' : 'Unpublish' }}
+              {{ s.action === 'publish' ? t('list.publish') : t('list.unpublish') }}
             </CnBadge>
             <NuxtLink :to="link(s.type, s.id, s.singleton)">
               {{ typeLabel(s.type) }}{{ s.singleton ? '' : ` · ${s.id}` }}
@@ -180,7 +183,7 @@ async function retryJob(id: string) {
           v-else
           class="app-muted"
         >
-          Nothing scheduled.
+          {{ t('home.nothingScheduled') }}
         </p>
       </section>
 
@@ -190,7 +193,7 @@ async function retryJob(id: string) {
         data-widget="activity"
       >
         <h2 class="app-section__title">
-          Recent activity
+          {{ t('home.activity') }}
         </h2>
         <ul
           v-if="dashboard.activity.length"
@@ -209,7 +212,7 @@ async function retryJob(id: string) {
           v-else
           class="app-muted"
         >
-          Nothing yet.
+          {{ t('home.noActivity') }}
         </p>
       </section>
     </div>

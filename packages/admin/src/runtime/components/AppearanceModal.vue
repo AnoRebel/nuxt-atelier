@@ -7,50 +7,56 @@ import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { useAppearance } from '../appearance'
 import CnButton from '../crystal-neuo/components/Button.vue'
 import CnModal from '../crystal-neuo/components/Modal.vue'
+import CnSelect from '../crystal-neuo/components/Select.vue'
 import CnSegmentedControl from '../crystal-neuo/components/SegmentedControl.vue'
 import CnToggle from '../crystal-neuo/components/Toggle.vue'
+import { useAdminI18n } from '../i18n'
+
+const { t, language, languages, setLanguage } = useAdminI18n()
+const languageChoice = computed({ get: () => language.value, set: (code: string) => void setLanguage(code) })
+const languageOptions = computed(() => languages.value.map(l => ({ value: l.code, label: l.name })))
 
 const { appearance, set, reset, matchDevice, isGlass, modalOpen } = useAppearance()
 
-const materials: { value: Material, label: string, note: string }[] = [
-  { value: 'refraction', label: 'Refraction', note: 'Glass chrome' },
-  { value: 'tactile', label: 'Tactile', note: 'Ink and offset' },
-  { value: 'signal', label: 'Signal', note: 'Machined' },
-  { value: 'folio', label: 'Folio', note: 'Flat, dense' },
-  { value: 'bloom', label: 'Bloom', note: 'Tonal colour' },
-  { value: 'hybrid', label: 'Hybrid', note: 'Glass + ink' },
-]
-const themes: { value: ThemePreference, label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'high-contrast', label: 'High contrast' },
-]
-const densities: { value: Density, label: string }[] = [
-  { value: 'compact', label: 'Compact' },
-  { value: 'comfortable', label: 'Comfortable' },
-  { value: 'spacious', label: 'Spacious' },
-]
-const platforms: { value: Platform, label: string }[] = [
+const materials = computed((): { value: Material, label: string, note: string }[] => [
+  { value: 'refraction', label: t('material.refraction'), note: t('material.refractionNote') },
+  { value: 'tactile', label: t('material.tactile'), note: t('material.tactileNote') },
+  { value: 'signal', label: t('material.signal'), note: t('material.signalNote') },
+  { value: 'folio', label: t('material.folio'), note: t('material.folioNote') },
+  { value: 'bloom', label: t('material.bloom'), note: t('material.bloomNote') },
+  { value: 'hybrid', label: t('material.hybrid'), note: t('material.hybridNote') },
+])
+const themes = computed((): { value: ThemePreference, label: string }[] => [
+  { value: 'system', label: t('theme.system') },
+  { value: 'light', label: t('theme.light') },
+  { value: 'dark', label: t('theme.dark') },
+  { value: 'high-contrast', label: t('theme.high-contrast') },
+])
+const densities = computed((): { value: Density, label: string }[] => [
+  { value: 'compact', label: t('density.compact') },
+  { value: 'comfortable', label: t('density.comfortable') },
+  { value: 'spacious', label: t('density.spacious') },
+])
+const platforms = computed((): { value: Platform, label: string }[] => [
   { value: 'web', label: 'Web' },
   { value: 'ios', label: 'iOS' },
   { value: 'android', label: 'Android' },
   { value: 'windows', label: 'Windows' },
   { value: 'macos', label: 'macOS' },
-]
-const navModes: { value: NavMode, label: string }[] = [
-  { value: 'sidebar', label: 'Sidebar' },
-  { value: 'top', label: 'Top bar' },
-]
+])
+const navModes = computed((): { value: NavMode, label: string }[] => [
+  { value: 'sidebar', label: t('nav.sidebar') },
+  { value: 'top', label: t('nav.top') },
+])
 const sidebarStyles = computed(() => ([
-  { value: 'floating', label: 'Floating' },
-  { value: 'rail', label: 'Icons only' },
-  { value: 'expanded', label: 'Attached' },
+  { value: 'floating', label: t('sidebar.floating') },
+  { value: 'rail', label: t('sidebar.rail') },
+  { value: 'expanded', label: t('sidebar.expanded') },
 ] as { value: SidebarStyle, label: string }[]).map(o => ({ ...o, disabled: appearance.value.nav === 'top' })))
-const widths: { value: ContentWidth, label: string }[] = [
-  { value: 'contained', label: 'Contained' },
-  { value: 'full', label: 'Full width' },
-]
+const widths = computed((): { value: ContentWidth, label: string }[] => [
+  { value: 'contained', label: t('width.contained') },
+  { value: 'full', label: t('width.full') },
+])
 
 /** A two-way binding onto one appearance key. */
 function field<K extends keyof Appearance>(key: K) {
@@ -83,14 +89,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, { capture: tr
 <template>
   <CnModal
     v-model:open="modalOpen"
-    title="Appearance"
+    :title="t('common.appearance')"
     size="lg"
     class="app-appearance"
   >
     <div class="app-appearance__body">
+      <CnSelect
+        v-if="languageOptions.length > 1"
+        v-model="languageChoice"
+        :label="t('appearance.language')"
+        :options="languageOptions"
+      />
       <fieldset class="app-appearance__group">
         <legend class="cn-label">
-          Material
+          {{ t('appearance.material') }}
         </legend>
         <div class="app-swatches">
           <label
@@ -121,10 +133,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, { capture: tr
         <span
           class="cn-label"
           aria-hidden="true"
-        >Theme</span>
+        >{{ t('appearance.theme') }}</span>
         <CnSegmentedControl
           v-model="theme"
-          label="Theme"
+          :label="t('appearance.theme')"
           :options="themes"
           size="sm"
           variant="block"
@@ -135,10 +147,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, { capture: tr
         <span
           class="cn-label"
           aria-hidden="true"
-        >Density</span>
+        >{{ t('appearance.density') }}</span>
         <CnSegmentedControl
           v-model="density"
-          label="Density"
+          :label="t('appearance.density')"
           :options="densities"
           size="sm"
           variant="block"
@@ -150,10 +162,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, { capture: tr
           <span
             class="cn-label"
             aria-hidden="true"
-          >Platform</span>
+          >{{ t('appearance.platform') }}</span>
           <CnSegmentedControl
             v-model="platform"
-            label="Platform"
+            :label="t('appearance.platform')"
             :options="platforms"
             size="sm"
             variant="block"
@@ -166,50 +178,50 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, { capture: tr
             size="sm"
             @click="matchDevice"
           >
-            Match this device
+            {{ t('appearance.matchDevice') }}
           </CnButton>
         </div>
       </div>
 
       <fieldset class="app-appearance__group">
         <legend class="cn-label">
-          Glass
+          {{ t('appearance.glass') }}
         </legend>
         <p
           v-if="!isGlass"
           class="app-appearance__note"
         >
-          The current material has no glass, so these take effect when you choose Refraction, Bloom or Hybrid.
+          {{ t('appearance.noGlass') }}
         </p>
         <CnToggle
           v-model:checked="frost"
-          label="Frost: blur what the glass covers"
+          :label="t('appearance.frost')"
           size="sm"
         />
         <CnToggle
           v-model:checked="rim"
-          label="Rim light: specular top edge"
+          :label="t('appearance.rim')"
           size="sm"
         />
         <CnToggle
           v-model:checked="reduceTransparency"
-          label="Reduce transparency: opaque surfaces"
+          :label="t('appearance.reduceTransparency')"
           size="sm"
         />
       </fieldset>
 
       <fieldset class="app-appearance__group">
         <legend class="cn-label">
-          Layout
+          {{ t('appearance.layout') }}
         </legend>
         <div class="app-appearance__field">
           <span
             class="cn-label"
             aria-hidden="true"
-          >Navigation</span>
+          >{{ t('appearance.navigation') }}</span>
           <CnSegmentedControl
             v-model="nav"
-            label="Navigation"
+            :label="t('appearance.navigation')"
             :options="navModes"
             size="sm"
             variant="block"
@@ -220,10 +232,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, { capture: tr
           <span
             class="cn-label"
             aria-hidden="true"
-          >Sidebar</span>
+          >{{ t('appearance.sidebar') }}</span>
           <CnSegmentedControl
             v-model="sidebar"
-            label="Sidebar"
+            :label="t('appearance.sidebar')"
             :options="sidebarStyles"
             size="sm"
             variant="block"
@@ -234,10 +246,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, { capture: tr
           <span
             class="cn-label"
             aria-hidden="true"
-          >Content width</span>
+          >{{ t('appearance.width') }}</span>
           <CnSegmentedControl
             v-model="width"
-            label="Content width"
+            :label="t('appearance.width')"
             :options="widths"
             size="sm"
             variant="block"
@@ -245,7 +257,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, { capture: tr
           />
         </div>
         <p class="app-appearance__note">
-          On small screens navigation always opens from the menu button.
+          {{ t('appearance.smallScreens') }}
         </p>
       </fieldset>
     </div>
@@ -255,10 +267,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, { capture: tr
         variant="ghost"
         @click="reset()"
       >
-        Reset to defaults
+        {{ t('appearance.reset') }}
       </CnButton>
       <CnButton @click="modalOpen = false">
-        Done
+        {{ t('common.done') }}
       </CnButton>
     </div>
   </CnModal>

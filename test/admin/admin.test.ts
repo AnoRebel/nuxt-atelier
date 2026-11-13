@@ -190,6 +190,21 @@ describe('admin', async () => {
     await page.locator('[data-widget="drafts"]').getByRole('link', { name: 'Hello world' }).waitFor()
   })
 
+  it('switches the admin\'s language, apart from the content, English where a translation lacks text', async () => {
+    const page = await signIn()
+    await page.getByRole('button', { name: 'Appearance' }).click()
+    await page.getByLabel('Language').selectOption('de')
+    await page.getByRole('button', { name: 'Fertig' }).click()
+    await page.getByRole('heading', { name: 'Übersicht' }).waitFor()
+    await page.getByText('Angemeldet als ada@example.com.').waitFor()
+    await page.getByRole('link', { name: 'Posts' }).first().click() // content labels stay as defined
+    await page.getByRole('link', { name: 'Neu' }).waitFor()
+    await page.getByRole('button', { name: 'Columns' }).waitFor() // not in the German catalog: English
+    await page.reload()
+    await page.getByRole('link', { name: 'Neu' }).waitFor() // remembered
+    await page.evaluate(() => localStorage.removeItem('atelier-admin-language'))
+  })
+
   it('keeps the site\'s CSS out of the admin, and the admin\'s CSS off the site\'s pages', async () => {
     const page = await createPage(url('/admin'))
     await page.getByLabel('Email').waitFor()

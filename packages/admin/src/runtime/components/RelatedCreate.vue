@@ -9,8 +9,10 @@ import CnAlert from '../crystal-neuo/components/Alert.vue'
 import CnButton from '../crystal-neuo/components/Button.vue'
 import CnModal from '../crystal-neuo/components/Modal.vue'
 import FieldInput from './FieldInput.vue'
+import { useAdminI18n } from '../i18n'
 
 const props = defineProps<{ collection: string }>()
+const { t } = useAdminI18n()
 const emit = defineEmits<{ created: [id: string] }>()
 const open = defineModel<boolean>('open', { default: false })
 
@@ -45,7 +47,7 @@ function cancel() {
 <template>
   <CnModal
     v-model:open="open"
-    :title="`New ${singular.toLowerCase()}`"
+    :title="t('field.newRelated', { name: singular.toLowerCase() })"
     size="lg"
   >
     <!-- not a <form>: this sits inside the entry's own form -->
@@ -75,13 +77,13 @@ function cancel() {
           variant="ghost"
           @click="cancel"
         >
-          Cancel
+          {{ t('common.cancel') }}
         </CnButton>
         <CnButton
           :loading="edit.save.isPending.value"
           @click="create"
         >
-          Create {{ singular.toLowerCase() }}
+          {{ t('field.createRelated', { name: singular.toLowerCase() }) }}
         </CnButton>
       </div>
     </div>

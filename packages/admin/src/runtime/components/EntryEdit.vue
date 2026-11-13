@@ -15,8 +15,10 @@ import { useAdminToast } from '../toast'
 import FieldInput from './FieldInput.vue'
 import NotFound from './NotFound.vue'
 import Page from './Page.vue'
+import { useAdminI18n } from '../i18n'
 
 const props = defineProps<{ kind: 'collection' | 'singleton', name: string, id?: string }>()
+const { t } = useAdminI18n()
 const { to } = useAtelierAdmin()
 const toast = useAdminToast()
 const edit = useAtelierEntryForm(() => ({ kind: props.kind, name: props.name, id: props.id }))
@@ -49,7 +51,7 @@ const confirmDelete = ref(false)
 const typeLabel = computed(() => props.kind === 'collection'
   ? (type.value as { labels?: { plural?: string } } | undefined)?.labels?.plural ?? humanize(props.name)
   : (type.value as { label?: string } | undefined)?.label ?? humanize(props.name))
-const title = computed(() => props.kind === 'singleton' ? typeLabel.value : edit.isNew.value ? 'New entry' : 'Edit entry')
+const title = computed(() => props.kind === 'singleton' ? typeLabel.value : edit.isNew.value ? t('entry.new') : t('entry.edit'))
 const breadcrumb = computed(() => props.kind === 'collection' ? [{ label: typeLabel.value, to: to('collections', props.name) }, { label: title.value }] : undefined)
 const canSave = computed(() => !!type.value && (edit.isNew.value ? type.value.can.create : type.value.can.update))
 const readOnly = (key: string) => !canSave.value || (type.value?.readOnly.includes(key) ?? false)
@@ -61,32 +63,32 @@ async function save() {
   }
   catch (e) {
     const failure = e as AdminApiError
-    error.value = failure.status === 409 ? 'Someone saved this entry after you opened it. Reload to see their changes.' : failure.message
+    error.value = failure.status === 409 ? t('entry.conflict') : failure.message
     return
   }
   if (!form.state.isSubmitSuccessful)
     return // invalid: the fields show why
-  toast.add({ color: 'success', title: type.value?.versioned ? 'Draft saved' : 'Saved' })
+  toast.add({ color: 'success', title: type.value?.versioned ? t('entry.draftSaved') : t('entry.saved') })
   if (edit.isNew.value && edit.save.data.value)
     await navigateTo(to('collections', props.name, edit.save.data.value.id), { replace: true })
 }
 async function run(action: 'publish' | 'unpublish') {
   try {
     await edit[action].mutateAsync()
-    toast.add({ color: 'success', title: action === 'publish' ? 'Published' : 'Unpublished' })
+    toast.add({ color: 'success', title: action === 'publish' ? t('entry.published') : t('entry.unpublished') })
   }
   catch (e) {
-    toast.add({ color: 'error', title: action === 'publish' ? 'Not published' : 'Not unpublished', description: (e as AdminApiError).message })
+    toast.add({ color: 'error', title: action === 'publish' ? t('entry.notPublished') : t('entry.notUnpublished'), description: (e as AdminApiError).message })
   }
 }
 async function remove() {
   try {
     await edit.remove.mutateAsync()
-    toast.add({ color: 'success', title: 'Deleted' })
+    toast.add({ color: 'success', title: t('entry.deleted') })
     await navigateTo(to('collections', props.name))
   }
   catch (e) {
-    toast.add({ color: 'error', title: 'Not deleted', description: (e as AdminApiError).message })
+    toast.add({ color: 'error', title: t('common.notDeleted'), description: (e as AdminApiError).message })
   }
 }
 </script>
@@ -108,7 +110,7 @@ async function remove() {
         :variant="edit.unpublished.value ? 'warning' : 'success'"
         size="sm"
       >
-        {{ edit.entry.value?.publishedVersion === null ? 'Draft' : edit.unpublished.value ? 'Unpublished changes' : 'Published' }}
+        {{ edit.entry.value?.publishedVersion === null ? t('status.draft') : edit.unpublished.value ? t('status.unpublishedChanges') : t('status.published') }}
       </CnBadge>
       <CnButton
         v-if="type.versioned && type.can.publish && !edit.isNew.value && edit.unpublished.value"
@@ -117,7 +119,7 @@ async function remove() {
         :loading="edit.publish.isPending.value"
         @click="run('publish')"
       >
-        Publish
+        {{ t('entry.publish') }}
       </CnButton>
       <CnButton
         v-if="type.versioned && type.can.publish && edit.entry.value?.publishedVersion"
@@ -125,14 +127,14 @@ async function remove() {
         :loading="edit.unpublish.isPending.value"
         @click="run('unpublish')"
       >
-        Unpublish
+        {{ t('entry.unpublish') }}
       </CnButton>
       <CnButton
         v-if="kind === 'collection' && !edit.isNew.value && type.can.delete"
         variant="danger"
         @click="confirmDelete = true"
       >
-        Delete
+        {{ t('common.delete') }}
       </CnButton>
     </template>
 
@@ -152,20 +154,20 @@ async function remove() {
       <CnAlert
         v-if="edit.recovery.value"
         variant="warning"
-        title="Unsaved changes found"
+        :title="t('entry.recoveryTitle')"
         data-recovery
       >
-        Changes to this entry from {{ savedAt }} weren't saved.
+        {{ t('entry.recovery', { time: savedAt }) }}
         <span class="app-row">
           <CnButton
             size="sm"
             @click="edit.restoreRecovery()"
-          >Restore them</CnButton>
+          >{{ t('entry.restore') }}</CnButton>
           <CnButton
             size="sm"
             variant="ghost"
             @click="edit.discardRecovery()"
-          >Discard</CnButton>
+          >{{ t('entry.discard') }}</CnButton>
         </span>
       </CnAlert>
       <FieldInput
@@ -193,26 +195,26 @@ async function remove() {
           type="submit"
           :loading="submitting"
         >
-          {{ type.versioned ? 'Save draft' : 'Save' }}
+          {{ type.versioned ? t('entry.saveDraft') : t('common.save') }}
         </CnButton>
       </div>
     </form>
 
     <CnDialog
       v-model:open="leaveOpen"
-      title="Leave without saving?"
-      description="Your changes aren't saved. A copy stays in this browser, offered when you open the entry again."
-      confirm-label="Leave"
-      cancel-label="Stay"
+      :title="t('entry.leaveTitle')"
+      :description="t('entry.leaveBody')"
+      :confirm-label="t('entry.leave')"
+      :cancel-label="t('entry.stay')"
       variant="destructive"
       @confirm="answer(true)"
     />
     <CnDialog
       v-model:open="confirmDelete"
-      title="Delete this entry?"
-      confirm-label="Delete"
+      :title="t('entry.deleteTitle')"
+      :confirm-label="t('common.delete')"
       variant="destructive"
-      description="It can't be undone. Its history is deleted too."
+      :description="t('entry.deleteBody')"
       @confirm="remove"
     />
   </Page>

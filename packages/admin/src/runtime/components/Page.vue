@@ -2,8 +2,10 @@
 <script setup lang="ts">
 import { NuxtLink } from '#components'
 import Icon from './Icon'
+import { useAdminI18n } from '../i18n'
 
 defineProps<{ title: string, icon?: string, description?: string, breadcrumb?: { label: string, to?: string }[] }>()
+const { t } = useAdminI18n()
 </script>
 
 <template>
@@ -14,7 +16,7 @@ defineProps<{ title: string, icon?: string, description?: string, breadcrumb?: {
     <nav
       v-if="breadcrumb?.length"
       class="cn-breadcrumb cn-breadcrumb--size-sm"
-      aria-label="Breadcrumb"
+      :aria-label="t('common.breadcrumb')"
     >
       <ol class="cn-breadcrumb__list">
         <li
