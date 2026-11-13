@@ -369,13 +369,18 @@
       "dependencies": {
         "@nuxt/kit": "catalog:",
       },
+      "devDependencies": {
+        "@nuxt-atelier/admin": "workspace:*",
+      },
       "peerDependencies": {
+        "@nuxt-atelier/admin": "workspace:*",
         "nuxt": "catalog:",
       },
     },
     "test/fixtures/plugin-host": {
       "name": "@nuxt-atelier/fixture-plugin-host",
       "dependencies": {
+        "@nuxt-atelier/admin": "workspace:*",
         "@nuxt-atelier/fixture-plugin-events": "workspace:*",
         "nuxt": "catalog:",
       },

@@ -2,13 +2,13 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { $fetch, fetch, setup, startServer } from '@nuxt/test-utils/e2e'
+import { $fetch, createPage, fetch, setup, startServer, url } from '@nuxt/test-utils/e2e'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 const rootDir = fileURLToPath(new URL('../fixtures/plugin-host', import.meta.url))
 
 describe('a plugin installed as a Nuxt module', async () => {
-  await setup({ setupTimeout: 300_000, rootDir })
+  await setup({ setupTimeout: 300_000, rootDir, browser: true })
   let cookie = ''
   let csrf = ''
   const api = async (path: string, method = 'GET', body?: unknown) => {
@@ -41,5 +41,16 @@ describe('a plugin installed as a Nuxt module', async () => {
     // the plugin's hook queued its job: a reminder the day before
     const [reminder] = (await api('/api/_atelier/jobs')).body.filter((j: { name: string }) => j.name === 'events:remind')
     expect(reminder).toMatchObject({ key: `events:remind:${event.body.id}`, payload: { id: event.body.id }, runAt: '2027-02-28T00:00:00.000Z' })
+  })
+
+  it('adds its own admin page and text, and the admin input for its field type', async () => {
+    const page = await createPage(url('/admin'))
+    await page.getByLabel('Email').fill('admin@example.com')
+    await page.getByLabel('Password').fill('password 123')
+    await page.getByRole('button', { name: 'Sign in' }).click()
+    await page.getByRole('link', { name: 'Event calendar' }).first().click()
+    await page.locator('[data-events-calendar]').getByText('Upcoming events, by month.').waitFor()
+    await page.goto(url('/admin/collections/events/new'))
+    await page.locator('[data-events-geo-point]').getByLabel('Latitude').waitFor()
   })
 })

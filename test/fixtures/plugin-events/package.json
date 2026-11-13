@@ -9,6 +9,10 @@
     "@nuxt/kit": "catalog:"
   },
   "peerDependencies": {
-    "nuxt": "catalog:"
+    "nuxt": "catalog:",
+    "@nuxt-atelier/admin": "workspace:*"
+  },
+  "devDependencies": {
+    "@nuxt-atelier/admin": "workspace:*"
   }
 }
