@@ -293,6 +293,43 @@ describe('admin', async () => {
     expect(found.some(r => r.type === 'authors' || r.kind === 'user')).toBe(false)
   })
 
+  it('uploads, describes and picks media, and warns before deleting a file in use', async () => {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+    const page = await signIn()
+    await page.getByRole('link', { name: 'Media' }).first().click()
+    await page.locator('[data-media-upload]').setInputFiles({ name: 'garden.png', mimeType: 'image/png', buffer: png })
+    await page.getByText('1 uploaded').waitFor()
+    await page.getByRole('button', { name: /garden\.png/ }).click()
+    const details = page.locator('[data-media-details]')
+    await details.getByLabel('Alt text (EN)').fill('A garden in spring')
+    await details.getByRole('button', { name: /Click the part of the image/ }).click({ position: { x: 10, y: 10 } })
+    await details.getByRole('button', { name: 'Save' }).click()
+    await page.getByText('File saved').waitFor()
+    const saved = await page.evaluate(async () => (await (await window.fetch('/api/_atelier/media?limit=1')).json()).items[0])
+    expect(saved).toMatchObject({ filename: 'garden.png', alt: { en: 'A garden in spring' }, focal: { x: expect.any(Number), y: expect.any(Number) } })
+    await page.keyboard.press('Escape')
+
+    // chosen in a media field (the SEO image of an article), through the picker
+    await page.goto(url('/admin/collections/articles/new'))
+    await page.getByLabel('Title *').fill('With a picture')
+    await page.getByLabel('Slug *').fill('with-a-picture')
+    await page.locator('[data-media-field]').getByRole('button', { name: 'Choose' }).click()
+    await page.getByRole('dialog', { name: 'Choose a file' }).getByRole('button', { name: 'Select garden.png' }).click()
+    await page.locator('[data-media-field]').getByText('garden.png').waitFor()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await page.waitForURL(/\/admin\/collections\/articles\/(?!new)[^/]+$/)
+
+    // in use: deleting says so first
+    await page.goto(url('/admin/media'))
+    await page.getByRole('button', { name: /garden\.png/ }).click()
+    await page.locator('[data-media-details]').getByText('Used in 1 place').waitFor()
+    await page.locator('[data-media-details]').getByRole('button', { name: 'Delete' }).click()
+    const confirm = page.getByRole('alertdialog', { name: 'Delete this file?' })
+    await confirm.getByText(/used in 1 place,/).waitFor()
+    await confirm.getByRole('button', { name: 'Delete' }).click()
+    await page.getByText('File deleted').waitFor()
+  })
+
   it('keeps the site\'s CSS out of the admin, and the admin\'s CSS off the site\'s pages', async () => {
     const page = await createPage(url('/admin'))
     await page.getByLabel('Email').waitFor()

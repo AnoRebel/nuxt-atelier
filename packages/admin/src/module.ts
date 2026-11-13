@@ -17,6 +17,7 @@ export const ICONS = [
   'layout-dashboard', 'file-text', 'files', 'settings', 'users', 'shield', 'log-out', 'plus', 'trash-2', 'save',
   'search', 'chevron-left', 'chevron-down', 'chevron-up', 'upload', 'eye', 'eye-off', 'palette', 'key-round',
   'loader-circle', 'check', 'x', 'menu', 'panel-left-open', 'panel-left-close', 'download', 'triangle-alert',
+  'image', 'lock', 'file', 'film', 'music',
 ]
 
 interface IconSet { icons: Record<string, { body: string, width?: number, height?: number }>, aliases?: Record<string, { parent: string }>, width?: number, height?: number }

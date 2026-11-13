@@ -47,6 +47,8 @@ export function useAtelierNavigation() {
       { label: t('nav.dashboard'), icon: 'i-lucide-layout-dashboard', to: to() },
       ...s.collections.map(c => ({ label: c.labels?.plural ?? humanize(c.name), icon: c.admin?.icon ?? 'i-lucide-files', to: to('collections', c.name), group: c.admin?.group ?? t('nav.content') })),
       ...s.singletons.map(one => ({ label: one.label ?? humanize(one.name), icon: one.admin?.icon ?? 'i-lucide-file-text', to: to('singletons', one.name), group: one.admin?.group ?? t('nav.content') })),
+      // the media library: everyone signed in browses it
+      { label: t('nav.media'), icon: 'image', to: to('media'), group: t('nav.content') },
       ...AREAS.filter(a => s.capabilities.includes(a.capability)).map(a => ({ label: t(a.label), icon: a.icon, to: to(...a.path.split('/')), group: t('nav.settings') })),
       // the app's and plugins' pages, for those allowed to open them
       ...customPages

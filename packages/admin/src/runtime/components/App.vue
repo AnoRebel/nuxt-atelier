@@ -18,6 +18,7 @@ import CollectionList from './CollectionList.vue'
 import EntryEdit from './EntryEdit.vue'
 import Home from './Home.vue'
 import Icon from './Icon'
+import MediaLibrary from './MediaLibrary.vue'
 import NotFound from './NotFound.vue'
 import RobotsSettings from './RobotsSettings.vue'
 import RoleEdit from './RoleEdit.vue'
@@ -40,6 +41,7 @@ const views = {
   Roles: view('Roles', Roles),
   RoleEdit: view('RoleEdit', RoleEdit),
   RobotsSettings: view('RobotsSettings', RobotsSettings),
+  MediaLibrary: view('MediaLibrary', MediaLibrary),
   SignIn: view('SignIn', SignIn),
   Setup: view('Setup', Setup),
   NotFound: view('NotFound', NotFound),
@@ -158,6 +160,10 @@ const pageAllowed = computed(() => !!page.value && !!schema.value && allowed(pag
       v-else-if="segments[0] === 'roles' && segments.length === 2"
       :key="segments[1]"
       :name="segments[1] === 'new' ? undefined : segments[1]"
+    />
+    <component
+      :is="views.MediaLibrary"
+      v-else-if="segments[0] === 'media' && segments.length === 1"
     />
     <component
       :is="views.RobotsSettings"
