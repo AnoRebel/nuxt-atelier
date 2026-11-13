@@ -1195,3 +1195,53 @@ button:not(:disabled),
   object-fit: cover;
   background: var(--surface-raised-3);
 }
+/* ---------------------------------------------------------------- rich text */
+.app-richtext__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-width-hairline) solid var(--border-default);
+  border-block-end: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--surface-raised-2);
+}
+.app-richtext__toolbar [aria-pressed="true"] {
+  background: var(--surface-raised-3);
+  color: var(--accent-primary-base);
+}
+.app-richtext__editor .app-richtext__content {
+  min-block-size: 10rem;
+  padding: var(--space-3);
+  border: var(--border-width-hairline) solid var(--border-default);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: var(--surface-raised-1);
+  color: var(--content-primary);
+  outline: none;
+  overflow-wrap: anywhere;
+}
+.app-richtext__editor .app-richtext__content:focus-visible {
+  outline: var(--border-width-focus) solid var(--accent-primary-base);
+  outline-offset: 1px;
+}
+.app-richtext__content :is(p, ul, ol, blockquote, pre, h2, h3) {
+  margin: 0 0 var(--space-2);
+}
+.app-richtext__content :is(ul, ol) {
+  padding-inline-start: var(--space-5, 1.5rem);
+}
+.app-richtext__content blockquote {
+  padding-inline-start: var(--space-3);
+  border-inline-start: var(--border-width-accent) solid var(--border-default);
+  color: var(--content-secondary);
+}
+.app-richtext__content pre {
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised-3);
+  font-family: var(--font-family-mono, ui-monospace, monospace);
+}
+.app-richtext__content a {
+  color: var(--accent-primary-base);
+  text-decoration: underline;
+}

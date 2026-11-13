@@ -330,6 +330,32 @@ describe('admin', async () => {
     await page.getByText('File deleted').waitFor()
   })
 
+  it('edits rich text with the editor, storing ProseMirror JSON', async () => {
+    const page = await signIn()
+    await page.goto(url('/admin/collections/posts/new'))
+    await page.getByLabel('Title *').fill('Rich')
+    const editor = page.locator('[data-rich-text]').getByRole('textbox')
+    await editor.click()
+    await page.keyboard.type('Hello ')
+    await page.getByRole('button', { name: 'Bold' }).click()
+    await page.keyboard.type('world')
+    await page.getByRole('button', { name: 'Bold' }).click()
+    await page.keyboard.press('Enter')
+    await page.getByRole('button', { name: 'Bulleted list' }).click()
+    await page.keyboard.type('first item')
+    await page.getByRole('button', { name: 'Save draft' }).click()
+    await page.waitForURL(/\/admin\/collections\/posts\/(?!new)[^/]+$/)
+    const id = page.url().split('/').pop()!
+    const body = await page.evaluate(async id => (await (await window.fetch(`/api/_atelier/collections/posts/${id}?draft=true`)).json()).data.body, id)
+    const [first, list] = body.content
+    expect(first.content.map((n: { text: string }) => n.text).join('')).toBe('Hello world')
+    expect(first.content.find((n: { text: string }) => n.text.includes('world')).marks).toEqual([{ type: 'bold' }])
+    expect(list).toMatchObject({ type: 'bulletList', content: [{ type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'first item' }] }] }] })
+    // reopened, the editor shows it
+    await page.reload()
+    await page.locator('[data-rich-text]').getByText('first item').waitFor()
+  })
+
   it('keeps the site\'s CSS out of the admin, and the admin\'s CSS off the site\'s pages', async () => {
     const page = await createPage(url('/admin'))
     await page.getByLabel('Email').waitFor()

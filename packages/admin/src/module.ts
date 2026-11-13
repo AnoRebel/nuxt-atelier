@@ -18,6 +18,8 @@ export const ICONS = [
   'search', 'chevron-left', 'chevron-down', 'chevron-up', 'upload', 'eye', 'eye-off', 'palette', 'key-round',
   'loader-circle', 'check', 'x', 'menu', 'panel-left-open', 'panel-left-close', 'download', 'triangle-alert',
   'image', 'lock', 'file', 'film', 'music',
+  'bold', 'italic', 'underline', 'strikethrough', 'code', 'heading-2', 'heading-3', 'list', 'list-ordered',
+  'quote', 'square-code', 'link', 'unlink', 'undo-2', 'redo-2',
 ]
 
 interface IconSet { icons: Record<string, { body: string, width?: number, height?: number }>, aliases?: Record<string, { parent: string }>, width?: number, height?: number }
