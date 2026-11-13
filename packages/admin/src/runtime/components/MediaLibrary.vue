@@ -4,6 +4,7 @@
 import type { MediaItem } from '../composables/useAtelierMediaLibrary'
 import type { AdminApiError } from '../types'
 import { computed, ref } from 'vue'
+import { useRoute } from '#imports'
 import { useAtelierMediaLibrary } from '../composables/useAtelierMediaLibrary'
 import { useAtelierPermissions } from '../composables/useAtelierPermissions'
 import CnButton from '../crystal-neuo/components/Button.vue'
@@ -22,7 +23,9 @@ const props = defineProps<{ picking?: boolean, selected?: string | null }>()
 const emit = defineEmits<{ choose: [item: MediaItem] }>()
 const { t } = useAdminI18n()
 const { manages } = useAtelierPermissions()
-const library = useAtelierMediaLibrary()
+// opened from the global search: already searching for the file
+const route = useRoute()
+const library = useAtelierMediaLibrary(!props.picking && typeof route.query.search === 'string' ? { search: route.query.search } : {})
 const { state } = library
 const toast = useAdminToast()
 const open = ref<MediaItem | null>(null)

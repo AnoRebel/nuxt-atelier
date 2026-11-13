@@ -33,7 +33,9 @@ const options = computed<Option[]>(() => {
       return [{ key: `singleton:${r.id}`, kind: r.kind, title: r.title, to: to('singletons', r.id) }]
     if (r.kind === 'user')
       return [{ key: `user:${r.id}`, kind: r.kind, title: r.title, detail: r.detail, to: to('users') }]
-    return [] // media: with the media library screen
+    if (r.kind === 'media')
+      return [{ key: `media:${r.id}`, kind: r.kind, title: r.title, detail: r.detail, to: `${to('media')}?search=${encodeURIComponent(r.detail ?? r.title)}` }]
+    return []
   })
   return [...pages, ...found]
 })
