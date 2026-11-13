@@ -15,6 +15,7 @@ import CnDrawer from '../crystal-neuo/components/Drawer.vue'
 import CnMenu from '../crystal-neuo/components/Menu.vue'
 import { useOverrides } from '../overrides'
 import Brand from './Brand.vue'
+import GlobalSearch from './GlobalSearch.vue'
 import Icon from './Icon'
 import { useAdminI18n } from '../i18n'
 
@@ -41,6 +42,7 @@ const groups = computed(() => {
 const isCurrent = (item: NavigationItem) => item.to === base ? route.path === base || route.path === `${base}/` : route.path === item.to || route.path.startsWith(`${item.to}/`)
 
 const drawerOpen = ref(false)
+const searching = ref(false)
 watch(() => route.fullPath, () => (drawerOpen.value = false))
 const toggleRail = () => set({ sidebar: sidebar.value === 'rail' ? 'floating' : 'rail' })
 
@@ -183,6 +185,15 @@ const account = computed(() => [
           <button
             type="button"
             class="app-icon-button"
+            :aria-label="t('globalSearch.open')"
+            aria-haspopup="dialog"
+            @click="searching = true"
+          >
+            <Icon name="search" />
+          </button>
+          <button
+            type="button"
+            class="app-icon-button"
             :aria-label="t('common.appearance')"
             aria-haspopup="dialog"
             @click="openModal"
@@ -215,6 +226,7 @@ const account = computed(() => [
       </main>
     </div>
 
+    <GlobalSearch v-model:open="searching" />
     <CnDrawer
       v-model:open="drawerOpen"
       :title="t('nav.title')"
