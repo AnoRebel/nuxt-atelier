@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import type { Field } from '../types'
 import { useQuery } from '@tanstack/vue-query'
-import { computed, ref, resolveComponent } from 'vue'
+import { computed, defineAsyncComponent, ref, resolveComponent } from 'vue'
 import { applies } from '#atelier/shared/fields'
 import { atelierFetch } from '../composables/useAtelierAdmin'
 import { titleField } from '../composables/useAtelierCollection'
@@ -24,6 +24,9 @@ import RelatedCreate from './RelatedCreate.vue'
 import { useAdminI18n } from '../i18n'
 
 defineOptions({ name: 'AtelierAdminFieldInput' })
+
+// the editor's code loads only when a rich-text field shows
+const RichTextEditor = defineAsyncComponent(() => import('./RichTextEditor.vue'))
 
 const props = defineProps<{
   // TanStack Form's form API; its generics depend on the entry type, unknown here
@@ -55,13 +58,6 @@ const toLocal = (iso: unknown) => {
   return Number.isNaN(d.getTime()) ? '' : new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
 }
 const fromLocal = (local: string) => local ? new Date(local).toISOString().replace(/\.\d{3}Z$/, 'Z') : null
-
-// rich text, until the editor: paragraphs of plain text
-const docText = (doc: unknown) => ((doc as { content?: { content?: { text?: string }[] }[] } | null)?.content ?? [])
-  .map(p => (p.content ?? []).map(t => t.text ?? '').join('')).join('\n\n')
-const textDoc = (text: string) => text.trim()
-  ? { type: 'doc', content: text.split(/\n{2,}/).map(p => ({ type: 'paragraph', content: p ? [{ type: 'text', text: p }] : [] })) }
-  : null
 
 const json = (value: unknown) => value === undefined || value === null ? '' : JSON.stringify(value, null, 2)
 function parseJson(text: string, set: (v: unknown) => void) {
@@ -270,15 +266,14 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
             @blur="f.handleBlur"
           />
 
-          <CnTextarea
+          <RichTextEditor
             v-else-if="field.type === 'richText'"
-            :model-value="docText(f.state.value)"
+            :model-value="(f.state.value as Record<string, unknown> | null) ?? null"
             :label="label"
-            :rows="8"
-            :hint="field.help ?? t('field.richTextHint')"
+            :hint="field.help"
             :error="errorOf(f)"
             :disabled="readOnly"
-            @update:model-value="(v: string) => f.handleChange(textDoc(v))"
+            @update:model-value="f.handleChange"
           />
 
           <component

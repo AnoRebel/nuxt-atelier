@@ -244,7 +244,8 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 
 ### D10. Rich text
 - **Editor and storage:** Tiptap 3 in the admin and for inline editing in the bridge, stored as **ProseMirror JSON**, never raw HTML.
-- **Public rendering:** server-side through `@tiptap/static-renderer` into Vue VNodes, with an allowlisted node and mark schema. Hosts can map nodes to their own components, for example links to `NuxtLink`.
+  - **Domternal considered (2026-11-13, at the maintainer's request):** an MIT ProseMirror toolkit with Tiptap's node names (its JSON fits the same sanitizer), Vue components, Office paste cleanup, tables, UI catalogs and server-side HTML. Not chosen for now: ten months old with a single maintainer and ~1.4k weekly downloads (Tiptap: ~36M), minor releases days apart (against the two-week rule), ~176 KiB gzipped with its dependencies (heavy for inline editing in the preview), and no counterpart to `@tiptap/static-renderer`. The admin's rich-text input is the replaceable `FieldRichText` part, so a Domternal input can replace Tiptap's without migrating content; revisit when it has a longer track record.
+- **Public rendering:** server-side into Vue VNodes by `<AtelierRichText>` (shared/rich-text-render.ts), with the allowlisted node and mark schema. Hosts can map nodes and marks to their own components; links to site paths use `NuxtLink`. (`@tiptap/static-renderer` was the plan, but it has no Vue output and lists React as a peer dependency, which package managers would install into every app; the renderer for our allowlisted schema is ~100 lines with no dependency.)
 - **Why:** XSS-safe by construction, links resolved by entry id at render time, no HTML sanitiser on the hot path.
 - **Pasted or imported HTML** is parsed through the same schema, which drops unknown nodes and attributes.
 
@@ -357,7 +358,7 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 | | date-fns / @date-fns/tz | 4.4.0 / 1.5.0 |
 | | croner | 11.0.0 |
 | | defu / ufo / pathe / ohash | via Nuxt |
-| Editor | @tiptap/core, vue-3, pm, starter-kit, static-renderer | 3.32.2 |
+| Editor | @tiptap/core, vue-3, pm, starter-kit | 3.32.1 |
 | | @atlaskit/pragmatic-drag-and-drop | 4.0.0 |
 | Media | file-type | 22.3.0 |
 | | ipx / sharp | 4.1.0 / 0.35.5 (optional) |

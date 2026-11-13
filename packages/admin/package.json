@@ -41,7 +41,11 @@
     "@nuxt/kit": "catalog:",
     "@tanstack/vue-query": "catalog:admin",
     "@tanstack/vue-form": "catalog:admin",
-    "@iconify-json/lucide": "catalog:admin"
+    "@iconify-json/lucide": "catalog:admin",
+    "@tiptap/core": "catalog:editor",
+    "@tiptap/pm": "catalog:editor",
+    "@tiptap/vue-3": "catalog:editor",
+    "@tiptap/starter-kit": "catalog:editor"
   },
   "devDependencies": {
     "@nuxt/schema": "catalog:",

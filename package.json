@@ -99,6 +99,12 @@
       "seo": {
         "@nuxtjs/robots": "7.0.2",
         "@nuxtjs/sitemap": "9.1.0"
+      },
+      "editor": {
+        "@tiptap/core": "3.32.1",
+        "@tiptap/pm": "3.32.1",
+        "@tiptap/vue-3": "3.32.1",
+        "@tiptap/starter-kit": "3.32.1"
       }
     }
   },
