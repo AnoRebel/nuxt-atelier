@@ -112,6 +112,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
 
     // passkey sign-in code only when passkeys are on: otherwise @simplewebauthn/browser isn't even resolved
     nuxt.options.alias['#atelier-admin-passkeys'] = resolve(core?.auth?.passkeys === true ? './runtime/passkeys' : './runtime/passkeys-off')
+    // AI actions: @nuxt-atelier/ai points this at its own once modules are set up; without it, nothing
+    nuxt.options.alias['#atelier-admin-ai'] = resolve('./runtime/ai-off')
     // icons: the kit's, the pages', and `icons` (for content types' `admin.icon`, say)
     const pages: AdminPage[] = [...options.pages ?? []]
     const languages: Record<string, AdminLanguage> = { ...options.languages }
@@ -160,6 +162,9 @@ declare module '#atelier-admin-icons' {
 }
 declare module '#atelier-admin-passkeys' {
   export function signInWithPasskey(): Promise<unknown>
+}
+declare module '#atelier-admin-ai' {
+  export const ai: import(${JSON.stringify(resolve('./runtime/types'))}).AdminAi | null
 }
 `,
     })

@@ -2,7 +2,8 @@
      publish and unpublish, delete. Fields the role can only read are shown disabled. -->
 <script setup lang="ts">
 import type { AdminApiError } from '../types'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
+import { ai } from '#atelier-admin-ai'
 import { useQuery } from '@tanstack/vue-query'
 import { NuxtLink } from '#components'
 import { navigateTo, onBeforeRouteLeave, onBeforeRouteUpdate } from '#imports'
@@ -85,6 +86,17 @@ const mayEdit = computed(() => !!type.value && (edit.isNew.value ? type.value.ca
 // collaboration: who else is here, and the edit lock (a singleton's id is its name)
 const target = computed(() => !type.value || edit.isNew.value ? null : { type: props.name, id: props.kind === 'singleton' ? props.name : props.id! })
 const presence = useAtelierPresence(target, mayEdit)
+// for fields' AI actions: which entry, and its locales
+provide('atelier-entry', computed(() => type.value ? { type: props.name, locale: edit.locale.value, locales: type.value.localized ? schema.value?.locales.codes ?? [] : [] } : null))
+const aiOn = ai ? ai.enabled() : ref(false)
+function applySeo(value: { title: string, description: string }) {
+  form.setFieldValue('seo.title' as never, value.title as never)
+  form.setFieldValue('seo.description' as never, value.description as never)
+}
+const hasSeoFields = computed(() => {
+  const seo = type.value?.fields.seo as { type?: string, fields?: Record<string, unknown> } | undefined
+  return seo?.type === 'object' && !!seo.fields?.title && !!seo.fields?.description
+})
 const takenBy = ref('')
 watch(presence.lock, (lock, before) => {
   if (before?.mine && lock && !lock.mine) {
@@ -342,6 +354,14 @@ async function remove() {
         :root="values"
         :sibling="values"
         :read-only="readOnly(String(key))"
+      />
+      <component
+        :is="ai.Seo"
+        v-if="ai && aiOn && hasSeoFields && !edit.isNew.value && canSave"
+        :id="kind === 'collection' ? id : undefined"
+        :type="name"
+        :locale="edit.locale.value"
+        @apply="applySeo"
       />
       <SeoPanel
         v-if="kind === 'collection' && type.routable"

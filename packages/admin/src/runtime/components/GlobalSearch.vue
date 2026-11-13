@@ -3,6 +3,7 @@
 <script setup lang="ts">
 import type { GlobalSearchResult } from '../composables/useAtelierGlobalSearch'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { ai } from '#atelier-admin-ai'
 import { navigateTo } from '#imports'
 import { useAtelierAdmin } from '../composables/useAtelierAdmin'
 import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
@@ -20,8 +21,11 @@ const text = ref('')
 const { results } = useAtelierGlobalSearch(text)
 const active = ref(0)
 const input = ref<HTMLInputElement | null>(null)
+// AI assist: the request goes to the assistant, which proposes what to do
+const aiOn = ai ? ai.enabled() : ref(false)
+const asking = ref<string | null>(null)
 
-interface Option { key: string, kind: GlobalSearchResult['kind'] | 'page', title: string, detail?: string, to: string }
+interface Option { key: string, kind: GlobalSearchResult['kind'] | 'page' | 'assistant', title: string, detail?: string, to: string }
 const typeLabel = (name: string) => schema.value?.collections.find(c => c.name === name)?.labels?.plural ?? humanize(name)
 const options = computed<Option[]>(() => {
   const needle = text.value.trim().toLowerCase()
@@ -37,12 +41,14 @@ const options = computed<Option[]>(() => {
       return [{ key: `media:${r.id}`, kind: r.kind, title: r.title, detail: r.detail, to: `${to('media')}?search=${encodeURIComponent(r.detail ?? r.title)}` }]
     return []
   })
-  return [...pages, ...found]
+  const assistant = aiOn.value && text.value.trim().length > 2 ? [{ key: 'assistant', kind: 'assistant' as const, title: t('ai.ask', { request: text.value.trim() }), to: '' }] : []
+  return [...pages, ...found, ...assistant]
 })
 watch(options, () => active.value = 0)
 watch(open, async (isOpen) => {
   if (isOpen) {
     text.value = ''
+    asking.value = null
     await nextTick()
     input.value?.focus()
   }
@@ -51,6 +57,10 @@ watch(open, async (isOpen) => {
 async function choose(option: Option | undefined) {
   if (!option)
     return
+  if (option.kind === 'assistant') {
+    asking.value = text.value.trim()
+    return
+  }
   open.value = false
   await navigateTo(option.to)
 }
@@ -83,7 +93,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onShortcut))
     :title="t('globalSearch.title')"
     size="lg"
   >
-    <div class="app-stack app-global-search">
+    <component
+      :is="ai.Assistant"
+      v-if="ai && asking"
+      :request="asking"
+      @close="open = false"
+    />
+    <div
+      v-else
+      class="app-stack app-global-search"
+    >
       <input
         ref="input"
         v-model="text"

@@ -3,7 +3,7 @@ import type { Field, Fields } from '#atelier/shared/fields'
 
 export type { Field, Fields }
 export type ContentAction = 'create' | 'read' | 'update' | 'delete' | 'publish' | 'comment'
-export type Capability = 'users' | 'roles' | 'settings' | 'media' | 'redirects' | 'forms'
+export type Capability = 'users' | 'roles' | 'settings' | 'media' | 'redirects' | 'forms' | 'ai'
 
 interface ContentType {
   name: string
@@ -77,3 +77,19 @@ export interface Role {
 }
 /** `code` roles come from server/atelier/roles.ts and can't be edited in the admin; `admin` is built in. */
 export interface RoleEntry { name: string, role: Role, source: 'builtin' | 'code' | 'database' }
+
+/**
+ * AI assist's admin parts (from @nuxt-atelier/ai, through `#atelier-admin-ai`): actions shown only while
+ * `enabled()` (an adapter is set up and the user has the `ai` capability).
+ */
+export interface AdminAi {
+  enabled: () => import('vue').Ref<boolean>
+  /** Rewrite, shorten, expand, translate a text field: `{ type, field, value, locale?, locales }`, emits `apply`. */
+  TextActions: import('vue').Component
+  /** Alt text for an image: `{ media }`, emits `apply`. */
+  AltText: import('vue').Component
+  /** SEO title and description: `{ type, id }`, emits `apply` with `{ title, description }`. */
+  Seo: import('vue').Component
+  /** The assistant, for a request typed in the command palette: `{ request }`, emits `close`. */
+  Assistant: import('vue').Component
+}

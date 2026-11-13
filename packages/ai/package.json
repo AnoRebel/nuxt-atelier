@@ -33,12 +33,21 @@
     "check:pkg": "publint --pack bun && attw --pack . --profile esm-only"
   },
   "peerDependencies": {
-    "nuxt": ">=4.6.0"
+    "nuxt": ">=4.6.0",
+    "nuxt-atelier": "workspace:^",
+    "@nuxt-atelier/admin": "workspace:^"
   },
   "dependencies": {
-    "@nuxt/kit": "catalog:"
+    "@nuxt/kit": "catalog:",
+    "ai": "catalog:ai",
+    "zod": "catalog:ai"
   },
   "devDependencies": {
     "@nuxt/schema": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "@nuxt-atelier/admin": {
+      "optional": true
+    }
   }
 }

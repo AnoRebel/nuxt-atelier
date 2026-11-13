@@ -290,6 +290,12 @@ test/fixtures/     (minimal apps: plain-css, shadcn, nuxt-ui, layers, multi-site
 ### D14. AI assist
 - **Packaging:** `@nuxt-atelier/ai` defines the `AiAdapter` and ships a provider-agnostic implementation on the AI SDK (`ai` 7.x). Users pick any AI SDK provider package.
 - **Execution:** server-side only. Admin UI actions are lazy-loaded only when the adapter is configured. Results are always shown as suggestions.
+- **Implementation (2026-11-14):**
+  - `AiAdapter` is one call, `generate({ system, prompt, images? }) → { text, usage? }`; `aiSdkAdapter({ model })` implements it with `generateText` (`ai` 7.0.159, the newest two weeks old). Apps register theirs in a server plugin (`registerAiAdapter`); without one the endpoints answer 404 and the admin shows nothing.
+  - The admin's AI UI is behind the `#atelier-admin-ai` alias: a stub unless `@nuxt-atelier/ai` is installed (the passkeys pattern), so an admin without it bundles no AI code.
+  - Server endpoints under `/api/_atelier/ai/`: `suggest` (alt text, translate, SEO, rewrite/shorten/expand), `assistant` (proposals only) and `usage`. The `ai` capability gates them; requests per hour and tokens per day are limited per user; `exclude` (`type` or `type.field`) and fields hidden from the user are never sent. For SEO suggestions the server reads the entry itself; for alt text, the file.
+  - Usage is recorded per request in `atelier_ai_usage` (a table the package adds through `atelier:dirs`).
+  - The assistant answers with proposed content API requests, validated to `/api/_atelier/{collections,singletons,media}` and GET/POST/PATCH/DELETE; the user's browser sends the approved ones with the user's session, so permissions apply exactly as for the user.
 
 ### D15. Performance and safety mechanics
 - **Bundle budget:** `size-limit` 14 in CI against the `test/fixtures/plain-css` public page.

@@ -227,11 +227,11 @@
 
 ## 22. AI assist (ai-assist)
 
-- [ ] 22.1 Implement `@nuxt-atelier/ai` with the `AiAdapter` interface and AI SDK 7 implementation, server-only endpoints, dedicated permission, rate/usage limits, and field/type exclusions; verify keys never appear in client payloads and excluded fields are never sent
-- [ ] 22.2 Implement admin actions (alt text, translate field/block, SEO suggestions, rewrite/shorten/expand) as lazy-loaded suggestion UI with accept/edit/discard and undo; verify disabled-by-default bundle check and discard test
-- [ ] 22.3 Implement AI usage audit and reporting view; verify usage report test
-- [ ] 22.4 Write docs: enabling AI assist, choosing a provider, privacy controls and exclusions, usage limits
-- [ ] 22.5 (added from ohne, see parent-issues.md) Implement the assistant in the command palette: plain-language request → proposed content API requests shown for approval → approved ones sent by the user's browser with their session; verify a writer's approved delete of another author's entry is refused with 403 and nothing changes, and that nothing is sent without approval
+- [x] 22.1 Implement `@nuxt-atelier/ai` with the `AiAdapter` interface and AI SDK 7 implementation, server-only endpoints, dedicated permission, rate/usage limits, and field/type exclusions; verify keys never appear in client payloads and excluded fields are never sent
+- [x] 22.2 Implement admin actions (alt text, translate field/block, SEO suggestions, rewrite/shorten/expand) as lazy-loaded suggestion UI with accept/edit/discard and undo; verify disabled-by-default bundle check and discard test
+- [x] 22.3 Implement AI usage audit and reporting view; verify usage report test
+- [x] 22.4 Write docs: enabling AI assist, choosing a provider, privacy controls and exclusions, usage limits
+- [x] 22.5 (added from ohne, see parent-issues.md) Implement the assistant in the command palette: plain-language request → proposed content API requests shown for approval → approved ones sent by the user's browser with their session; verify a writer's approved delete of another author's entry is refused with 403 and nothing changes, and that nothing is sent without approval
 
 ## 23. Performance, safety, operations (runtime-performance)
 
