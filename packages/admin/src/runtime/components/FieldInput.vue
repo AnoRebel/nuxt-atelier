@@ -5,7 +5,9 @@
 <script setup lang="ts">
 import type { Field } from '../types'
 import { useQuery } from '@tanstack/vue-query'
-import { computed, defineAsyncComponent, ref, resolveComponent } from 'vue'
+import type { ComputedRef } from 'vue'
+import { computed, defineAsyncComponent, inject, ref, resolveComponent } from 'vue'
+import { ai } from '#atelier-admin-ai'
 import { applies } from '#atelier/shared/fields'
 import { atelierFetch } from '../composables/useAtelierAdmin'
 import { titleField } from '../composables/useAtelierCollection'
@@ -39,6 +41,9 @@ const props = defineProps<{
   readOnly?: boolean
 }>()
 const { t } = useAdminI18n()
+// AI actions on the entry's own text fields, when AI assist is installed and on for this user
+const entry = inject<ComputedRef<{ type: string, locale?: string, locales: string[] } | null> | null>('atelier-entry', null)
+const aiOn = ai ? ai.enabled() : ref(false)
 
 const label = computed(() => (props.field.label ?? humanize(props.name.split('.').pop()!)) + (props.field.required ? ' *' : ''))
 const visible = computed(() => applies(props.field, props.sibling ?? {}, props.root ?? {}))
@@ -308,6 +313,16 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
             :maxlength="'maxLength' in field ? field.maxLength : undefined"
             @update:model-value="(v: string) => f.handleChange(v || null)"
             @blur="f.handleBlur"
+          />
+          <component
+            :is="ai.TextActions"
+            v-if="ai && aiOn && entry && !readOnly && !name.includes('.') && (field.type === 'text' || field.type === 'textarea') && f.state.value"
+            :type="entry.type"
+            :field="name"
+            :value="String(f.state.value)"
+            :locale="entry.locale"
+            :locales="entry.locales"
+            @apply="(v: string) => f.handleChange(v)"
           />
           <template v-if="field.type === 'relation' && target?.can.create && !readOnly">
             <div>

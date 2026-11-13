@@ -22,7 +22,7 @@ export const ContentPermissionsSchema = v.record(v.pipe(v.string(), v.maxLength(
 
 const RoleSchema = v.strictObject({
   label: v.optional(v.pipe(v.string(), v.maxLength(255))),
-  capabilities: v.optional(v.array(v.picklist(['users', 'roles', 'settings', 'media', 'redirects', 'forms']))),
+  capabilities: v.optional(v.array(v.picklist(['users', 'roles', 'settings', 'media', 'redirects', 'forms', 'ai']))),
   content: v.optional(ContentPermissionsSchema),
 })
 

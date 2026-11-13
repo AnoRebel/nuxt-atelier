@@ -5,6 +5,7 @@
 import type { MediaChanges, MediaItem, MediaUsage } from '../composables/useAtelierMediaLibrary'
 import type { AdminApiError } from '../types'
 import { computed, reactive, ref, watch } from 'vue'
+import { ai } from '#atelier-admin-ai'
 import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
 import { useAtelierMediaLibrary } from '../composables/useAtelierMediaLibrary'
 import { useAtelierPermissions } from '../composables/useAtelierPermissions'
@@ -19,6 +20,7 @@ import { useAdminI18n } from '../i18n'
 import { useAdminToast } from '../toast'
 
 const props = defineProps<{ item: MediaItem | null }>()
+const aiOn = ai ? ai.enabled() : ref(false)
 const emit = defineEmits<{ close: [] }>()
 const { t } = useAdminI18n()
 const { manages } = useAtelierPermissions()
@@ -137,16 +139,26 @@ async function confirmDelete() {
         @submit.prevent="save"
       >
         <template v-if="isImage">
-          <CnTextarea
+          <template
             v-for="locale in locales"
             :key="locale"
-            :model-value="form.alt[locale] ?? ''"
-            :label="locale ? t('media.altIn', { locale: locale.toUpperCase() }) : t('media.alt')"
-            :hint="t('media.altHint')"
-            :rows="2"
-            :disabled="!canEdit"
-            @update:model-value="(v: string) => form.alt[locale] = v"
-          />
+          >
+            <CnTextarea
+              :model-value="form.alt[locale] ?? ''"
+              :label="locale ? t('media.altIn', { locale: locale.toUpperCase() }) : t('media.alt')"
+              :hint="t('media.altHint')"
+              :rows="2"
+              :disabled="!canEdit"
+              @update:model-value="(v: string) => form.alt[locale] = v"
+            />
+            <component
+              :is="ai.AltText"
+              v-if="ai && aiOn && canEdit && item"
+              :media="item.id"
+              :locale="locale || undefined"
+              @apply="(v: string) => form.alt[locale] = v"
+            />
+          </template>
         </template>
         <CnInput
           v-model="form.title"

@@ -11,7 +11,7 @@ import { ADMIN_ROLE } from '../../shared/policy'
 import { atelierSites, siteLocales, useAtelierAuth, useAtelierRoles, useAtelierSchema, useAtelierSiteRoles } from '../index'
 
 const ACTIONS: ContentAction[] = ['create', 'read', 'update', 'delete', 'publish', 'comment']
-const CAPABILITIES: Capability[] = ['users', 'roles', 'settings', 'media', 'redirects', 'forms']
+const CAPABILITIES: Capability[] = ['users', 'roles', 'settings', 'media', 'redirects', 'forms', 'ai']
 const json = (value: unknown) => JSON.parse(serialiseFields(value)) // functions and Standard Schemas dropped
 
 export default defineEventHandler(async (event) => {

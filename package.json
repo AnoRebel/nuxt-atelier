@@ -105,6 +105,10 @@
         "@tiptap/pm": "3.32.1",
         "@tiptap/vue-3": "3.32.1",
         "@tiptap/starter-kit": "3.32.1"
+      },
+      "ai": {
+        "ai": "7.0.159",
+        "zod": "4.6.7"
       }
     }
   },
@@ -137,6 +141,7 @@
     "@seriousme/openapi-schema-validator": "catalog:test",
     "@tanstack/vue-query": "catalog:admin",
     "@types/bun": "catalog:build",
+    "ai": "catalog:ai",
     "aws4fetch": "catalog:media",
     "axe-core": "catalog:test",
     "better-auth": "catalog:auth",

@@ -384,6 +384,19 @@ describe('admin', async () => {
     expect(leaked).toEqual({ host: false, rules: false })
   })
 
+  it('has no AI actions, endpoints or code without @nuxt-atelier/ai', async () => {
+    expect((await fetch('/api/_atelier/ai')).status).toBe(404)
+    const page = await createPage()
+    const scripts: Promise<string>[] = []
+    page.on('response', (response) => {
+      if (response.request().resourceType() === 'script')
+        scripts.push(response.text())
+    })
+    await page.goto(url('/admin'))
+    await page.getByLabel('Email').waitFor()
+    expect((await Promise.all(scripts)).some(code => code.includes('/ai/suggest') || code.includes('data-ai-'))).toBe(false)
+  })
+
   it('has no passkey option, and loads no passkey code, with passkeys off', async () => {
     const page = await createPage()
     const scripts: Promise<string>[] = []

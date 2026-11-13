@@ -17,6 +17,24 @@
         "src/module.ts"
       ]
     },
+    "packages/ai": {
+      "entry": [
+        "src/module.ts",
+        "src/runtime/server/api.ts",
+        "src/runtime/server/adapter.ts",
+        "src/runtime/admin/index.ts",
+        "src/runtime/admin/AiUsage.vue",
+        "src/runtime/content/server/atelier/tables.ts"
+      ]
+    },
+    "test/fixtures/ai": {
+      "entry": [
+        "app/**/*.vue",
+        "server/api/**/*.ts",
+        "server/plugins/*.ts",
+        "server/atelier/**/*.ts"
+      ]
+    },
     "packages/core": {
       "entry": [
         "src/runtime/*/index.ts",
@@ -59,6 +77,7 @@
       "entry": [
         "src/runtime/pages/*.vue",
         "src/runtime/passkeys*.ts",
+        "src/runtime/ai-off.ts",
         "src/runtime/composables/*.ts",
         "src/runtime/types.ts"
       ],
@@ -252,6 +271,8 @@
     "#atelier-migrations",
     "#atelier-drivers",
     "#atelier-mailer",
+    "#atelier-admin-ai",
+    "#atelier-ai",
     "#atelier-better-auth",
     "#atelier-blocks",
     "#components",

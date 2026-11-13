@@ -15,6 +15,7 @@
         "@seriousme/openapi-schema-validator": "catalog:test",
         "@tanstack/vue-query": "catalog:admin",
         "@types/bun": "catalog:build",
+        "ai": "catalog:ai",
         "aws4fetch": "catalog:media",
         "axe-core": "catalog:test",
         "better-auth": "catalog:auth",
@@ -80,13 +81,20 @@
       "version": "0.0.0",
       "dependencies": {
         "@nuxt/kit": "catalog:",
+        "ai": "catalog:ai",
+        "zod": "catalog:ai",
       },
       "devDependencies": {
         "@nuxt/schema": "catalog:",
       },
       "peerDependencies": {
+        "@nuxt-atelier/admin": "workspace:^",
         "nuxt": ">=4.6.0",
+        "nuxt-atelier": "workspace:^",
       },
+      "optionalPeers": [
+        "@nuxt-atelier/admin",
+      ],
     },
     "packages/auth-better-auth": {
       "name": "@nuxt-atelier/auth-better-auth",
@@ -250,6 +258,12 @@
       "devDependencies": {
         "typescript": "catalog:build",
         "vue-tsc": "catalog:build",
+      },
+    },
+    "test/fixtures/ai": {
+      "name": "@nuxt-atelier/fixture-ai",
+      "dependencies": {
+        "nuxt": "catalog:",
       },
     },
     "test/fixtures/api": {
@@ -508,6 +522,10 @@
       "@iconify-json/lucide": "1.2.148",
       "@tanstack/vue-form": "1.33.5",
       "@tanstack/vue-query": "5.105.0",
+    },
+    "ai": {
+      "ai": "7.0.159",
+      "zod": "4.6.7",
     },
     "auth": {
       "@simplewebauthn/browser": "14.0.0",
@@ -1063,6 +1081,8 @@
     "@nuxt-atelier/editor": ["@nuxt-atelier/editor@workspace:packages/editor"],
 
     "@nuxt-atelier/fixture-admin": ["@nuxt-atelier/fixture-admin@workspace:test/fixtures/admin"],
+
+    "@nuxt-atelier/fixture-ai": ["@nuxt-atelier/fixture-ai@workspace:test/fixtures/ai"],
 
     "@nuxt-atelier/fixture-api": ["@nuxt-atelier/fixture-api@workspace:test/fixtures/api"],
 
