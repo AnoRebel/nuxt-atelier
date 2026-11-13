@@ -10,7 +10,7 @@ import { apiError } from '../errors'
 import { useAtelierRoles, useAtelierSchema } from '../index'
 
 const ACTIONS: ContentAction[] = ['create', 'read', 'update', 'delete', 'publish', 'comment']
-const CAPABILITIES: Capability[] = ['users', 'roles', 'settings', 'media', 'redirects']
+const CAPABILITIES: Capability[] = ['users', 'roles', 'settings', 'media', 'redirects', 'forms']
 const json = (value: unknown) => JSON.parse(serialiseFields(value)) // functions and Standard Schemas dropped
 
 export default defineEventHandler(async (event) => {

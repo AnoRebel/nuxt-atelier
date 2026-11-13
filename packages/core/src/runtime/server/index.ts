@@ -31,6 +31,7 @@ import type { BuiltinAuthAdapter } from './auth/builtin'
 import type { RoleStore } from './auth/roles'
 import type { SettingsStore } from './settings'
 import type { CollabStore } from './collab/store'
+import type { ChallengeAdapter, SubmissionStore } from './forms'
 import { createPolicy } from '../shared/policy'
 import { defineAuthAdapter } from './auth/adapter'
 import { createBuiltinAuth } from './auth/builtin'
@@ -40,6 +41,7 @@ import { clientIp, createRateLimiter } from './auth/rate-limit'
 import { createRoleStore } from './auth/roles'
 import { createSettingsStore } from './settings'
 import { createCollabStore } from './collab/store'
+import { createSubmissionStore, turnstileChallenge } from './forms'
 import { indexChange } from './search/service'
 import { createTokenStore } from './auth/tokens'
 import { apiError } from './errors'
@@ -50,6 +52,8 @@ export type { AtelierDriver, Dialect } from './db/driver'
 export { createDatabaseAdapter, ForbiddenError } from './adapter'
 export type { RobotsSettings, SettingKey, SettingsStore } from './settings'
 export type { CollabStore, Comment, Lock, Notification, NotificationKind } from './collab/store'
+export { turnstileChallenge } from './forms'
+export type { ChallengeAdapter, Submission, SubmissionStore } from './forms'
 export { rebuildSearchIndex, registerSearchAdapter, searchSite, useAtelierSearch } from './search/service'
 export type { SearchResult } from './search/service'
 export type { SearchAdapter, SearchDocument, SearchHit, SearchQuery } from './search/adapter'
@@ -162,6 +166,23 @@ let customStorage: (() => StorageDriver | Promise<StorageDriver>) | undefined
 export function registerStorageDriver(factory: () => StorageDriver | Promise<StorageDriver>): void {
   customStorage = factory
   mediaLibrary = undefined
+  storageDriver = undefined
+}
+
+let storageDriver: Promise<StorageDriver> | undefined
+
+/** Where files are kept: the media library's, and forms' private uploads (under `forms/`). */
+export function useAtelierStorage(): Promise<StorageDriver> {
+  storageDriver ??= (async () => {
+    const config = useAtelierServerConfig() as unknown as { storage: { driver: string, dir: string } }
+    if (config.storage.driver !== 'local' && !customStorage)
+      throw new Error(`[nuxt-atelier] storage.driver is "${config.storage.driver}": add @nuxt-atelier/storage-${config.storage.driver} to your modules`)
+    return customStorage ? customStorage() : createLocalDriver(config.storage.dir)
+  })().catch((error) => {
+    storageDriver = undefined
+    throw error
+  })
+  return storageDriver
 }
 
 /** The media library: files in the configured storage, their metadata in the database. */
@@ -169,10 +190,7 @@ export function useAtelierMedia(): Promise<MediaLibrary> {
   mediaLibrary ??= useAtelierDatabase().then(async (driver) => {
     const config = useAtelierServerConfig() as unknown as { storage: { driver: string, dir: string }, media: { accept: string[] | string }, limits: { maxUploadSize: number } }
     const accept = typeof config.media.accept === 'string' ? JSON.parse(config.media.accept) as string[] : config.media.accept
-    if (config.storage.driver !== 'local' && !customStorage)
-      throw new Error(`[nuxt-atelier] storage.driver is "${config.storage.driver}": add @nuxt-atelier/storage-${config.storage.driver} to your modules`)
-    const storage = customStorage ? await customStorage() : createLocalDriver(config.storage.dir)
-    return createMediaLibrary(driver, storage, { maxUploadSize: config.limits.maxUploadSize, accept })
+    return createMediaLibrary(driver, await useAtelierStorage(), { maxUploadSize: config.limits.maxUploadSize, accept })
   }).catch((error) => {
     mediaLibrary = undefined
     throw error
@@ -267,6 +285,32 @@ let roleStore: Promise<RoleStore> | undefined
 
 /** Roles from the database and from `server/atelier/roles.ts`. */
 let collabStore: Promise<CollabStore> | undefined
+
+let submissions: Promise<SubmissionStore> | undefined
+
+/** Form submissions (forms.ts). */
+export function useAtelierSubmissions(): Promise<SubmissionStore> {
+  submissions ??= useAtelierDatabase().then(driver => createSubmissionStore(driver, useAtelierStorage)).catch((error) => {
+    submissions = undefined
+    throw error
+  })
+  return submissions
+}
+
+let challenge: (() => ChallengeAdapter | Promise<ChallengeAdapter>) | undefined
+
+/** Verifies forms' submissions with your own challenge provider instead of Turnstile. Call it from a server plugin. */
+export function registerChallengeAdapter(factory: () => ChallengeAdapter | Promise<ChallengeAdapter>): void {
+  challenge = factory
+}
+
+/** The challenge forms ask for: yours, Turnstile when its keys are set, or none. */
+export async function useAtelierChallenge(): Promise<ChallengeAdapter | undefined> {
+  if (challenge)
+    return challenge()
+  const { turnstile } = (useAtelierServerConfig() as unknown as { forms: { turnstile: { siteKey: string, secret: string } } }).forms
+  return turnstile.siteKey && turnstile.secret ? turnstileChallenge(turnstile) : undefined
+}
 
 /** Edit locks, presence, comments and notifications (collab/store.ts). */
 export function useAtelierCollab(): Promise<CollabStore> {

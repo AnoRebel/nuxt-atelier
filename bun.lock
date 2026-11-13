@@ -113,6 +113,7 @@
       "dependencies": {
         "@libsql/client": "catalog:db",
         "@nuxt/kit": "catalog:",
+        "@tanstack/vue-form": "catalog:admin",
         "@vue/compiler-sfc": "catalog:",
         "drizzle-orm": "catalog:db",
         "file-type": "catalog:media",

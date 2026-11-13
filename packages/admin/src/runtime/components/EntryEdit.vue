@@ -25,6 +25,8 @@ import NotFound from './NotFound.vue'
 import Page from './Page.vue'
 import SeoPanel from './SeoPanel.vue'
 import SharedBlockUsage from './SharedBlockUsage.vue'
+import FormSubmissions from './FormSubmissions.vue'
+import { useAtelierPermissions } from '../composables/useAtelierPermissions'
 import { useAdminI18n } from '../i18n'
 
 const props = defineProps<{ kind: 'collection' | 'singleton', name: string, id?: string, locale?: string }>()
@@ -40,6 +42,7 @@ const error = ref('')
 
 // localized collections: this version's locale, links to the others, and adding the missing ones
 const { schema } = useAtelierAdminSchema()
+const { manages } = useAtelierPermissions()
 const otherLocales = computed(() => (schema.value?.locales.codes ?? []).filter(code => code !== edit.locale.value))
 async function addTranslation(locale: string) {
   try {
@@ -363,6 +366,10 @@ async function remove() {
         </CnButton>
       </div>
     </form>
+    <FormSubmissions
+      v-if="kind === 'collection' && name === 'atelier-forms' && id && !edit.isNew.value && manages('forms')"
+      :id="id"
+    />
     <SharedBlockUsage
       v-if="kind === 'collection' && name === 'atelier-shared-blocks' && id && !edit.isNew.value"
       :id="id"

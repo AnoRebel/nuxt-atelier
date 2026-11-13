@@ -122,6 +122,10 @@ export const optionsSchema = v.strictObject({
       v.description('How the admin hears about locks, presence, comments and notifications: `auto` uses WebSocket on servers that support it (Node, Bun, Deno, Cloudflare), with polling every 20 seconds when it isn\'t available or drops; `false` polls only.'),
     ), 'auto'),
   }), {}),
+  forms: v.optional(v.strictObject({
+    minFillTime: int(0, 600, 3, 'Seconds a visitor takes at least to fill in a form: faster submissions are taken for spam and dropped (while answering as if they were sent).'),
+    submissionsPerHour: int(1, 100_000, 20, 'Submissions accepted per IP address and form within an hour; then 429. Turnstile (`NUXT_ATELIER_FORMS_TURNSTILE_SITE_KEY` and `NUXT_ATELIER_FORMS_TURNSTILE_SECRET`) adds a challenge.'),
+  }), {}),
   mail: v.optional(v.strictObject({
     from: v.optional(v.pipe(v.string(), v.description('The sender of the CMS\'s email (notifications), e.g. `"Atelier <cms@example.com>"`. Override with `NUXT_ATELIER_MAIL_FROM`. Where email goes out through is a secret: set `NUXT_ATELIER_MAIL_URL` (`smtp://…`, `resend://<key>`, `postmark://<token>`).')), ''),
   }), {}),

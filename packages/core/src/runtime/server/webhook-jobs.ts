@@ -27,15 +27,18 @@ export function lookup(): Promise<Lookup | undefined> {
 }
 
 /** Queues a delivery to every active webhook subscribed to this change. */
-export async function queueWebhooks(change: StoreChange): Promise<void> {
-  const event = `entry.${change.action}` as WebhookEvent
-  const hooks = await (await useAtelierWebhooks()).subscribed(event, change.type)
+export const queueWebhooks = (change: StoreChange): Promise<void> =>
+  queueWebhookEvent(`entry.${change.action}` as WebhookEvent, change.type, { type: change.type, id: change.id, live: change.live })
+
+/** Queues a delivery of `event` about `type` to every active webhook subscribed to it. */
+export async function queueWebhookEvent(event: WebhookEvent, type: string, data: Record<string, unknown>): Promise<void> {
+  const hooks = await (await useAtelierWebhooks()).subscribed(event, type)
   if (!hooks.length)
     return
   const jobs = await useAtelierJobs()
   const at = Date.now()
   for (const webhook of hooks) {
-    const message: Message = { id: `msg_${crypto.randomUUID().replaceAll('-', '')}`, event, at, data: { type: change.type, id: change.id, live: change.live } }
+    const message: Message = { id: `msg_${crypto.randomUUID().replaceAll('-', '')}`, event, at, data }
     await jobs.enqueue(WEBHOOK_JOB, { webhookId: webhook.id, message: message as unknown as Record<string, unknown> }, { maxAttempts: 8 })
   }
 }

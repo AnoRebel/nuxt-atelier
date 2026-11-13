@@ -210,12 +210,12 @@
 
 ## 20. Forms (forms)
 
-- [ ] 20.1 Implement form definitions as a built-in collection with field types, per-field validation, localized labels, success message/redirect; verify definition validation tests
-- [ ] 20.2 Implement the form block rendered with TanStack Form + generated Valibot schema, accessible markup, server re-validation, restylable/replaceable components; verify bypassed-client-validation rejection test and axe check
-- [ ] 20.3 Implement submissions storage, admin views, filters, CSV/JSON export, and retention job; verify retention deletion test
-- [ ] 20.4 Implement spam protection (honeypot, min fill time, rate limit) and the `ChallengeAdapter` with built-in Cloudflare Turnstile verification; verify honeypot silent-discard and Turnstile verification tests with a mocked endpoint
-- [ ] 20.5 Implement private form file uploads, notification and confirmation emails via jobs, submission hooks/webhook events, consent fields, and erasure by email; verify private file access denial and erasure tests
-- [ ] 20.6 Write docs: building forms (editors), form submissions and privacy, spam protection and challenge adapters, form events
+- [x] 20.1 Implement form definitions as a built-in collection with field types, per-field validation, localized labels, success message/redirect; verify definition validation tests
+- [x] 20.2 Implement the form block rendered with TanStack Form + generated Valibot schema, accessible markup, server re-validation, restylable/replaceable components; verify bypassed-client-validation rejection test and axe check
+- [x] 20.3 Implement submissions storage, admin views, filters, CSV/JSON export, and retention job; verify retention deletion test
+- [x] 20.4 Implement spam protection (honeypot, min fill time, rate limit) and the `ChallengeAdapter` with built-in Cloudflare Turnstile verification; verify honeypot silent-discard and Turnstile verification tests with a mocked endpoint
+- [x] 20.5 Implement private form file uploads, notification and confirmation emails via jobs, submission hooks/webhook events, consent fields, and erasure by email; verify private file access denial and erasure tests
+- [x] 20.6 Write docs: building forms (editors), form submissions and privacy, spam protection and challenge adapters, form events
 
 ## 21. Multi-site (multi-site)
 

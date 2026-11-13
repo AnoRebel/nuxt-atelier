@@ -54,6 +54,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       robots: resolved.seo.robots ?? null, // the default robots rules; the admin's override them
       collaboration: { lockTimeout: resolved.collaboration.lockTimeout },
       mail: { url: '', from: resolved.mail.from }, // NUXT_ATELIER_MAIL_URL, NUXT_ATELIER_MAIL_FROM
+      forms: { minFillTime: resolved.forms.minFillTime, submissionsPerHour: resolved.forms.submissionsPerHour, turnstile: { siteKey: '', secret: '' } }, // NUXT_ATELIER_FORMS_TURNSTILE_SITE_KEY, _SECRET
       sitemap: '', // the sitemap's path for robots.txt, set once every module is set up (below)
       ...config.atelier as object | undefined,
     }
@@ -147,6 +148,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       ;(nuxt.options.runtimeConfig.atelier as Record<string, unknown>).sitemap = sitemapModule ? '' : '/sitemap.xml'
     })
     addServerPlugin(resolve('./runtime/server/plugins/jobs'))
+    addServerPlugin(resolve('./runtime/server/plugins/forms'))
 
     // blocks: lazy components for the app (`#atelier-blocks`); their schemas go to the server in `#atelier-schema`
     const components = new Map<string, { filePath: string, export: string }>()
@@ -219,6 +221,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ route: '/api/_atelier/schema', handler: resolve('./runtime/server/api/schema') })
     addServerHandler({ route: '/api/_atelier/dashboard', handler: resolve('./runtime/server/api/dashboard') })
     addServerHandler({ route: '/api/_atelier/settings/**', handler: resolve('./runtime/server/api/settings') })
+    addServerHandler({ route: '/api/_atelier/forms/**', handler: resolve('./runtime/server/api/forms') })
     addServerHandler({ route: '/api/_atelier/patterns', handler: resolve('./runtime/server/api/reuse') })
     addServerHandler({ route: '/api/_atelier/templates/**', handler: resolve('./runtime/server/api/reuse') })
     for (const resource of ['collab', 'comments', 'notifications', 'shared-blocks'])

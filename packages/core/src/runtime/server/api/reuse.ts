@@ -4,6 +4,7 @@
 // `source` is `code` (patterns.ts, a collection's `templates`) or `saved` (the atelier-patterns and
 // atelier-templates collections). Blocks come with fresh ids on every request: what's inserted is a copy,
 // with no link back.
+import type { Filter } from '../db/query'
 import { defineEventHandler } from 'nuxt/server'
 import { copyBlocks } from '../../shared/blocks'
 import { allow, caller, segments } from '../content-access'
@@ -21,7 +22,7 @@ export default defineEventHandler(async (event) => {
   const schema = await useAtelierSchema()
   const entries = await useAtelierEntries()
   /** The saved ones, when the caller may read them (every page, they're few). */
-  const saved = async (name: string, filter?: Record<string, unknown>) => {
+  const saved = async (name: string, filter?: Filter) => {
     if (!schema.collections[name] || !who.policy.can(who.principal, 'read', name))
       return []
     const items = []

@@ -126,6 +126,20 @@ export default {
   'templates.saveBody': 'New entries can start from this one\'s current values.',
   'templates.name': 'Template name',
   'templates.saved': 'Template saved',
+  // forms
+  'forms.submissions': 'Submissions',
+  'forms.none': 'No submissions.',
+  'forms.submitted': 'Submitted',
+  'forms.from': 'From',
+  'forms.to': 'To',
+  'forms.exportCsv': 'Export CSV',
+  'forms.exportJson': 'Export JSON',
+  'forms.erase': 'Erase by email',
+  'forms.eraseTitle': 'Erase someone\'s submissions?',
+  'forms.eraseBody': 'Every submission, in every form, with this email address is deleted for good, files included.',
+  'forms.erased': '{count} submissions erased',
+  'forms.previous': 'Previous',
+  'forms.next': 'Next',
   // shared blocks
   'shared.usage': 'Where it\'s used',
   'shared.unused': 'Not placed on any page yet.',
@@ -227,6 +241,7 @@ export default {
   'capability.media': 'Media',
   'capability.redirects': 'Redirects',
   'capability.settings': 'Settings',
+  'capability.forms': 'Form submissions',
   // search engines (robots.txt)
   'robots.title': 'Search engines',
   'robots.description': 'What search engines and other crawlers may visit (robots.txt). The admin and the CMS API are always off limits.',

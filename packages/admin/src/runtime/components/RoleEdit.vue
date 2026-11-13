@@ -36,6 +36,7 @@ const CAPABILITIES: { value: Capability, label: string }[] = [
   { value: 'media', label: 'capability.media' },
   { value: 'redirects', label: 'capability.redirects' },
   { value: 'settings', label: 'capability.settings' },
+  { value: 'forms', label: 'capability.forms' },
 ]
 
 const existing = computed(() => props.name ? roles.value.find(r => r.name === props.name) : undefined)
