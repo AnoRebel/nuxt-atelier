@@ -23,7 +23,7 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        test: { name: 'unit', include: ['scripts/**/*.test.ts', 'test/**/*.test.ts'], exclude: [storage, compat], sequence: { groupOrder: 0 } },
+        test: { name: 'unit', include: ['scripts/**/*.test.ts', 'test/**/*.test.ts'], exclude: [storage, compat, '**/node_modules/**'], sequence: { groupOrder: 0 } },
       },
       {
         // the storage files share the test databases (test/compose.yml) and reset them: one file at a time,
