@@ -9,7 +9,7 @@ import { caller } from '../content-access'
 import { apiError } from '../errors'
 import { useAtelierRoles, useAtelierSchema } from '../index'
 
-const ACTIONS: ContentAction[] = ['create', 'read', 'update', 'delete', 'publish']
+const ACTIONS: ContentAction[] = ['create', 'read', 'update', 'delete', 'publish', 'comment']
 const CAPABILITIES: Capability[] = ['users', 'roles', 'settings', 'media', 'redirects']
 const json = (value: unknown) => JSON.parse(serialiseFields(value)) // functions and Standard Schemas dropped
 

@@ -17,6 +17,7 @@ import { useOverrides } from '../overrides'
 import Brand from './Brand.vue'
 import GlobalSearch from './GlobalSearch.vue'
 import Icon from './Icon'
+import NotificationBell from './NotificationBell.vue'
 import { useAdminI18n } from '../i18n'
 
 const { t } = useAdminI18n()
@@ -191,6 +192,7 @@ const account = computed(() => [
           >
             <Icon name="search" />
           </button>
+          <NotificationBell />
           <button
             type="button"
             class="app-icon-button"

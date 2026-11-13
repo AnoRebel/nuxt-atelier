@@ -9,7 +9,7 @@ import { ADMIN_ROLE, DEFAULT_PUBLIC_ROLE, PUBLIC_ROLE } from '../../shared/polic
 import { buildTables } from '../db/tables'
 import { apiError } from '../errors'
 
-const ACTIONS = ['create', 'read', 'update', 'delete', 'publish'] as const
+const ACTIONS = ['create', 'read', 'update', 'delete', 'publish', 'comment'] as const
 const names = v.array(v.pipe(v.string(), v.maxLength(64)))
 
 /** Content permissions per collection or singleton name, as in a role (and an API token). */
@@ -32,7 +32,7 @@ const ROLE_NAME = /^[a-z][a-z0-9-]{0,63}$/
 export const EDITOR_ROLE: Role = {
   label: 'Editor',
   capabilities: ['media', 'redirects'],
-  content: { '*': { actions: ['create', 'read', 'update', 'delete', 'publish'] } },
+  content: { '*': { actions: ['create', 'read', 'update', 'delete', 'publish', 'comment'] } },
 }
 
 export interface RoleEntry {

@@ -43,6 +43,47 @@ CREATE TABLE `atelier_settings` (
 	`_updated_by` text
 );
 --> statement-breakpoint
+CREATE TABLE `atelier_locks` (
+	`key` text PRIMARY KEY,
+	`type` text NOT NULL,
+	`entry` text NOT NULL,
+	`user_id` text NOT NULL,
+	`acquired_at` text NOT NULL,
+	`expires_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_presence` (
+	`key` text PRIMARY KEY,
+	`type` text NOT NULL,
+	`entry` text NOT NULL,
+	`user_id` text NOT NULL,
+	`seen_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_comments` (
+	`_id` text PRIMARY KEY,
+	`type` text NOT NULL,
+	`entry` text NOT NULL,
+	`block` text,
+	`thread` text,
+	`author` text NOT NULL,
+	`body` text NOT NULL,
+	`mentions` text NOT NULL,
+	`resolved_at` text,
+	`resolved_by` text,
+	`_created_at` text NOT NULL,
+	`_updated_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_notifications` (
+	`_id` text PRIMARY KEY,
+	`user_id` text NOT NULL,
+	`kind` text NOT NULL,
+	`data` text NOT NULL,
+	`read_at` text,
+	`_created_at` text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `atelier_passkeys` (
 	`_id` text PRIMARY KEY,
 	`user_id` text NOT NULL,
@@ -66,6 +107,16 @@ CREATE TABLE `atelier_jobs` (
 	`locked_until` text,
 	`last_error` text,
 	`_created_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_relations` (
+	`source` text NOT NULL,
+	`source_id` text NOT NULL,
+	`field` text NOT NULL,
+	`position` integer NOT NULL,
+	`target` text NOT NULL,
+	`target_id` text NOT NULL,
+	CONSTRAINT `atelier_relations_pk` PRIMARY KEY(`source`, `source_id`, `field`, `position`)
 );
 --> statement-breakpoint
 CREATE TABLE `atelier_media` (
@@ -122,16 +173,6 @@ CREATE TABLE `atelier_webhook_deliveries` (
 	`error` text,
 	`duration_ms` integer NOT NULL,
 	`at` text NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE `atelier_relations` (
-	`source` text NOT NULL,
-	`source_id` text NOT NULL,
-	`field` text NOT NULL,
-	`position` integer NOT NULL,
-	`target` text NOT NULL,
-	`target_id` text NOT NULL,
-	CONSTRAINT `atelier_relations_pk` PRIMARY KEY(`source`, `source_id`, `field`, `position`)
 );
 --> statement-breakpoint
 CREATE TABLE `atelier_redirects` (
@@ -228,13 +269,17 @@ CREATE TABLE `atelier_audit` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `atelier_tokens_hash_idx` ON `atelier_tokens` (`hash`);--> statement-breakpoint
+CREATE INDEX `atelier_presence_entry_idx` ON `atelier_presence` (`type`,`entry`);--> statement-breakpoint
+CREATE INDEX `atelier_comments_entry_idx` ON `atelier_comments` (`type`,`entry`);--> statement-breakpoint
+CREATE INDEX `atelier_comments_thread_idx` ON `atelier_comments` (`thread`);--> statement-breakpoint
+CREATE INDEX `atelier_notifications_user_idx` ON `atelier_notifications` (`user_id`,`_created_at`);--> statement-breakpoint
 CREATE INDEX `atelier_passkeys_user_idx` ON `atelier_passkeys` (`user_id`);--> statement-breakpoint
 CREATE INDEX `atelier_jobs_due_idx` ON `atelier_jobs` (`status`,`run_at`);--> statement-breakpoint
 CREATE UNIQUE INDEX `atelier_jobs_key_idx` ON `atelier_jobs` (`key`);--> statement-breakpoint
+CREATE INDEX `atelier_relations_target_idx` ON `atelier_relations` (`target`,`target_id`);--> statement-breakpoint
 CREATE INDEX `atelier_media_folder_idx` ON `atelier_media` (`folder`);--> statement-breakpoint
 CREATE INDEX `atelier_media_created_idx` ON `atelier_media` (`_created_at`);--> statement-breakpoint
 CREATE INDEX `atelier_webhook_deliveries_webhook_idx` ON `atelier_webhook_deliveries` (`webhook_id`,`at`);--> statement-breakpoint
-CREATE INDEX `atelier_relations_target_idx` ON `atelier_relations` (`target`,`target_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `atelier_redirects_source_idx` ON `atelier_redirects` (`source`);--> statement-breakpoint
 CREATE INDEX `atelier_p_relations_target_idx` ON `atelier_p_relations` (`target`,`target_id`);--> statement-breakpoint
 CREATE INDEX `atelier_routes_source_idx` ON `atelier_routes` (`source`,`source_id`);--> statement-breakpoint

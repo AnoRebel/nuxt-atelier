@@ -1,7 +1,7 @@
 // Authorization: one `can()` for the API, the admin and the editor. Roles are plain data, so they can
 // live in config or in the database. Collections and singletons share one namespace of names.
 
-export type ContentAction = 'create' | 'read' | 'update' | 'delete' | 'publish'
+export type ContentAction = 'create' | 'read' | 'update' | 'delete' | 'publish' | 'comment'
 /** Admin areas a role can manage. */
 export type Capability = 'users' | 'roles' | 'settings' | 'media' | 'redirects'
 

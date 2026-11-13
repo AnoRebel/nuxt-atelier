@@ -396,4 +396,84 @@ describe('admin', async () => {
     expect(await page.getByRole('button', { name: /passkey/i }).count()).toBe(0)
     expect((await Promise.all(scripts)).some(code => code.includes('startAuthentication'))).toBe(false)
   })
+  async function signInAs(email: string, password: string, before?: (page: Awaited<ReturnType<typeof createPage>>) => Promise<void>) {
+    const page = await createPage()
+    await before?.(page)
+    await page.goto(url('/admin'))
+    await page.getByLabel('Email').fill(email)
+    await page.getByLabel('Password').fill(password)
+    await page.getByRole('button', { name: 'Sign in' }).click()
+    await page.getByRole('heading', { name: 'Dashboard' }).waitFor()
+    return page
+  }
+
+  it('locks an entry for its editor, shows who else is there, and pushes a takeover within 2 seconds', async () => {
+    const ada = await signIn()
+    await ada.goto(url('/admin/collections/posts/new'))
+    await ada.getByLabel('Title *').fill('Shared draft')
+    await ada.getByRole('button', { name: 'Save draft' }).click()
+    await ada.waitForURL(/\/admin\/collections\/posts\/(?!new)[^/]+$/)
+    const entry = ada.url()
+    await ada.goto(url('/admin'))
+
+    // Rita opens it first: hers to edit
+    const rita = await signInAs('rita@example.com', 'password 456')
+    await rita.goto(entry)
+    await rita.getByLabel('Title *').fill('Rita was here')
+    // Ada opens it: read-only, with Rita's lock and presence shown; Rita sees Ada
+    await ada.goto(entry)
+    await ada.locator('[data-locked]').getByText('rita@example.com is editing').waitFor()
+    expect(await ada.getByLabel('Title *').isDisabled()).toBe(true)
+    expect(await ada.getByRole('button', { name: 'Save draft' }).count()).toBe(0)
+    await ada.locator('[data-presence]').getByText('rita@example.com', { exact: false }).waitFor({ state: 'attached' })
+    await rita.locator('[data-presence]').getByText('ada@example.com', { exact: false }).waitFor({ state: 'attached', timeout: 2_000 })
+
+    // Ada takes over: Rita hears at once (pushed), and her unsaved title is kept for later
+    await ada.getByRole('button', { name: 'Take over' }).click()
+    await rita.locator('[data-taken-over]').getByText('ada@example.com took over').waitFor({ timeout: 2_000 })
+    expect(await rita.getByLabel('Title *').isDisabled()).toBe(true)
+    expect(await rita.getByLabel('Title *').inputValue()).toBe('Shared draft')
+    await rita.locator('[data-recovery]').waitFor()
+    expect(await ada.getByLabel('Title *').isDisabled()).toBe(false)
+    // and is told so in her notifications
+    await rita.locator('[data-notifications]').getByText('1 unread', { exact: false }).waitFor({ state: 'attached', timeout: 2_000 })
+  })
+
+  it('notifies a mentioned user of a comment, which takes them to it', async () => {
+    const ada = await signIn()
+    await ada.goto(url('/admin/collections/posts'))
+    await ada.getByRole('link', { name: 'Shared draft' }).click()
+    await ada.waitForURL(/\/admin\/collections\/posts\/[^/]+$/)
+    const comments = ada.locator('[data-comments]')
+    await comments.getByLabel('Add a comment').fill('Please check the intro')
+    await comments.locator('[data-new-comment]').getByLabel('Mention').selectOption({ label: 'rita@example.com' })
+    expect(await comments.getByLabel('Add a comment').inputValue()).toBe('Please check the intro @rita@example.com ')
+    await comments.getByRole('button', { name: 'Comment' }).click()
+    await comments.getByText('Please check the intro @rita@example.com').waitFor()
+
+    const rita = await signInAs('rita@example.com', 'password 456')
+    await rita.locator('[data-notifications]').click()
+    await rita.getByRole('menuitem', { name: /ada@example\.com mentioned you in Posts/ }).click()
+    await rita.waitForURL(ada.url())
+    await rita.locator('[data-comments]').getByText('Please check the intro').waitFor()
+    expect(await rita.locator('[data-new-comment]').count()).toBe(0) // reviewers may read, not comment
+  })
+
+  it('falls back to polling when the real-time connection is unavailable', async () => {
+    const ada = await signIn()
+    await ada.goto(url('/admin/collections/posts'))
+    await ada.getByRole('link', { name: 'Shared draft' }).click()
+    await ada.waitForURL(/\/admin\/collections\/posts\/[^/]+$/)
+    const entry = ada.url()
+    await ada.getByLabel('Title *').waitFor()
+    expect(await ada.getByLabel('Title *').isDisabled()).toBe(false) // Ada still holds the lock
+
+    // Rita without WebSocket: she still sees the lock, and gets the entry once Ada leaves
+    const rita = await signInAs('rita@example.com', 'password 456', page => page.routeWebSocket(/\/api\/_atelier\/ws/, ws => ws.close()))
+    await rita.goto(entry)
+    await rita.locator('[data-locked]').waitFor()
+    await ada.goto(url('/admin'))
+    await rita.locator('[data-locked]').waitFor({ state: 'detached', timeout: 25_000 })
+    await expect.poll(() => rita.getByLabel('Title *').isDisabled(), { timeout: 5_000 }).toBe(false)
+  }, 60_000)
 })

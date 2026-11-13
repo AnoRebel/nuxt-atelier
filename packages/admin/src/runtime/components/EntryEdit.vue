@@ -2,18 +2,21 @@
      publish and unpublish, delete. Fields the role can only read are shown disabled. -->
 <script setup lang="ts">
 import type { AdminApiError } from '../types'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NuxtLink } from '#components'
 import { navigateTo, onBeforeRouteLeave, onBeforeRouteUpdate } from '#imports'
 import { useAtelierAdmin } from '../composables/useAtelierAdmin'
 import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
 import { useAtelierEntryForm } from '../composables/useAtelierEntryForm'
+import { useAtelierPresence } from '../composables/useAtelierPresence'
 import { humanize } from '../composables/useAtelierNavigation'
 import CnAlert from '../crystal-neuo/components/Alert.vue'
+import CnAvatar from '../crystal-neuo/components/Avatar.vue'
 import CnBadge from '../crystal-neuo/components/Badge.vue'
 import CnButton from '../crystal-neuo/components/Button.vue'
 import CnDialog from '../crystal-neuo/components/Dialog.vue'
 import { useAdminToast } from '../toast'
+import CommentsPanel from './CommentsPanel.vue'
 import FieldInput from './FieldInput.vue'
 import NotFound from './NotFound.vue'
 import Page from './Page.vue'
@@ -70,7 +73,26 @@ const typeLabel = computed(() => props.kind === 'collection'
   : (type.value as { label?: string } | undefined)?.label ?? humanize(props.name))
 const title = computed(() => props.kind === 'singleton' ? typeLabel.value : edit.isNew.value ? t('entry.new') : t('entry.edit'))
 const breadcrumb = computed(() => props.kind === 'collection' ? [{ label: typeLabel.value, to: to('collections', props.name) }, { label: title.value }] : undefined)
-const canSave = computed(() => !!type.value && (edit.isNew.value ? type.value.can.create : type.value.can.update))
+const mayEdit = computed(() => !!type.value && (edit.isNew.value ? type.value.can.create : type.value.can.update))
+
+// collaboration: who else is here, and the edit lock (a singleton's id is its name)
+const target = computed(() => !type.value || edit.isNew.value ? null : { type: props.name, id: props.kind === 'singleton' ? props.name : props.id! })
+const presence = useAtelierPresence(target, mayEdit)
+const takenBy = ref('')
+watch(presence.lock, (lock, before) => {
+  if (before?.mine && lock && !lock.mine) {
+    takenBy.value = lock.name
+    void edit.shelve()
+  }
+  else if (lock?.mine) {
+    takenBy.value = ''
+    // they may have saved while it was theirs
+    if (before && !before.mine)
+      void edit.reload()
+  }
+})
+watch(target, () => (takenBy.value = ''))
+const canSave = computed(() => mayEdit.value && !presence.lockedByOther.value)
 const readOnly = (key: string) => !canSave.value || (type.value?.readOnly.includes(key) ?? false)
 
 async function save() {
@@ -122,6 +144,20 @@ async function remove() {
     :breadcrumb="breadcrumb"
   >
     <template #actions>
+      <span
+        v-if="presence.others.value.length"
+        class="app-presence"
+        :title="t('collab.viewing', { names: presence.others.value.map(v => v.name).join(', ') })"
+        data-presence
+      >
+        <CnAvatar
+          v-for="viewer in presence.others.value"
+          :key="viewer.userId"
+          :name="viewer.name"
+          size="sm"
+        />
+        <span class="sr-only">{{ t('collab.viewing', { names: presence.others.value.map(v => v.name).join(', ') }) }}</span>
+      </span>
       <CnBadge
         v-if="type.versioned && !edit.isNew.value"
         :variant="edit.unpublished.value ? 'warning' : 'success'"
@@ -132,7 +168,7 @@ async function remove() {
       <CnButton
         v-if="type.versioned && type.can.publish && !edit.isNew.value && edit.unpublished.value"
         variant="secondary"
-        :disabled="dirty"
+        :disabled="dirty || presence.lockedByOther.value"
         :loading="edit.publish.isPending.value"
         @click="run('publish')"
       >
@@ -141,6 +177,7 @@ async function remove() {
       <CnButton
         v-if="type.versioned && type.can.publish && edit.entry.value?.publishedVersion"
         variant="ghost"
+        :disabled="presence.lockedByOther.value"
         :loading="edit.unpublish.isPending.value"
         @click="run('unpublish')"
       >
@@ -149,6 +186,7 @@ async function remove() {
       <CnButton
         v-if="kind === 'collection' && !edit.isNew.value && type.can.delete"
         variant="danger"
+        :disabled="presence.lockedByOther.value"
         @click="confirmDelete = true"
       >
         {{ t('common.delete') }}
@@ -203,6 +241,34 @@ async function remove() {
       @submit.prevent="save"
     >
       <CnAlert
+        v-if="takenBy"
+        variant="warning"
+        :title="t('collab.takenTitle', { name: takenBy })"
+        live
+        data-taken-over
+      >
+        {{ t('collab.taken') }}
+      </CnAlert>
+      <CnAlert
+        v-else-if="presence.lockedByOther.value"
+        variant="info"
+        :title="t('collab.lockedTitle', { name: presence.lock.value!.name })"
+        live
+        data-locked
+      >
+        {{ t('collab.locked') }}
+        <span
+          v-if="type.can.publish"
+          class="app-row"
+        >
+          <CnButton
+            size="sm"
+            :loading="presence.takingOver.value"
+            @click="presence.takeover()"
+          >{{ t('collab.takeover') }}</CnButton>
+        </span>
+      </CnAlert>
+      <CnAlert
         v-if="edit.recovery.value"
         variant="warning"
         :title="t('entry.recoveryTitle')"
@@ -212,6 +278,7 @@ async function remove() {
         <span class="app-row">
           <CnButton
             size="sm"
+            :disabled="!canSave"
             @click="edit.restoreRecovery()"
           >{{ t('entry.restore') }}</CnButton>
           <CnButton
@@ -254,6 +321,13 @@ async function remove() {
         </CnButton>
       </div>
     </form>
+    <CommentsPanel
+      v-if="target && !edit.loading.value"
+      :id="target.id"
+      :type="target.type"
+      :data="values"
+      :can-comment="!!type.can.comment"
+    />
 
     <CnDialog
       v-model:open="leaveOpen"

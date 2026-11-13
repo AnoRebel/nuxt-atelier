@@ -2,7 +2,7 @@
 import type { Field, Fields } from '#atelier/shared/fields'
 
 export type { Field, Fields }
-export type ContentAction = 'create' | 'read' | 'update' | 'delete' | 'publish'
+export type ContentAction = 'create' | 'read' | 'update' | 'delete' | 'publish' | 'comment'
 export type Capability = 'users' | 'roles' | 'settings' | 'media' | 'redirects'
 
 interface ContentType {

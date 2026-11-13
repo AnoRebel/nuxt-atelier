@@ -1,7 +1,7 @@
 import type { NuxtModule, NuxtPage } from '@nuxt/schema'
 import { resolve as resolvePath } from 'node:path'
 import type { ModuleOptions } from './options'
-import { addComponentsDir, addImports, extendPages, hasNuxtModule, addServerHandler, addServerPlugin, addServerTemplate, addTemplate, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, updateTemplates } from '@nuxt/kit'
+import { addComponentsDir, addImports, extendPages, hasNuxtModule, addServerHandler, addServerPlugin, addServerTemplate, addTemplate, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, tryResolveModule, updateTemplates } from '@nuxt/kit'
 import { blockComponentsTemplate, blockDirectories, discoverBlocks } from './blocks/discover'
 import { transformBlockSfc } from './blocks/transform'
 import { setupDevMigrations } from './cli/dev'
@@ -18,6 +18,9 @@ export type { ColumnSpec, TableSpec } from './runtime/server/db/tables'
 
 /** Deploy presets whose disk doesn't outlast a deploy or an instance. */
 const EPHEMERAL = /^(?:vercel|netlify|aws[-_]lambda|aws[-_]amplify|azure|cloudflare|deno[-_]deploy|firebase|edgio|zeabur|stormkit)/
+
+/** Presets whose servers hold WebSocket connections (Nitro's crossws adapters); '' is the default, Node. */
+const realtimeSupported = (preset: string) => preset === '' || /^(?:node|nitro-dev|nitro-prerender|bun|deno|cloudflare)/.test(preset.replaceAll('_', '-'))
 
 const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
   meta: {
@@ -49,6 +52,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       storage: { driver: resolved.storage.driver, dir: resolved.storage.dir }, // NUXT_ATELIER_STORAGE_DIR
       auth: { signInAttempts: resolved.auth.signInAttempts, signInWindow: resolved.auth.signInWindow, trustProxy: resolved.auth.trustProxy },
       robots: resolved.seo.robots ?? null, // the default robots rules; the admin's override them
+      collaboration: { lockTimeout: resolved.collaboration.lockTimeout },
+      mail: { url: '', from: resolved.mail.from }, // NUXT_ATELIER_MAIL_URL, NUXT_ATELIER_MAIL_FROM
       sitemap: '', // the sitemap's path for robots.txt, set once every module is set up (below)
       ...config.atelier as object | undefined,
     }
@@ -59,6 +64,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       locales: resolveLocales(resolved.locales), // the content locales, for the admin and query helpers
       seo: { titleTemplate: resolved.seo.titleTemplate, jsonLd: resolved.seo.jsonLd ?? null },
       admin: { base: resolved.admin.base, passkeys: resolved.auth.passkeys },
+      // the admin's lock renewal and real-time connection (`realtime` false when WebSocket isn't served)
+      collaboration: { idleTimeout: resolved.collaboration.idleTimeout, realtime: resolved.collaboration.realtime !== false },
       i18n: null as unknown, // the site's i18n module, set once every module is set up (below)
       ...config.public.atelier as object | undefined,
     }
@@ -113,6 +120,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     // Collections and singletons: rescanned on every Nitro (re)build, so new files are picked up in dev
     const locales = resolveLocales(resolved.locales)
     addServerTemplate({ filename: '#atelier-schema', getContents: () => schemaTemplate(locales) })
+    // nodemailer for SMTP, only when the app installed it
+    addServerTemplate({ filename: '#atelier-mailer', getContents: async () => await tryResolveModule('nodemailer', [nuxt.options.rootDir, import.meta.url]) ? 'export const nodemailer = () => import(\'nodemailer\').then(m => m.default ?? m)\n' : 'export const nodemailer = undefined\n' })
     addServerTemplate({ filename: '#atelier-drivers', getContents: () => driversTemplate(nuxt.options.rootDir, resolved.database.url) })
     addServerTemplate({ filename: '#atelier-migrations', getContents: () => migrationsTemplate(nuxt.options.rootDir) })
     addServerPlugin(resolve('./runtime/server/plugins/limits'))
@@ -206,6 +215,11 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ route: '/api/_atelier/schema', handler: resolve('./runtime/server/api/schema') })
     addServerHandler({ route: '/api/_atelier/dashboard', handler: resolve('./runtime/server/api/dashboard') })
     addServerHandler({ route: '/api/_atelier/settings/**', handler: resolve('./runtime/server/api/settings') })
+    for (const resource of ['collab', 'comments', 'notifications'])
+      addServerHandler({ route: `/api/_atelier/${resource}/**`, handler: resolve(`./runtime/server/api/${resource}`) })
+    addServerHandler({ route: '/api/_atelier/notifications', handler: resolve('./runtime/server/api/notifications') })
+    if (resolved.collaboration.realtime === 'auto')
+      addServerHandler({ route: '/api/_atelier/ws', handler: resolve('./runtime/server/routes/ws') })
     addServerHandler({ route: '/api/_atelier/sitemap', method: 'get', handler: resolve('./runtime/server/api/sitemap') })
     addServerHandler({ route: '/api/_atelier/search', handler: resolve('./runtime/server/api/search') })
     addServerHandler({ route: '/api/_atelier/search/**', handler: resolve('./runtime/server/api/search') })
@@ -231,6 +245,16 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
         scheduledTasks?: Record<string, string | string[]>
       }
       nitro.experimental = { ...nitro.experimental, tasks: true }
+      // the admin's real-time connection, where the server can hold WebSockets (else the admin polls)
+      const realtime = resolved.collaboration.realtime === 'auto' && realtimeSupported((config as { preset?: string }).preset ?? process.env.NITRO_PRESET ?? '')
+      if (realtime)
+        nitro.experimental.websocket = true
+      // the admin connects only where it can
+      const runtime = (config as { runtimeConfig?: { public?: { atelier?: { collaboration?: { realtime?: boolean } } } } }).runtimeConfig
+      for (const target of [runtime?.public?.atelier, nuxt.options.runtimeConfig.public.atelier as { collaboration?: { realtime?: boolean } }]) {
+        if (target?.collaboration)
+          target.collaboration.realtime = realtime
+      }
       nitro.tasks = { ...nitro.tasks, 'atelier:jobs': { handler: resolve('./runtime/server/tasks/jobs'), description: 'Run due Nuxt Atelier background jobs' } }
       if (resolved.jobs.schedule) {
         const cron = resolved.jobs.schedule
@@ -288,6 +312,9 @@ declare module '#atelier-host-pages' {
 }
 declare module '#atelier-drivers' {
   export const drivers: import(${JSON.stringify(resolve('./runtime/server/db/driver'))}).DriverLoaders
+}
+declare module '#atelier-mailer' {
+  export const nodemailer: (() => Promise<{ createTransport: (url: string) => { sendMail: (message: Record<string, unknown>) => Promise<unknown> } }>) | undefined
 }
 declare module '#atelier-migrations' {
   export const migrations: Partial<Record<'sqlite' | 'postgres' | 'mysql', { name: string, sql: string }[]>>

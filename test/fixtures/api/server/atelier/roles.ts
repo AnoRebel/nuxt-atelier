@@ -4,7 +4,7 @@ export default defineRoles({
   // edits articles but can't publish, changes only their own, never the slug, never sees the notes
   writer: {
     content: {
-      articles: { actions: ['create', 'read', 'update', 'delete'], ownOnly: ['update', 'delete'], readOnly: ['slug'], hidden: ['internalNotes'] },
+      articles: { actions: ['create', 'read', 'update', 'delete', 'comment'], ownOnly: ['update', 'delete'], readOnly: ['slug'], hidden: ['internalNotes'] },
       authors: { actions: ['read'], hidden: ['email'] },
       settings: { actions: ['read', 'update'] },
     },

@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "e426fd2f-2034-46ac-b68c-ced3de904f18",
+  "id": "8daa9f2e-d27b-42a1-b403-91126498b489",
   "prevIds": [
-    "00000000-0000-0000-0000-000000000000"
+    "da666816-ff03-42d1-bd1c-f03ad9689ddd"
   ],
   "ddl": [
     {
@@ -31,11 +31,31 @@
       "entityType": "tables"
     },
     {
+      "name": "atelier_locks",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_presence",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_comments",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_notifications",
+      "entityType": "tables"
+    },
+    {
       "name": "atelier_passkeys",
       "entityType": "tables"
     },
     {
       "name": "atelier_jobs",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_relations",
       "entityType": "tables"
     },
     {
@@ -55,19 +75,15 @@
       "entityType": "tables"
     },
     {
-      "name": "atelier_relations",
-      "entityType": "tables"
-    },
-    {
       "name": "atelier_redirects",
       "entityType": "tables"
     },
     {
-      "name": "atelier_c_notes",
+      "name": "atelier_c_pages",
       "entityType": "tables"
     },
     {
-      "name": "atelier_p_notes",
+      "name": "atelier_p_pages",
       "entityType": "tables"
     },
     {
@@ -369,6 +385,296 @@
       "entityType": "columns"
     },
     {
+      "table": "atelier_locks",
+      "name": "key",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_locks",
+      "name": "type",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_locks",
+      "name": "entry",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_locks",
+      "name": "user_id",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_locks",
+      "name": "acquired_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_locks",
+      "name": "expires_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_presence",
+      "name": "key",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_presence",
+      "name": "type",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_presence",
+      "name": "entry",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_presence",
+      "name": "user_id",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_presence",
+      "name": "seen_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "type",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "entry",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "block",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "thread",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "author",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "body",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "mentions",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "resolved_at",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "resolved_by",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "_updated_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_notifications",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_notifications",
+      "name": "user_id",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_notifications",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_notifications",
+      "name": "data",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_notifications",
+      "name": "read_at",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_notifications",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "atelier_passkeys",
       "name": "_id",
       "type": "text",
@@ -551,6 +857,66 @@
     {
       "table": "atelier_jobs",
       "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "source",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "source_id",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "field",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "position",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "target",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_relations",
+      "name": "target_id",
       "type": "text",
       "notNull": true,
       "autoincrement": false,
@@ -999,66 +1365,6 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_relations",
-      "name": "source",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_relations",
-      "name": "source_id",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_relations",
-      "name": "field",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_relations",
-      "name": "position",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_relations",
-      "name": "target",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_relations",
-      "name": "target_id",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
       "table": "atelier_redirects",
       "name": "_id",
       "type": "text",
@@ -1119,7 +1425,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_c_notes",
+      "table": "atelier_c_pages",
       "name": "_id",
       "type": "text",
       "notNull": false,
@@ -1129,7 +1435,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_c_notes",
+      "table": "atelier_c_pages",
       "name": "_version",
       "type": "integer",
       "notNull": true,
@@ -1139,7 +1445,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_c_notes",
+      "table": "atelier_c_pages",
       "name": "_created_at",
       "type": "text",
       "notNull": true,
@@ -1149,7 +1455,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_c_notes",
+      "table": "atelier_c_pages",
       "name": "_updated_at",
       "type": "text",
       "notNull": true,
@@ -1159,7 +1465,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_c_notes",
+      "table": "atelier_c_pages",
       "name": "_created_by",
       "type": "text",
       "notNull": false,
@@ -1169,7 +1475,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_c_notes",
+      "table": "atelier_c_pages",
       "name": "title",
       "type": "text",
       "notNull": false,
@@ -1179,7 +1485,17 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_p_notes",
+      "table": "atelier_c_pages",
+      "name": "content",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_pages",
       "name": "_id",
       "type": "text",
       "notNull": false,
@@ -1189,7 +1505,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_p_notes",
+      "table": "atelier_p_pages",
       "name": "_version",
       "type": "integer",
       "notNull": true,
@@ -1199,7 +1515,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_p_notes",
+      "table": "atelier_p_pages",
       "name": "_created_at",
       "type": "text",
       "notNull": true,
@@ -1209,7 +1525,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_p_notes",
+      "table": "atelier_p_pages",
       "name": "_updated_at",
       "type": "text",
       "notNull": true,
@@ -1219,7 +1535,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_p_notes",
+      "table": "atelier_p_pages",
       "name": "_created_by",
       "type": "text",
       "notNull": false,
@@ -1229,8 +1545,18 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_p_notes",
+      "table": "atelier_p_pages",
       "name": "title",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_pages",
+      "name": "content",
       "type": "text",
       "notNull": false,
       "autoincrement": false,
@@ -1673,6 +1999,74 @@
       "entityType": "indexes"
     },
     {
+      "table": "atelier_presence",
+      "name": "atelier_presence_entry_idx",
+      "columns": [
+        {
+          "value": "type",
+          "isExpression": false
+        },
+        {
+          "value": "entry",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "atelier_comments_entry_idx",
+      "columns": [
+        {
+          "value": "type",
+          "isExpression": false
+        },
+        {
+          "value": "entry",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "atelier_comments_thread_idx",
+      "columns": [
+        {
+          "value": "thread",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "atelier_notifications",
+      "name": "atelier_notifications_user_idx",
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false
+        },
+        {
+          "value": "_created_at",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
       "table": "atelier_passkeys",
       "name": "atelier_passkeys_user_idx",
       "columns": [
@@ -1719,6 +2113,24 @@
       "entityType": "indexes"
     },
     {
+      "table": "atelier_relations",
+      "name": "atelier_relations_target_idx",
+      "columns": [
+        {
+          "value": "target",
+          "isExpression": false
+        },
+        {
+          "value": "target_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
       "table": "atelier_media",
       "name": "atelier_media_folder_idx",
       "columns": [
@@ -1756,24 +2168,6 @@
         },
         {
           "value": "at",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
-      "table": "atelier_relations",
-      "name": "atelier_relations_target_idx",
-      "columns": [
-        {
-          "value": "target",
-          "isExpression": false
-        },
-        {
-          "value": "target_id",
           "isExpression": false
         }
       ],
@@ -2027,6 +2421,42 @@
       "entityType": "pks"
     },
     {
+      "table": "atelier_locks",
+      "name": "atelier_locks_pk",
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_presence",
+      "name": "atelier_presence_pk",
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_comments",
+      "name": "atelier_comments_pk",
+      "columns": [
+        "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_notifications",
+      "name": "atelier_notifications_pk",
+      "columns": [
+        "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
       "table": "atelier_passkeys",
       "name": "atelier_passkeys_pk",
       "columns": [
@@ -2090,8 +2520,8 @@
       "entityType": "pks"
     },
     {
-      "table": "atelier_c_notes",
-      "name": "atelier_c_notes_pk",
+      "table": "atelier_c_pages",
+      "name": "atelier_c_pages_pk",
       "columns": [
         "_id"
       ],
@@ -2099,8 +2529,8 @@
       "entityType": "pks"
     },
     {
-      "table": "atelier_p_notes",
-      "name": "atelier_p_notes_pk",
+      "table": "atelier_p_pages",
+      "name": "atelier_p_pages_pk",
       "columns": [
         "_id"
       ],
