@@ -78,7 +78,7 @@ describe('headless admin composables', () => {
     expect(manages('users')).toBe(true)
     expect(manages('roles')).toBe(false)
     expect([canWrite('posts', 'title'), canWrite('posts', 'slug')]).toEqual([true, false])
-    expect(navigation.items.value.map(i => [i.label, i.to])).toEqual([['Dashboard', '/admin'], ['Posts', '/admin/collections/posts'], ['Users', '/admin/users']])
+    expect(navigation.items.value.map(i => [i.label, i.to])).toEqual([['Dashboard', '/admin'], ['Posts', '/admin/collections/posts'], ['Media', '/admin/media'], ['Users', '/admin/users']])
   })
 
   it('lists drafts with the search on the title field, and reports bulk failures per entry', async () => {

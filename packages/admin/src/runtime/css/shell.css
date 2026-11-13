@@ -1110,3 +1110,88 @@ button:not(:disabled),
 .app-global-search__title {
   font-weight: var(--weight-medium);
 }
+/* ---------------------------------------------------------------- media */
+.app-media-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.app-media-tile {
+  display: grid;
+  gap: var(--space-1);
+  inline-size: 100%;
+  padding: var(--space-2);
+  border: var(--border-width-hairline) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised-1);
+  color: var(--content-primary);
+  font: inherit;
+  text-align: start;
+}
+.app-media-tile[aria-pressed="true"] {
+  outline: var(--border-width-focus) solid var(--accent-primary-base);
+}
+.app-media-tile__thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-raised-3);
+}
+.app-media-tile__thumb img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+.app-media-tile__name {
+  overflow: hidden;
+  font-size: var(--type-body-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-media-drop[data-dragging] {
+  outline: var(--border-width-strong) dashed var(--accent-primary-base);
+  outline-offset: var(--space-2);
+}
+.app-media-focal {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: crosshair;
+}
+.app-media-focal:disabled {
+  cursor: default;
+}
+.app-media-focal__image {
+  display: block;
+  inline-size: 100%;
+  border-radius: var(--radius-md);
+}
+.app-media-focal__point {
+  position: absolute;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  border: 3px solid var(--content-on-accent);
+  border-radius: 50%;
+  background: var(--accent-primary-base);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.app-media-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.app-media-field__thumb {
+  inline-size: 4rem;
+  block-size: 4rem;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  background: var(--surface-raised-3);
+}

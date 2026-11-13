@@ -19,6 +19,7 @@ import CnTextarea from '../crystal-neuo/components/Textarea.vue'
 import CnToggle from '../crystal-neuo/components/Toggle.vue'
 import { pascal, useOverrides } from '../overrides'
 import Icon from './Icon'
+import MediaField from './MediaField.vue'
 import RelatedCreate from './RelatedCreate.vue'
 import { useAdminI18n } from '../i18n'
 
@@ -190,6 +191,15 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
             @update:checked="f.handleChange"
           />
 
+          <MediaField
+            v-else-if="field.type === 'media'"
+            :model-value="(f.state.value as string | null) ?? null"
+            :label="label"
+            :hint="field.help"
+            :error="errorOf(f)"
+            :disabled="readOnly"
+            @update:model-value="f.handleChange"
+          />
           <CnSelect
             v-else-if="field.type === 'select' || (field.type === 'relation' && !field.many)"
             :model-value="(f.state.value as string) ?? ''"
@@ -297,7 +307,7 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
             :model-value="(f.state.value as string) ?? ''"
             :label="label"
             :type="inputType[field.type] ?? 'text'"
-            :hint="field.type === 'media' ? (field.help ?? t('field.mediaHint')) : field.help"
+            :hint="field.help"
             :error="errorOf(f)"
             :disabled="readOnly"
             :maxlength="'maxLength' in field ? field.maxLength : undefined"
