@@ -191,6 +191,7 @@ declare module '#atelier-admin-passkeys' {
       'useAtelierAdminPortal',
       'useAtelierDashboard',
       'useAtelierSetting',
+      'useAtelierGlobalSearch',
     ].map(name => ({ name, from: resolve(`./runtime/composables/${name}`) })))
     addImports({ name: 'useAdminI18n', from: resolve('./runtime/i18n') })
   },

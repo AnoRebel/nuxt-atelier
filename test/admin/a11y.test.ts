@@ -62,6 +62,10 @@ describe('admin accessibility', async () => {
       await page.getByRole('dialog', { name: 'Appearance' }).waitFor()
       problems[`appearance dialog (${theme})`] = await violations(page)
       await page.keyboard.press('Escape')
+      await page.keyboard.press('Control+k')
+      await page.getByRole('dialog', { name: 'Search' }).getByRole('combobox').fill('e')
+      problems[`search dialog (${theme})`] = await violations(page)
+      await page.keyboard.press('Escape')
     }
     expect(Object.fromEntries(Object.entries(problems).filter(([, list]) => list.length))).toEqual({})
 

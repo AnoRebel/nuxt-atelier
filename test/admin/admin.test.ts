@@ -269,6 +269,30 @@ describe('admin', async () => {
     await panel.getByText('Another entry has the same title').waitFor()
   })
 
+  it('finds entries, users and admin pages from the global search, only what the user may see', async () => {
+    const page = await signIn()
+    await page.keyboard.press('Control+k')
+    const dialog = page.getByRole('dialog', { name: 'Search' })
+    await dialog.getByRole('combobox').fill('hello')
+    await dialog.getByRole('option').filter({ hasText: 'Hello world' }).first().waitFor()
+    await dialog.getByRole('combobox').fill('rita')
+    await dialog.getByRole('option').filter({ hasText: 'rita@example.com' }).waitFor()
+    await dialog.getByRole('combobox').fill('search eng')
+    await dialog.getByRole('option').filter({ hasText: 'Search engines' }).waitFor()
+    await page.keyboard.press('Enter')
+    await page.getByRole('heading', { name: 'Search engines' }).waitFor()
+
+    // Rita (a reviewer: posts only) finds posts, not authors or users
+    const rita = await createPage(url('/admin'))
+    await rita.getByLabel('Email').fill('rita@example.com')
+    await rita.getByLabel('Password').fill('password 456')
+    await rita.getByRole('button', { name: 'Sign in' }).click()
+    await rita.getByRole('heading', { name: 'Dashboard' }).waitFor()
+    const found = await rita.evaluate(async () => (await (await window.fetch('/api/_atelier/search/admin?q=a')).json()).results as { kind: string, type?: string }[])
+    expect(found.some(r => r.type === 'posts')).toBe(true)
+    expect(found.some(r => r.type === 'authors' || r.kind === 'user')).toBe(false)
+  })
+
   it('keeps the site\'s CSS out of the admin, and the admin\'s CSS off the site\'s pages', async () => {
     const page = await createPage(url('/admin'))
     await page.getByLabel('Email').waitFor()

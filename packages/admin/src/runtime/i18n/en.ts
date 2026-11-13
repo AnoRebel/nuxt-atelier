@@ -201,6 +201,17 @@ export default {
   'robots.reset': 'Use the configuration',
   'robots.saved': 'Search engine rules saved',
   'robots.preview': 'robots.txt',
+  // global search
+  'globalSearch.open': 'Search the admin (Ctrl+K)',
+  'globalSearch.title': 'Search',
+  'globalSearch.label': 'Search entries, users and pages',
+  'globalSearch.empty': 'Nothing found.',
+  'globalSearch.hint': 'Type to search titles, users and the admin\'s pages.',
+  'globalSearch.kind.entry': 'Entry',
+  'globalSearch.kind.singleton': 'Page',
+  'globalSearch.kind.media': 'Media',
+  'globalSearch.kind.user': 'User',
+  'globalSearch.kind.page': 'Admin',
   // SEO preview and checks
   'seo.title': 'Search and sharing',
   'seo.search': 'In search results',
