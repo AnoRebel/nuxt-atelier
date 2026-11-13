@@ -6,7 +6,7 @@ import { blockComponentsTemplate, blockDirectories, discoverBlocks } from './blo
 import { transformBlockSfc } from './blocks/transform'
 import { setupDevMigrations } from './cli/dev'
 import { resolveOptions } from './options'
-import { collectModuleDirectories } from './sources'
+import { addBuiltinDirectory, collectModuleDirectories } from './sources'
 import { adapterFrom } from './runtime/shared/i18n'
 import { resolveLocales } from './runtime/shared/locales'
 import { registryTypes, schemaTemplate } from './schema/discover'
@@ -167,6 +167,10 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     nuxt.hook('modules:done', async () => {
       await collectModuleDirectories(nuxt)
       blockDirs = blockDirectories(nuxt).map(dir => `${dir}/`)
+      // built-in content types: entry templates, and shared blocks and patterns when there are blocks
+      addBuiltinDirectory(nuxt, resolve('./runtime/builtin/content'))
+      if (discoverBlocks(nuxt).size)
+        addBuiltinDirectory(nuxt, resolve('./runtime/builtin/blocks'))
     })
 
     // the i18n module the site's URLs follow: its locales and strategy, read once every module is set up
@@ -215,7 +219,9 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ route: '/api/_atelier/schema', handler: resolve('./runtime/server/api/schema') })
     addServerHandler({ route: '/api/_atelier/dashboard', handler: resolve('./runtime/server/api/dashboard') })
     addServerHandler({ route: '/api/_atelier/settings/**', handler: resolve('./runtime/server/api/settings') })
-    for (const resource of ['collab', 'comments', 'notifications'])
+    addServerHandler({ route: '/api/_atelier/patterns', handler: resolve('./runtime/server/api/reuse') })
+    addServerHandler({ route: '/api/_atelier/templates/**', handler: resolve('./runtime/server/api/reuse') })
+    for (const resource of ['collab', 'comments', 'notifications', 'shared-blocks'])
       addServerHandler({ route: `/api/_atelier/${resource}/**`, handler: resolve(`./runtime/server/api/${resource}`) })
     addServerHandler({ route: '/api/_atelier/notifications', handler: resolve('./runtime/server/api/notifications') })
     if (resolved.collaboration.realtime === 'auto')
@@ -303,6 +309,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
   export const tables: Record<string, import(${JSON.stringify(resolve('./runtime/server/db/tables'))}).TableSpec>
   export const blocks: Record<string, import(${JSON.stringify(resolve('./runtime/shared/blocks'))}).BlockSchema>
   export const locales: import(${JSON.stringify(resolve('./runtime/shared/locales'))}).Locales
+  export const patterns: Record<string, import(${JSON.stringify(types)}).PatternDefinition>
 }
 declare module '#atelier-blocks' {
   export const blocks: Record<string, { component: () => Promise<import('vue').Component>, areas: string[] }>

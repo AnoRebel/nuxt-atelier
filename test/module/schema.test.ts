@@ -7,7 +7,7 @@ describe('schema discovery', async () => {
 
   it('registers collections and singletons from the app and its layers; the app wins a name clash', async () => {
     expect(await $fetch('/api/schema')).toEqual({
-      collections: { articles: 'Article', authors: 'Author' },
+      collections: { 'articles': 'Article', 'authors': 'Author', 'atelier-templates': 'Template' }, // and the built-in templates
       singletons: { settings: 'Site settings' },
     })
   })

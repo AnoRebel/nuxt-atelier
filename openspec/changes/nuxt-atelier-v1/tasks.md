@@ -156,6 +156,7 @@
 - [ ] 14.8 Implement proxy editing mode for opted-in blocks; verify carousel proxy reorder e2e
 - [ ] 14.9 Verify style isolation with a fixture applying hostile global CSS (`* { box-sizing: content-box }`, `button { all: unset }`): admin chrome renders correctly and preview matches the public page screenshot
 - [ ] 14.10 Implement keyboard-only block moving with live-region announcements and run axe on editor chrome; verify no serious/critical violations and keyboard move e2e
+- [ ] 14.14 (moved from 17: reusable content is built; these are its actions in the editor) Insert a shared block or a pattern from a picker, save a selected block as a shared block or pattern, detach a shared block, and copy/paste blocks across areas, entries and browser tabs (clipboard, `copyBlocks` fresh ids, placement rules checked); verify insert-pattern and cross-entry paste e2e
 - [ ] 14.13 (moved from 16.4: block comments exist before the preview does) Show comment markers on commented blocks in the preview, opening the thread in the editor's comments panel; verify a block comment's marker appears in the preview e2e
 - [ ] 14.12 (added from blökkli #24, #23, see parent-issues.md) Implement preview placeholders for blocks that render no element, and inline editing of the entry's own fields marked in host templates (same edit state and undo history); verify an empty-teaser placeholder is selectable and a page-title inline edit undoes
 - [ ] 14.11 Write docs: visual editor guide for editors (with screenshots), editor architecture and bridge protocol reference, making blocks editor-friendly, proxy mode, extending the editor
@@ -185,11 +186,11 @@
 
 ## 17. Reusable content (reusable-content)
 
-- [ ] 17.1 Implement shared blocks (references, publish propagation), detach to local copy, usage listing, and delete protection; verify 20-page propagation and detach tests
-- [ ] 17.2 Implement patterns (code-defined and editor-saved) inserted as independent copies; verify insert-pattern test
-- [ ] 17.3 Implement entry templates (code and saved-from-entry); verify new-from-template test
-- [ ] 17.4 Implement clipboard copy/paste across areas, entries, and tabs with fresh ids and rule checks; verify cross-entry paste e2e
-- [ ] 17.5 Write docs: shared blocks, patterns, templates, copy/paste (editors and developers)
+- [x] 17.1 Implement shared blocks (references, publish propagation), detach to local copy, usage listing, and delete protection; verify 20-page propagation and detach tests (editor actions: 14.14)
+- [x] 17.2 Implement patterns (code-defined and editor-saved) inserted as independent copies; verify insert-pattern test (API; the editor's picker: 14.14)
+- [x] 17.3 Implement entry templates (code and saved-from-entry); verify new-from-template test
+- [x] 17.4 Clipboard copy/paste: `copyBlocks` (fresh ids, no shared link) is in place; the copy/paste itself is an editor action, moved to 14.14 with its cross-entry paste e2e
+- [x] 17.5 Write docs: shared blocks, patterns, templates, copy/paste (editors and developers)
 
 ## 18. SEO (seo-metadata)
 

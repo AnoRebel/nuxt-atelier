@@ -202,6 +202,30 @@ CREATE TABLE `atelier_p_notes` (
 	`title` text
 );
 --> statement-breakpoint
+CREATE TABLE `atelier_c_atelier_templates` (
+	`_id` text PRIMARY KEY,
+	`_version` integer NOT NULL,
+	`_created_at` text NOT NULL,
+	`_updated_at` text NOT NULL,
+	`_created_by` text,
+	`title` text,
+	`description` text,
+	`type` text,
+	`data` text
+);
+--> statement-breakpoint
+CREATE TABLE `atelier_p_atelier_templates` (
+	`_id` text PRIMARY KEY,
+	`_version` integer NOT NULL,
+	`_created_at` text NOT NULL,
+	`_updated_at` text NOT NULL,
+	`_created_by` text,
+	`title` text,
+	`description` text,
+	`type` text,
+	`data` text
+);
+--> statement-breakpoint
 CREATE TABLE `atelier_p_relations` (
 	`source` text NOT NULL,
 	`source_id` text NOT NULL,

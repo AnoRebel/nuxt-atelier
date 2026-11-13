@@ -3,9 +3,10 @@
 <script setup lang="ts">
 import type { AdminApiError } from '../types'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useQuery } from '@tanstack/vue-query'
 import { NuxtLink } from '#components'
 import { navigateTo, onBeforeRouteLeave, onBeforeRouteUpdate } from '#imports'
-import { useAtelierAdmin } from '../composables/useAtelierAdmin'
+import { atelierFetch, useAtelierAdmin } from '../composables/useAtelierAdmin'
 import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
 import { useAtelierEntryForm } from '../composables/useAtelierEntryForm'
 import { useAtelierPresence } from '../composables/useAtelierPresence'
@@ -15,12 +16,15 @@ import CnAvatar from '../crystal-neuo/components/Avatar.vue'
 import CnBadge from '../crystal-neuo/components/Badge.vue'
 import CnButton from '../crystal-neuo/components/Button.vue'
 import CnDialog from '../crystal-neuo/components/Dialog.vue'
+import CnInput from '../crystal-neuo/components/Input.vue'
+import CnSelect from '../crystal-neuo/components/Select.vue'
 import { useAdminToast } from '../toast'
 import CommentsPanel from './CommentsPanel.vue'
 import FieldInput from './FieldInput.vue'
 import NotFound from './NotFound.vue'
 import Page from './Page.vue'
 import SeoPanel from './SeoPanel.vue'
+import SharedBlockUsage from './SharedBlockUsage.vue'
 import { useAdminI18n } from '../i18n'
 
 const props = defineProps<{ kind: 'collection' | 'singleton', name: string, id?: string, locale?: string }>()
@@ -92,6 +96,30 @@ watch(presence.lock, (lock, before) => {
   }
 })
 watch(target, () => (takenBy.value = ''))
+
+// templates: a new entry can start from one; an entry can be saved as one
+const templates = useQuery({
+  queryKey: computed(() => ['atelier', 'templates', props.name]),
+  queryFn: () => atelierFetch<{ id: string, label: string, data: Record<string, unknown> }[]>(`/templates/${encodeURIComponent(props.name)}`),
+  enabled: computed(() => props.kind === 'collection' && edit.isNew.value && !!type.value?.can.create),
+})
+const template = ref('')
+const templateOptions = computed(() => [{ value: '', label: t('templates.blank') }, ...(templates.data.value ?? []).map(x => ({ value: x.id, label: x.label }))])
+watch(template, id => edit.startFrom(templates.data.value?.find(x => x.id === id)?.data ?? null))
+const canSaveTemplate = computed(() => props.kind === 'collection' && !edit.isNew.value && !!schema.value?.collections.find(c => c.name === 'atelier-templates')?.can.create)
+const savingTemplate = ref(false)
+const entryName = computed(() => (typeof values.value.title === 'string' && values.value.title) || typeLabel.value)
+const templateName = ref('')
+async function saveTemplate() {
+  try {
+    await atelierFetch('/collections/atelier-templates', { method: 'POST', body: { data: { title: templateName.value || entryName.value, type: props.name, data: values.value } } })
+    toast.add({ color: 'success', title: t('templates.saved') })
+    templateName.value = ''
+  }
+  catch (e) {
+    toast.add({ color: 'error', title: (e as AdminApiError).message })
+  }
+}
 const canSave = computed(() => mayEdit.value && !presence.lockedByOther.value)
 const readOnly = (key: string) => !canSave.value || (type.value?.readOnly.includes(key) ?? false)
 
@@ -184,6 +212,13 @@ async function remove() {
         {{ t('entry.unpublish') }}
       </CnButton>
       <CnButton
+        v-if="canSaveTemplate"
+        variant="ghost"
+        @click="savingTemplate = true"
+      >
+        {{ t('templates.save') }}
+      </CnButton>
+      <CnButton
         v-if="kind === 'collection' && !edit.isNew.value && type.can.delete"
         variant="danger"
         :disabled="presence.lockedByOther.value"
@@ -240,6 +275,13 @@ async function remove() {
       novalidate
       @submit.prevent="save"
     >
+      <CnSelect
+        v-if="edit.isNew.value && (templates.data.value?.length ?? 0) > 0"
+        v-model="template"
+        :label="t('templates.startFrom')"
+        :options="templateOptions"
+        data-template-picker
+      />
       <CnAlert
         v-if="takenBy"
         variant="warning"
@@ -321,6 +363,11 @@ async function remove() {
         </CnButton>
       </div>
     </form>
+    <SharedBlockUsage
+      v-if="kind === 'collection' && name === 'atelier-shared-blocks' && id && !edit.isNew.value"
+      :id="id"
+      :can-delete="!!type.can.delete"
+    />
     <CommentsPanel
       v-if="target && !edit.loading.value"
       :id="target.id"
@@ -338,6 +385,19 @@ async function remove() {
       variant="destructive"
       @confirm="answer(true)"
     />
+    <CnDialog
+      v-model:open="savingTemplate"
+      :title="t('templates.saveTitle')"
+      :description="t('templates.saveBody')"
+      :confirm-label="t('templates.save')"
+      @confirm="saveTemplate"
+    >
+      <CnInput
+        v-model="templateName"
+        :label="t('templates.name')"
+        :placeholder="entryName"
+      />
+    </CnDialog>
     <CnDialog
       v-model:open="confirmDelete"
       :title="t('entry.deleteTitle')"

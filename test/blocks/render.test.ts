@@ -98,9 +98,82 @@ describe('blocks', async () => {
     expect(preview).toContain('class="right"') // in previews, empty areas keep their slot as a drop target
   })
 
+  it('updates every page placing a shared block when it\'s published, and detaches a copy on one page', async () => {
+    const send = async (method: string, path: string, body?: unknown) => {
+      const response = await fetch(`/api/_atelier${path}`, { method, headers: { 'content-type': 'application/json', cookie, 'x-atelier-csrf': csrf }, body: body === undefined ? undefined : JSON.stringify(body) })
+      return { status: response.status, body: await response.json() }
+    }
+    const created = await send('POST', '/collections/atelier-shared-blocks', { data: { title: 'Call to action', block: [{ id: 's1', type: 'Badge', props: { label: 'Buy now', tone: 'warning' } }] }, publish: true })
+    expect(created.status).toBe(200)
+    const ref = created.body.id
+    const pages: string[] = []
+    for (let i = 0; i < 20; i++)
+      pages.push((await save([{ id: 'cta', type: 'atelier:shared', props: { ref } }, { id: 'q', type: 'Quote', props: { text: `Page ${i}` } }])).body.id)
+    expect(await html(`/${pages[7]}`)).toContain('<span class="badge" data-tone="warning">Buy now</span>')
+    expect((await send('GET', `/shared-blocks/${ref}/usage`)).body).toHaveLength(20)
+
+    // a read shows the content, marked shared; saving it back keeps the reference
+    const read = (await send('GET', `/collections/pages/${pages[0]}`)).body
+    expect(read.data.content[0]).toEqual({ id: 'cta', type: 'Badge', props: { label: 'Buy now', tone: 'warning' }, shared: ref })
+    await send('PATCH', `/collections/pages/${pages[0]}`, { version: read.version, data: { content: read.data.content } })
+    expect((await send('GET', `/shared-blocks/${ref}/usage`)).body).toHaveLength(20)
+
+    // edited and published once: all 20 pages show it
+    await send('PATCH', `/collections/atelier-shared-blocks/${ref}`, { version: 1, data: { block: [{ id: 's1', type: 'Badge', props: { label: 'Sale', tone: 'warning' } }] }, publish: true })
+    for (const id of pages)
+      expect(await html(`/${id}`)).toContain('<span class="badge" data-tone="warning">Sale</span>')
+
+    // detached on one page (the mark dropped) and edited there: only that page changes
+    const page = (await send('GET', `/collections/pages/${pages[3]}`)).body
+    const { shared: _, ...copy } = page.data.content[0]
+    await send('PATCH', `/collections/pages/${pages[3]}`, { version: page.version, data: { content: [{ ...copy, props: { ...copy.props, label: 'Mine' } }, page.data.content[1]] } })
+    expect(await html(`/${pages[3]}`)).toContain('>Mine</span>')
+    expect(await html(`/${pages[4]}`)).toContain('>Sale</span>')
+    expect((await send('GET', `/collections/atelier-shared-blocks/${ref}`)).body.data.block[0].props.label).toBe('Sale')
+    expect((await send('GET', `/shared-blocks/${ref}/usage`)).body).toHaveLength(19)
+
+    // not deleted while placed; detached everywhere, it can be, and pages look the same
+    expect(await send('DELETE', `/collections/atelier-shared-blocks/${ref}`)).toMatchObject({ status: 409, body: { data: { code: 'referenced' } } })
+    expect((await send('POST', `/shared-blocks/${ref}/release`, { mode: 'detach' })).body.changed).toHaveLength(19)
+    expect((await send('DELETE', `/collections/atelier-shared-blocks/${ref}`)).status).toBe(200)
+    expect(await html(`/${pages[9]}`)).toContain('>Sale</span>')
+    expect((await send('GET', `/collections/pages/${pages[9]}`)).body.data.content[0]).toMatchObject({ id: 'cta', type: 'Badge', props: { label: 'Sale' } })
+    expect((await send('POST', '/collections/pages', { data: { title: 'x', content: [{ id: 'r', type: 'atelier:shared', props: { ref } }] } })).status).toBe(422) // gone
+  })
+
+  it('inserts patterns and starts entries from templates as independent copies with fresh ids', async () => {
+    const send = async (method: string, path: string, body?: unknown) => {
+      const response = await fetch(`/api/_atelier${path}`, { method, headers: { 'content-type': 'application/json', cookie, 'x-atelier-csrf': csrf }, body: body === undefined ? undefined : JSON.stringify(body) })
+      return { status: response.status, body: await response.json() }
+    }
+    await send('POST', '/collections/atelier-patterns', { data: { title: 'Two quotes', blocks: [{ id: 'a', type: 'Quote', props: { text: 'One' } }, { id: 'b', type: 'Quote', props: { text: 'Two' } }] } })
+    const patterns = (await send('GET', '/patterns')).body
+    expect(patterns.map((p: { label: string, source: string }) => [p.label, p.source])).toEqual([['Pricing section', 'code'], ['Two quotes', 'saved']])
+    const pricing = patterns[0].blocks
+    expect(pricing.map((b: { type: string }) => b.type)).toEqual(['Badge', 'Quote'])
+    expect(pricing.map((b: { id: string }) => b.id)).not.toContain('p1') // fresh ids, every time
+    expect((await send('GET', '/patterns')).body[0].blocks[0].id).not.toBe(pricing[0].id)
+    const page = await save(pricing)
+    expect(page.status).toBe(200)
+    expect(await html(`/${page.body.id}`)).toContain('Worth every penny')
+
+    // templates: the app's, and one saved from an entry
+    const fromPage = (await send('GET', `/collections/pages/${page.body.id}`)).body
+    await send('POST', '/collections/atelier-templates', { data: { title: 'Like the pricing page', type: 'pages', data: { title: 'Pricing', content: fromPage.data.content } } })
+    await send('POST', '/collections/atelier-templates', { data: { title: 'Elsewhere', type: 'posts', data: {} } })
+    const templates = (await send('GET', '/templates/pages')).body
+    expect(templates.map((t: { label: string }) => t.label)).toEqual(['Landing page', 'Like the pricing page'])
+    const landing = templates[0].data
+    expect(landing).toMatchObject({ title: 'New landing page', content: [{ type: 'Badge', props: { label: 'Launch' } }] })
+    expect(landing.content[0].id).not.toBe('t1')
+    const created = await send('POST', '/collections/pages', { data: landing })
+    expect(created.body.data).toMatchObject({ title: 'New landing page', content: [{ type: 'Badge', props: { label: 'Launch' } }] })
+    expect((await send('GET', '/templates/nope')).status).toBe(404)
+  })
+
   it('keeps comments on a block, marked as about a removed block once it\'s deleted', async () => {
     const send = async (method: string, path: string, body?: unknown) => {
-      const response = await fetch(`/api/_atelier${path}`, { method, headers: { 'content-type': 'application/json', cookie, 'x-atelier-csrf': csrf }, body: body && JSON.stringify(body) })
+      const response = await fetch(`/api/_atelier${path}`, { method, headers: { 'content-type': 'application/json', cookie, 'x-atelier-csrf': csrf }, body: body === undefined ? undefined : JSON.stringify(body) })
       return { status: response.status, body: await response.json() }
     }
     const { body: page } = await save([{ id: 'c1', type: 'Badge', props: { label: 'Old' } }, { id: 'c2', type: 'Quote', props: { text: 'Stays' } }])

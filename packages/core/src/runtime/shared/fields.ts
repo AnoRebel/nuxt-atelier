@@ -2,6 +2,7 @@
 // descriptor, so the admin and the server validate with the same rules. Everything except a custom
 // `validate` is JSON-serialisable.
 import type { AreaRules, BlockSchema } from './blocks'
+import { SHARED_BLOCK } from './blocks'
 import * as v from 'valibot'
 import { sanitizeRichText } from './rich-text'
 
@@ -433,6 +434,8 @@ export interface ValidateOptions {
   blocks?: Record<string, BlockSchema>
   /** How deep blocks may nest (default 10). */
   maxNestingDepth?: number
+  /** The block type of each shared block referenced (see SHARED_BLOCK): undefined for one that doesn't exist. */
+  sharedTypes?: Record<string, string | undefined>
 }
 
 /** Validates entry data against its fields, collecting every failing field path and reason. */
@@ -455,7 +458,7 @@ export async function validateEntry(fields: Fields, data: unknown, options: Vali
       errors.push({ path: key, message: 'already used by another entry' })
   }
   if (options.blocks)
-    errors.push(...await blockErrors(fields, result.output as Record<string, unknown>, options.blocks, options.maxNestingDepth ?? 10))
+    errors.push(...await blockErrors(fields, result.output as Record<string, unknown>, options.blocks, options.maxNestingDepth ?? 10, options.sharedTypes))
   return errors.length ? { success: false, errors } : { success: true, value: result.output as Record<string, unknown> }
 }
 
@@ -474,7 +477,7 @@ interface BlockValue { id: string, type: string, props: Record<string, unknown> 
  * areas' placement rules, item counts and depth. Unknown block types and props no longer in a block's
  * schema are kept as they are, so stale content still saves.
  */
-async function blockErrors(fields: Fields, data: Record<string, unknown>, registry: Record<string, BlockSchema>, maxDepth: number): Promise<FieldError[]> {
+async function blockErrors(fields: Fields, data: Record<string, unknown>, registry: Record<string, BlockSchema>, maxDepth: number, sharedTypes?: Record<string, string | undefined>): Promise<FieldError[]> {
   const errors: FieldError[] = []
   const ids = new Set<string>()
 
@@ -493,6 +496,16 @@ async function blockErrors(fields: Fields, data: Record<string, unknown>, regist
       if (ids.has(block.id))
         errors.push({ path: `${at}.id`, message: `the block id "${block.id}" is used twice` })
       ids.add(block.id)
+      // a shared block's reference: placed as the block it stands for, its content checked where it's kept
+      if (block.type === SHARED_BLOCK) {
+        const ref = block.props.ref
+        const type = typeof ref === 'string' ? sharedTypes?.[ref] : undefined
+        if (!type)
+          errors.push({ path: `${at}.props.ref`, message: typeof ref === 'string' ? `no shared block "${ref}"` : 'expected a shared block id' })
+        else if (area && !placeable(type, registry[type], area.rules))
+          errors.push({ path: at, message: `"${type}" can't be placed in area "${area.name}" of ${area.parent}` })
+        continue
+      }
       const schema = registry[block.type]
       if (area && !placeable(block.type, schema, area.rules))
         errors.push({ path: at, message: `"${block.type}" can't be placed in area "${area.name}" of ${area.parent}` })

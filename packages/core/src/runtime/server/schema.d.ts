@@ -5,6 +5,7 @@ declare module '#atelier-schema' {
   export const roles: import('../shared/policy').Roles
   export const tables: Record<string, import('./db/tables').TableSpec>
   export const blocks: Record<string, import('../shared/blocks').BlockSchema>
+  export const patterns: Record<string, import('./types').PatternDefinition>
 }
 
 // The app's migrations, bundled at build time by dialect
