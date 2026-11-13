@@ -37,6 +37,11 @@ interface Base {
    */
   shared?: boolean
   /**
+   * Found by site search, with a weight: 3 counts most (a title), 1 least (body text); `true` is 1. On an
+   * object, repeater or blocks field, all the text inside it is searched, the blocks' own fields included.
+   */
+  searchable?: boolean | 1 | 2 | 3
+  /**
    * Only applies while this holds: otherwise the field is hidden in the admin, not required, and not stored.
    * `field` names a sibling (in the same object or repeater item), or a top-level field with a leading `/`.
    */

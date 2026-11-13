@@ -85,6 +85,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addImports({ name: 'useAtelierRouteEntry', from: resolve('./runtime/app/composables/useAtelierRouteEntry') })
     addImports({ name: 'useAtelierLocalePath', from: resolve('./runtime/app/composables/useAtelierLocalePath') })
     addImports({ name: 'useAtelierPreview', from: resolve('./runtime/app/composables/useAtelierPreview') })
+    addImports({ name: 'useAtelierSiteSearch', from: resolve('./runtime/app/composables/useAtelierSiteSearch') })
     addComponentsDir({ path: resolve('./runtime/app/components'), prefix: 'Atelier' })
     // the catch-all serving routable entries: ranked below every page of the app, so the app's own pages win.
     // Only in apps that route: Nuxt turns its router on when this hook adds a page, and an app with just an
@@ -206,6 +207,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ route: '/api/_atelier/dashboard', handler: resolve('./runtime/server/api/dashboard') })
     addServerHandler({ route: '/api/_atelier/settings/**', handler: resolve('./runtime/server/api/settings') })
     addServerHandler({ route: '/api/_atelier/sitemap', method: 'get', handler: resolve('./runtime/server/api/sitemap') })
+    addServerHandler({ route: '/api/_atelier/search', handler: resolve('./runtime/server/api/search') })
+    addServerHandler({ route: '/api/_atelier/search/**', handler: resolve('./runtime/server/api/search') })
     for (const resource of ['users', 'roles', 'tokens', 'collections', 'singletons', 'redirects']) {
       addServerHandler({ route: `/api/_atelier/${resource}`, handler: resolve(`./runtime/server/api/${resource}`) })
       addServerHandler({ route: `/api/_atelier/${resource}/**`, handler: resolve(`./runtime/server/api/${resource}`) })

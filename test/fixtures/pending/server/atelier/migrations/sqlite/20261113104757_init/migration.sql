@@ -244,3 +244,6 @@ CREATE UNIQUE INDEX `atelier_users_email_idx` ON `atelier_users` (`email`);--> s
 CREATE INDEX `atelier_sessions_user_idx` ON `atelier_sessions` (`user_id`);--> statement-breakpoint
 CREATE INDEX `atelier_audit_at_idx` ON `atelier_audit` (`at`);--> statement-breakpoint
 CREATE INDEX `atelier_audit_actor_idx` ON `atelier_audit` (`actor_id`);
+--> statement-breakpoint
+-- atelier:data search index
+CREATE VIRTUAL TABLE IF NOT EXISTS atelier_search USING fts5(key UNINDEXED, type UNINDEXED, entry UNINDEXED, locale UNINDEXED, a, b, c, tokenize = 'unicode61 remove_diacritics 2');
