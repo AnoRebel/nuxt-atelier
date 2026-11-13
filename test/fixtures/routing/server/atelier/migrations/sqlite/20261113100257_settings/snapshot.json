@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "d89ca8c4-156f-4ac7-a6f6-c79aca6f1f06",
+  "id": "108905fe-c05b-4dbc-8abe-c000f9b4a937",
   "prevIds": [
-    "00000000-0000-0000-0000-000000000000"
+    "ca516444-25b5-4885-8322-14256c13c919"
   ],
   "ddl": [
     {
@@ -24,6 +24,10 @@
     },
     {
       "name": "atelier_roles",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_settings",
       "entityType": "tables"
     },
     {
@@ -51,19 +55,35 @@
       "entityType": "tables"
     },
     {
-      "name": "atelier_redirects",
-      "entityType": "tables"
-    },
-    {
       "name": "atelier_relations",
       "entityType": "tables"
     },
     {
-      "name": "atelier_c_notes",
+      "name": "atelier_redirects",
       "entityType": "tables"
     },
     {
-      "name": "atelier_p_notes",
+      "name": "atelier_c_pages",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_p_pages",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_c_posts",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_p_posts",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_c_projects",
+      "entityType": "tables"
+    },
+    {
+      "name": "atelier_p_projects",
       "entityType": "tables"
     },
     {
@@ -319,6 +339,46 @@
       "name": "_updated_at",
       "type": "text",
       "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_settings",
+      "name": "key",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_settings",
+      "name": "value",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_settings",
+      "name": "_updated_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_settings",
+      "name": "_updated_by",
+      "type": "text",
+      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
@@ -955,66 +1015,6 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_redirects",
-      "name": "_id",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_redirects",
-      "name": "source",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_redirects",
-      "name": "target",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_redirects",
-      "name": "status",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_redirects",
-      "name": "auto",
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_redirects",
-      "name": "_created_at",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
       "table": "atelier_relations",
       "name": "source",
       "type": "text",
@@ -1075,7 +1075,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_c_notes",
+      "table": "atelier_redirects",
       "name": "_id",
       "type": "text",
       "notNull": false,
@@ -1085,8 +1085,28 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_c_notes",
-      "name": "_version",
+      "table": "atelier_redirects",
+      "name": "source",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_redirects",
+      "name": "target",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_redirects",
+      "name": "status",
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
@@ -1095,7 +1115,17 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_c_notes",
+      "table": "atelier_redirects",
+      "name": "auto",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_redirects",
       "name": "_created_at",
       "type": "text",
       "notNull": true,
@@ -1105,37 +1135,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_c_notes",
-      "name": "_updated_at",
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "_created_by",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_c_notes",
-      "name": "title",
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "entityType": "columns"
-    },
-    {
-      "table": "atelier_p_notes",
+      "table": "atelier_c_pages",
       "name": "_id",
       "type": "text",
       "notNull": false,
@@ -1145,7 +1145,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_p_notes",
+      "table": "atelier_c_pages",
       "name": "_version",
       "type": "integer",
       "notNull": true,
@@ -1155,7 +1155,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_p_notes",
+      "table": "atelier_c_pages",
       "name": "_created_at",
       "type": "text",
       "notNull": true,
@@ -1165,7 +1165,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_p_notes",
+      "table": "atelier_c_pages",
       "name": "_updated_at",
       "type": "text",
       "notNull": true,
@@ -1175,7 +1175,7 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_p_notes",
+      "table": "atelier_c_pages",
       "name": "_created_by",
       "type": "text",
       "notNull": false,
@@ -1185,8 +1185,448 @@
       "entityType": "columns"
     },
     {
-      "table": "atelier_p_notes",
+      "table": "atelier_c_pages",
       "name": "title",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_pages",
+      "name": "slug",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_pages",
+      "name": "content",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_pages",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_pages",
+      "name": "_version",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_pages",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_pages",
+      "name": "_updated_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_pages",
+      "name": "_created_by",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_pages",
+      "name": "title",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_pages",
+      "name": "slug",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_pages",
+      "name": "content",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_posts",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_posts",
+      "name": "_version",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_posts",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_posts",
+      "name": "_updated_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_posts",
+      "name": "_created_by",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_posts",
+      "name": "title",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_posts",
+      "name": "slug",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_posts",
+      "name": "cover",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_posts",
+      "name": "content",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_posts",
+      "name": "seo",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_posts",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_posts",
+      "name": "_version",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_posts",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_posts",
+      "name": "_updated_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_posts",
+      "name": "_created_by",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_posts",
+      "name": "title",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_posts",
+      "name": "slug",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_posts",
+      "name": "cover",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_posts",
+      "name": "content",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_posts",
+      "name": "seo",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_projects",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_projects",
+      "name": "_version",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_projects",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_projects",
+      "name": "_updated_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_projects",
+      "name": "_created_by",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_projects",
+      "name": "name",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_c_projects",
+      "name": "slug",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_projects",
+      "name": "_id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_projects",
+      "name": "_version",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_projects",
+      "name": "_created_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_projects",
+      "name": "_updated_at",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_projects",
+      "name": "_created_by",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_projects",
+      "name": "name",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "atelier_p_projects",
+      "name": "slug",
       "type": "text",
       "notNull": false,
       "autoincrement": false,
@@ -1721,20 +2161,6 @@
       "entityType": "indexes"
     },
     {
-      "table": "atelier_redirects",
-      "name": "atelier_redirects_source_idx",
-      "columns": [
-        {
-          "value": "source",
-          "isExpression": false
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "origin": "manual",
-      "entityType": "indexes"
-    },
-    {
       "table": "atelier_relations",
       "name": "atelier_relations_target_idx",
       "columns": [
@@ -1748,6 +2174,20 @@
         }
       ],
       "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "atelier_redirects",
+      "name": "atelier_redirects_source_idx",
+      "columns": [
+        {
+          "value": "source",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
       "where": null,
       "origin": "manual",
       "entityType": "indexes"
@@ -1974,6 +2414,15 @@
       "entityType": "pks"
     },
     {
+      "table": "atelier_settings",
+      "name": "atelier_settings_pk",
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
       "table": "atelier_passkeys",
       "name": "atelier_passkeys_pk",
       "columns": [
@@ -2037,8 +2486,8 @@
       "entityType": "pks"
     },
     {
-      "table": "atelier_c_notes",
-      "name": "atelier_c_notes_pk",
+      "table": "atelier_c_pages",
+      "name": "atelier_c_pages_pk",
       "columns": [
         "_id"
       ],
@@ -2046,8 +2495,44 @@
       "entityType": "pks"
     },
     {
-      "table": "atelier_p_notes",
-      "name": "atelier_p_notes_pk",
+      "table": "atelier_p_pages",
+      "name": "atelier_p_pages_pk",
+      "columns": [
+        "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_c_posts",
+      "name": "atelier_c_posts_pk",
+      "columns": [
+        "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_p_posts",
+      "name": "atelier_p_posts_pk",
+      "columns": [
+        "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_c_projects",
+      "name": "atelier_c_projects_pk",
+      "columns": [
+        "_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "atelier_p_projects",
+      "name": "atelier_p_projects_pk",
       "columns": [
         "_id"
       ],

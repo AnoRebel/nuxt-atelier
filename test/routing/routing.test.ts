@@ -101,6 +101,30 @@ describe('site routing', async () => {
     ])
   })
 
+  it('lists published, indexable pages in /sitemap.xml, and serves robots.txt rules the admin can change', async () => {
+    // 'launch' (previous test) is noindex: not listed; 'about-us' is
+    const sitemap = await (await fetch('/sitemap.xml')).text()
+    expect(sitemap).toMatch(/<loc>http:\/\/[^<]+\/about-us<\/loc>/)
+    expect(sitemap).not.toContain('/blog/launch')
+    const draft = await api('/api/_atelier/collections/posts', 'POST', { data: { title: 'Not yet', slug: 'not-yet' } })
+    expect(draft.status).toBe(200)
+    expect(await (await fetch('/sitemap.xml')).text()).not.toContain('/blog/not-yet') // a draft isn't listed
+
+    const robots = async () => (await fetch('/robots.txt')).text()
+    expect(await robots()).toMatch(/User-agent: \*\nDisallow: \/admin\nDisallow: \/api\/_atelier\/\n\nSitemap: http:\/\/.+\/sitemap\.xml\n$/)
+    // an administrator changes the rules (the settings capability); the admin and API stay disallowed
+    expect((await api('/api/_atelier/settings/robots')).body).toMatchObject({ source: 'config', value: { indexable: true, rules: [] } })
+    const changed = await api('/api/_atelier/settings/robots', 'PUT', { value: { rules: [{ userAgent: ['GPTBot'], disallow: ['/'] }] } })
+    expect(changed).toMatchObject({ status: 200, body: { source: 'database' } })
+    expect(await robots()).toContain('User-agent: GPTBot\nDisallow: /admin\nDisallow: /api/_atelier/\nDisallow: /')
+    expect((await api('/api/_atelier/settings/robots', 'PUT', { value: { rules: [{ userAgent: [] }] } })).status).toBe(422)
+    expect((await api('/api/_atelier/settings/robots', 'PUT', { value: { indexable: false } })).status).toBe(200)
+    expect(await robots()).toContain('User-agent: *\nDisallow: /\n')
+    expect((await api('/api/_atelier/settings/robots', 'DELETE')).body).toMatchObject({ source: 'config' })
+    expect(await robots()).not.toContain('GPTBot')
+    expect((await fetch('/api/_atelier/settings/robots')).status).toBe(401)
+  })
+
   it('serves each locale\'s pattern with the type\'s component and layout (Pruvious #73)', async () => {
     const { body } = await api('/api/_atelier/collections/projects', 'POST', { data: { name: 'Harbour', slug: 'harbour' } })
     expect(body.path).toBe('/projects/harbour')

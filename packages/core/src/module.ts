@@ -48,6 +48,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       migrations: { autoApply: resolved.migrations.autoApply }, // NUXT_ATELIER_MIGRATIONS_AUTO_APPLY
       storage: { driver: resolved.storage.driver, dir: resolved.storage.dir }, // NUXT_ATELIER_STORAGE_DIR
       auth: { signInAttempts: resolved.auth.signInAttempts, signInWindow: resolved.auth.signInWindow, trustProxy: resolved.auth.trustProxy },
+      robots: resolved.seo.robots ?? null, // the default robots rules; the admin's override them
+      sitemap: '', // the sitemap's path for robots.txt, set once every module is set up (below)
       ...config.atelier as object | undefined,
     }
     config.public.atelier = {
@@ -116,6 +118,24 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerPlugin(resolve('./runtime/server/plugins/secret'))
     addServerPlugin(resolve('./runtime/server/plugins/migrations'))
     addServerPlugin(resolve('./runtime/server/plugins/shutdown'))
+
+    // robots.txt and the sitemap: through @nuxtjs/robots and @nuxtjs/sitemap when the app has them (standalone
+    // or in @nuxtjs/seo, their runtime hooks), else our own /robots.txt and /sitemap.xml. A file in public/ is
+    // served first. /api/_atelier/sitemap has the same URLs as JSON, for any other tool.
+    nuxt.hook('modules:done', () => {
+      const robotsModule = hasNuxtModule('@nuxtjs/robots', nuxt) || hasNuxtModule('@nuxtjs/seo', nuxt)
+      const sitemapModule = hasNuxtModule('@nuxtjs/sitemap', nuxt) || hasNuxtModule('@nuxtjs/seo', nuxt)
+      if (robotsModule)
+        addServerPlugin(resolve('./runtime/server/plugins/robots'))
+      else
+        addServerHandler({ route: '/robots.txt', method: 'get', handler: resolve('./runtime/server/routes/robots.txt') })
+      if (sitemapModule)
+        addServerPlugin(resolve('./runtime/server/plugins/sitemap'))
+      else
+        addServerHandler({ route: '/sitemap.xml', method: 'get', handler: resolve('./runtime/server/routes/sitemap.xml') })
+      // robots.txt points at the sitemap only when it's ours (the module adds its own line)
+      ;(nuxt.options.runtimeConfig.atelier as Record<string, unknown>).sitemap = sitemapModule ? '' : '/sitemap.xml'
+    })
     addServerPlugin(resolve('./runtime/server/plugins/jobs'))
 
     // blocks: lazy components for the app (`#atelier-blocks`); their schemas go to the server in `#atelier-schema`
@@ -184,6 +204,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ route: '/api/_atelier/setup', handler: resolve('./runtime/server/api/setup') })
     addServerHandler({ route: '/api/_atelier/schema', handler: resolve('./runtime/server/api/schema') })
     addServerHandler({ route: '/api/_atelier/dashboard', handler: resolve('./runtime/server/api/dashboard') })
+    addServerHandler({ route: '/api/_atelier/settings/**', handler: resolve('./runtime/server/api/settings') })
+    addServerHandler({ route: '/api/_atelier/sitemap', method: 'get', handler: resolve('./runtime/server/api/sitemap') })
     for (const resource of ['users', 'roles', 'tokens', 'collections', 'singletons', 'redirects']) {
       addServerHandler({ route: `/api/_atelier/${resource}`, handler: resolve(`./runtime/server/api/${resource}`) })
       addServerHandler({ route: `/api/_atelier/${resource}/**`, handler: resolve(`./runtime/server/api/${resource}`) })

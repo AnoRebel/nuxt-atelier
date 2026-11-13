@@ -231,6 +231,22 @@ describe('admin', async () => {
     expect(await page.getByRole('link', { name: 'About us' }).count()).toBe(0)
   })
 
+  it('edits the robots.txt rules, which override the configuration until reset', async () => {
+    const page = await signIn()
+    await page.getByRole('link', { name: 'Search engines' }).first().click()
+    await page.locator('[data-robots-source]').getByText('From the site\'s configuration.').waitFor()
+    await page.getByRole('button', { name: 'Add a rule' }).click()
+    await page.getByLabel('Crawlers').fill('GPTBot')
+    await page.getByLabel('Keep out of').fill('/')
+    expect(await page.locator('[data-robots-preview]').textContent()).toContain('User-agent: GPTBot\nDisallow: /admin\nDisallow: /api/_atelier/\nDisallow: /')
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await page.getByText('Search engine rules saved').waitFor()
+    expect(await (await fetch('/robots.txt')).text()).toContain('User-agent: GPTBot')
+    await page.getByRole('button', { name: 'Use the configuration' }).click()
+    await page.locator('[data-robots-source]').getByText('From the site\'s configuration.').waitFor()
+    expect(await (await fetch('/robots.txt')).text()).not.toContain('GPTBot')
+  })
+
   it('keeps the site\'s CSS out of the admin, and the admin\'s CSS off the site\'s pages', async () => {
     const page = await createPage(url('/admin'))
     await page.getByLabel('Email').waitFor()

@@ -95,6 +95,10 @@
         "@tanstack/vue-query": "5.105.0",
         "@tanstack/vue-form": "1.33.5",
         "@iconify-json/lucide": "1.2.148"
+      },
+      "seo": {
+        "@nuxtjs/robots": "7.0.2",
+        "@nuxtjs/sitemap": "9.1.0"
       }
     }
   },

@@ -19,6 +19,7 @@
 //   atelier_tokens          API tokens for headless clients: hashed, scoped, expiring, revocable
 //   atelier_rate_limits     counters for rate-limited actions, shared by every server instance
 //   atelier_roles           roles edited in the admin (code-defined ones are in server/atelier/roles.ts)
+//   atelier_settings        site settings changed in the admin (robots rules…), overriding the module options
 //   atelier_passkeys        their passkeys (WebAuthn credentials), when passkey sign-in is enabled
 //   atelier_jobs            the background job queue: due time, attempts, lock, last error
 //   atelier_media           the media library: one row per file, with its metadata and where it's stored
@@ -387,6 +388,12 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       name: kit.key('name', NAME).primaryKey(),
       definition: kit.json('definition').notNull(), // a Role: label, capabilities, content permissions
       updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
+    }),
+    atelier_settings: kit.table('atelier_settings', {
+      key: kit.key('key', NAME).primaryKey(),
+      value: kit.json('value').notNull(),
+      updatedAt: kit.key('_updated_at', TIMESTAMP).notNull(),
+      updatedBy: kit.key('_updated_by', ID),
     }),
     atelier_passkeys: kit.table('atelier_passkeys', {
       id: kit.key('_id', 255).primaryKey(), // the credential id, base64url

@@ -30,7 +30,8 @@
         "src/runtime/app/pages/*.ts",
         "src/adapter.ts",
         "src/storage.ts",
-        "src/runtime/app/composables/*.ts"
+        "src/runtime/app/composables/*.ts",
+        "src/runtime/server/routes/*.ts"
       ]
     },
     "packages/storage-s3": {
@@ -227,6 +228,11 @@
         "server/atelier/**/*.ts",
         "server/plugins/*.ts",
         "server/api/**/*.ts"
+      ]
+    },
+    "test/fixtures/seo-modules": {
+      "entry": [
+        "server/**/*.ts"
       ]
     }
   },

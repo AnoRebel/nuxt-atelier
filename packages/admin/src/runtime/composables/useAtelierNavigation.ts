@@ -28,6 +28,7 @@ export const singularLabel = (type: { name: string, labels?: { singular?: string
 const AREAS: { capability: Capability, label: string, icon: string, path: string }[] = [
   { capability: 'users', label: 'nav.users', icon: 'users', path: 'users' },
   { capability: 'roles', label: 'nav.roles', icon: 'shield', path: 'roles' },
+  { capability: 'settings', label: 'nav.searchEngines', icon: 'search', path: 'settings/robots' },
 ]
 
 /** Whether a user managing `capabilities` may open a page that requires any one of `requires` (none: everyone). */
@@ -46,7 +47,7 @@ export function useAtelierNavigation() {
       { label: t('nav.dashboard'), icon: 'i-lucide-layout-dashboard', to: to() },
       ...s.collections.map(c => ({ label: c.labels?.plural ?? humanize(c.name), icon: c.admin?.icon ?? 'i-lucide-files', to: to('collections', c.name), group: c.admin?.group ?? t('nav.content') })),
       ...s.singletons.map(one => ({ label: one.label ?? humanize(one.name), icon: one.admin?.icon ?? 'i-lucide-file-text', to: to('singletons', one.name), group: one.admin?.group ?? t('nav.content') })),
-      ...AREAS.filter(a => s.capabilities.includes(a.capability)).map(a => ({ label: t(a.label), icon: a.icon, to: to(a.path), group: t('nav.settings') })),
+      ...AREAS.filter(a => s.capabilities.includes(a.capability)).map(a => ({ label: t(a.label), icon: a.icon, to: to(...a.path.split('/')), group: t('nav.settings') })),
       // the app's and plugins' pages, for those allowed to open them
       ...customPages
         .filter(p => allowed(p.requires, s.capabilities))

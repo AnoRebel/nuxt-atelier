@@ -23,7 +23,9 @@ function toAdminApiError(error: unknown): AdminApiError {
 export async function atelierFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = csrf()
   try {
-    return await $fetch<T>(`/api/_atelier${path}`, {
+    // a plain fetch: the response type is the caller's, not inferred from the app's server routes
+    const request = $fetch as unknown as (url: string, options: Record<string, unknown>) => Promise<T>
+    return await request(`/api/_atelier${path}`, {
       method: options.method ?? 'GET',
       body: options.body as Record<string, unknown> | undefined,
       query: options.query,
