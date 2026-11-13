@@ -34,6 +34,7 @@ const EXCEPTIONS: Record<string, { license: string, reason: string }> = {
   '@img/sharp-wasm32': { license: 'Apache-2.0 AND LGPL-3.0-or-later AND MIT', reason: 'As @img/sharp.' },
   '@img/sharp-libvips': { license: 'LGPL-3.0-or-later', reason: 'As @img/sharp: libvips itself, unmodified.' },
   'lightningcss': { license: 'MPL-2.0', reason: 'Build-time CSS tool (Tailwind, Vite), used unmodified, not shipped.' },
+  'axe-core': { license: 'MPL-2.0', reason: 'Accessibility checks in the test suite only, used unmodified, not shipped.' },
   'rollup-plugin-dts': { license: 'LGPL-3.0-only', reason: 'Build-time (unbuild, via @nuxt/module-builder), unmodified, not shipped.' },
   'argparse': { license: 'PSF-2.0', reason: 'Python Software Foundation License, permissive. Docs build only (js-yaml).' },
   'spdx-exceptions': { license: 'CC-BY-3.0', reason: 'A data file of SPDX exception ids; attribution license. Tooling only.' },
