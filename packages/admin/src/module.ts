@@ -53,6 +53,8 @@ export interface AdminPage {
   requires?: string | string[]
   /** The page component: a path, `~/` for the app. */
   component: string
+  /** Opened from elsewhere (a link, a button), not listed in the navigation. */
+  hidden?: boolean
 }
 
 /** An admin interface language: its own name, and its messages (JSON files, merged in order). */
@@ -112,6 +114,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
 
     // passkey sign-in code only when passkeys are on: otherwise @simplewebauthn/browser isn't even resolved
     nuxt.options.alias['#atelier-admin-passkeys'] = resolve(core?.auth?.passkeys === true ? './runtime/passkeys' : './runtime/passkeys-off')
+    // the admin's parts, for plugins that build on them (the visual editor: its forms, the kit)
+    nuxt.options.alias['#atelier-admin-runtime'] = resolve('./runtime')
     // AI actions: @nuxt-atelier/ai points this at its own once modules are set up; without it, nothing
     nuxt.options.alias['#atelier-admin-ai'] = resolve('./runtime/ai-off')
     // icons: the kit's, the pages', and `icons` (for content types' `admin.icon`, say)
@@ -149,7 +153,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addTypeTemplate({
       filename: 'types/atelier-admin.d.ts',
       getContents: () => `declare module '#atelier-admin-pages' {
-  const pages: { path: string, label: string, icon?: string, group?: string, order?: number, requires: string[], component: () => Promise<{ default: import('vue').Component }> }[]
+  const pages: { path: string, label: string, icon?: string, group?: string, order?: number, requires: string[], hidden?: boolean, component: () => Promise<{ default: import('vue').Component }> }[]
   export default pages
 }
 declare module '#atelier-admin-languages' {
