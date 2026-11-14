@@ -35,6 +35,18 @@
         "server/atelier/**/*.ts"
       ]
     },
+    "packages/editor": {
+      "entry": [
+        "src/runtime/VisualEditor.vue"
+      ]
+    },
+    "test/fixtures/editor": {
+      "entry": [
+        "app/**/*.vue",
+        "server/api/**/*.ts",
+        "server/atelier/**/*.ts"
+      ]
+    },
     "packages/core": {
       "entry": [
         "src/runtime/*/index.ts",
@@ -274,6 +286,7 @@
     "#atelier-drivers",
     "#atelier-mailer",
     "#atelier-admin-ai",
+    "^#atelier-admin-runtime/.*",
     "#atelier-ai",
     "#atelier-better-auth",
     "#atelier-blocks",

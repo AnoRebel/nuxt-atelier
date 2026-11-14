@@ -6,7 +6,7 @@ import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { ai } from '#atelier-admin-ai'
 import { useQuery } from '@tanstack/vue-query'
 import { NuxtLink } from '#components'
-import { navigateTo, onBeforeRouteLeave, onBeforeRouteUpdate } from '#imports'
+import { navigateTo, onBeforeRouteLeave, onBeforeRouteUpdate, useRuntimeConfig } from '#imports'
 import { atelierFetch, useAtelierAdmin } from '../composables/useAtelierAdmin'
 import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
 import { useAtelierEntryForm } from '../composables/useAtelierEntryForm'
@@ -89,6 +89,8 @@ const presence = useAtelierPresence(target, mayEdit)
 // for fields' AI actions: which entry, and its locales
 provide('atelier-entry', computed(() => type.value ? { type: props.name, locale: edit.locale.value, locales: type.value.localized ? schema.value?.locales.codes ?? [] : [] } : null))
 const aiOn = ai ? ai.enabled() : ref(false)
+// the visual editor, when @nuxt-atelier/editor is installed
+const visualEditor = !!useRuntimeConfig().public.atelierEditor
 function applySeo(value: { title: string, description: string }) {
   form.setFieldValue('seo.title' as never, value.title as never)
   form.setFieldValue('seo.description' as never, value.description as never)
@@ -226,6 +228,14 @@ async function remove() {
       >
         {{ t('entry.unpublish') }}
       </CnButton>
+      <NuxtLink
+        v-if="visualEditor && type.routable && !edit.isNew.value"
+        :to="{ path: to('edit'), query: { type: name, ...kind === 'collection' ? { id } : {} } }"
+        class="cn-button cn-button--secondary cn-button--size-md"
+        data-visual-editor
+      >
+        {{ t('editor.open') }}
+      </NuxtLink>
       <CnButton
         v-if="canSaveTemplate"
         variant="ghost"

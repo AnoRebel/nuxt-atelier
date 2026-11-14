@@ -94,20 +94,34 @@ export function startBridge(nuxtApp: ReturnType<typeof useNuxtApp>): void {
       send({ type: 'atelier:hover', id: hovered = id })
   }, { passive: true })
 
-  // --- in place: a double click on a marked field makes it editable as text; each change goes to the editor
+  // --- in place: a double click on a marked field makes it editable as text; each change goes to the editor.
+  // While someone types, the editor's state waits: rendering it would move the caret.
+  let editing: HTMLElement | null = null
+  let deferred: [string, Record<string, unknown>] | undefined
   addEventListener('dblclick', (event) => {
     const field = (event.target as Element | null)?.closest?.('[data-at-field]') as HTMLElement | null
     if (!field || field.isContentEditable)
       return
     event.preventDefault()
+    // typing would change the nodes Vue renders into: set them aside, edit a plain copy of the text, and
+    // put them back when the edit ends (Vue then renders the edited value into them)
+    const owned = [...field.childNodes]
+    field.replaceChildren(document.createTextNode(field.textContent?.trim() ?? ''))
+    editing = field
     field.setAttribute('contenteditable', 'plaintext-only')
     field.focus()
     const path = fieldPath(field)
-    const input = () => send({ type: 'atelier:inline', path, value: field.textContent ?? '' })
+    const input = () => send({ type: 'atelier:inline', path, value: field.textContent?.trim() ?? '' })
     const done = () => {
       field.removeAttribute('contenteditable')
       field.removeEventListener('input', input)
       field.removeEventListener('blur', done)
+      field.replaceChildren(...owned)
+      editing = null
+      // what the editor sent meanwhile, now that Vue may render again
+      if (deferred)
+        applyState(...deferred)
+      deferred = undefined
     }
     field.addEventListener('input', input)
     field.addEventListener('blur', done)
@@ -119,7 +133,10 @@ export function startBridge(nuxtApp: ReturnType<typeof useNuxtApp>): void {
     if (!message)
       return
     if (message.type === 'atelier:state') {
-      applyState(message.id, message.data)
+      if (editing)
+        deferred = [message.id, message.data]
+      else
+        applyState(message.id, message.data)
       void nextTick(measure)
     }
     else if (message.type === 'atelier:select' && message.id) {

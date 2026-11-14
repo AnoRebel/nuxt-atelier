@@ -149,16 +149,16 @@
 - [x] 14.1 Implement preview token issuance (short-lived, HMAC via `deriveSecret`) exchanged for an HTTP-only preview cookie, and the core client plugin that dynamically imports the bridge only in preview context; verify public page bundle contains no bridge chunk and invalid token renders public content
 - [x] 14.2 Define the versioned bridge protocol with Valibot-validated messages and origin checks; verify foreign-origin and malformed messages are ignored in unit tests
 - [x] 14.3 Implement the child bridge: reactive in-memory edit state from patches, geometry reporting via the browser's ResizeObserver and MutationObserver (core has no VueUse dependency), selection/hover events; verify edits render within 150 ms in e2e
-- [ ] 14.4 Implement the parent editor shell (`@nuxt-atelier/editor`): iframe host, overlay drawn in parent from reported geometry, structure tree, side panel forms (TanStack Form + Valibot), responsive presets; verify click-to-select syncs tree and panel in e2e
+- [x] 14.4 Implement the parent editor shell (`@nuxt-atelier/editor`): iframe host, overlay drawn in parent from reported geometry, structure tree, side panel forms (TanStack Form + Valibot), responsive presets; verify click-to-select syncs tree and panel in e2e
 - [ ] 14.5 Implement add/move/duplicate/delete with `@atlaskit/pragmatic-drag-and-drop` in tree and picker plus relayed in-preview dragging respecting placement rules; verify invalid drop rejection e2e
 - [ ] 14.6 Implement inline text/rich-text editing (Tiptap 3) in the preview synced to the admin form; verify inline edit e2e
 - [ ] 14.7 Implement command-pattern undo/redo with keystroke coalescing and keyboard shortcuts (`useMagicKeys`) plus an extensible command palette; verify undo-move and palette insert e2e
 - [ ] 14.8 Implement proxy editing mode for opted-in blocks; verify carousel proxy reorder e2e
 - [ ] 14.9 Verify style isolation with a fixture applying hostile global CSS (`* { box-sizing: content-box }`, `button { all: unset }`): admin chrome renders correctly and preview matches the public page screenshot
-- [ ] 14.10 Implement keyboard-only block moving with live-region announcements and run axe on editor chrome; verify no serious/critical violations and keyboard move e2e
+- [x] 14.10 Implement keyboard-only block moving with live-region announcements and run axe on editor chrome; verify no serious/critical violations and keyboard move e2e
 - [ ] 14.14 (moved from 17: reusable content is built; these are its actions in the editor) Insert a shared block or a pattern from a picker, save a selected block as a shared block or pattern, detach a shared block, and copy/paste blocks across areas, entries and browser tabs (clipboard, `copyBlocks` fresh ids, placement rules checked); verify insert-pattern and cross-entry paste e2e
 - [ ] 14.13 (moved from 16.4: block comments exist before the preview does) Show comment markers on commented blocks in the preview, opening the thread in the editor's comments panel; verify a block comment's marker appears in the preview e2e
-- [ ] 14.12 (added from blökkli #24, #23, see parent-issues.md) Implement preview placeholders for blocks that render no element, and inline editing of the entry's own fields marked in host templates (same edit state and undo history); verify an empty-teaser placeholder is selectable and a page-title inline edit undoes
+- [x] 14.12 (added from blökkli #24, #23, see parent-issues.md) Implement preview placeholders for blocks that render no element, and inline editing of the entry's own fields marked in host templates (same edit state and undo history); verify an empty-teaser placeholder is selectable and a page-title inline edit undoes
 - [ ] 14.11 Write docs: visual editor guide for editors (with screenshots), editor architecture and bridge protocol reference, making blocks editor-friendly, proxy mode, extending the editor
 
 ## 15. Admin dashboard (admin-dashboard)

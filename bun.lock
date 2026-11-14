@@ -316,6 +316,12 @@
         "nuxt": "catalog:",
       },
     },
+    "test/fixtures/editor": {
+      "name": "@nuxt-atelier/fixture-editor",
+      "dependencies": {
+        "nuxt": "catalog:",
+      },
+    },
     "test/fixtures/host-app": {
       "name": "@nuxt-atelier/fixture-host-app",
       "dependencies": {
@@ -1099,6 +1105,8 @@
     "@nuxt-atelier/fixture-blocks-dev": ["@nuxt-atelier/fixture-blocks-dev@workspace:test/fixtures/blocks-dev"],
 
     "@nuxt-atelier/fixture-dev-migrate": ["@nuxt-atelier/fixture-dev-migrate@workspace:test/fixtures/dev-migrate"],
+
+    "@nuxt-atelier/fixture-editor": ["@nuxt-atelier/fixture-editor@workspace:test/fixtures/editor"],
 
     "@nuxt-atelier/fixture-host-app": ["@nuxt-atelier/fixture-host-app@workspace:test/fixtures/host-app"],
 

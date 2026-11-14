@@ -52,7 +52,7 @@ export function useAtelierNavigation() {
       ...AREAS.filter(a => s.capabilities.includes(a.capability)).map(a => ({ label: t(a.label), icon: a.icon, to: to(...a.path.split('/')), group: t('nav.settings') })),
       // the app's and plugins' pages, for those allowed to open them
       ...customPages
-        .filter(p => allowed(p.requires, s.capabilities))
+        .filter(p => !p.hidden && allowed(p.requires, s.capabilities))
         .toSorted((a, b) => (a.order ?? 0) - (b.order ?? 0))
         .map(p => ({ label: p.label, icon: p.icon ?? 'file-text', to: to(...p.path.split('/')), group: p.group ?? t('nav.tools') })),
     ]
