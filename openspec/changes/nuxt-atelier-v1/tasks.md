@@ -146,9 +146,9 @@
 
 ## 14. Visual editor (visual-editor)
 
-- [ ] 14.1 Implement preview token issuance (short-lived, HMAC via `deriveSecret`) exchanged for an HTTP-only preview cookie, and the core client plugin that dynamically imports the bridge only in preview context; verify public page bundle contains no bridge chunk and invalid token renders public content
-- [ ] 14.2 Define the versioned bridge protocol with Valibot-validated messages and origin checks; verify foreign-origin and malformed messages are ignored in unit tests
-- [ ] 14.3 Implement the child bridge: reactive in-memory edit state from patches, geometry reporting via VueUse observers, selection/hover events; verify edits render within 150 ms in e2e
+- [x] 14.1 Implement preview token issuance (short-lived, HMAC via `deriveSecret`) exchanged for an HTTP-only preview cookie, and the core client plugin that dynamically imports the bridge only in preview context; verify public page bundle contains no bridge chunk and invalid token renders public content
+- [x] 14.2 Define the versioned bridge protocol with Valibot-validated messages and origin checks; verify foreign-origin and malformed messages are ignored in unit tests
+- [x] 14.3 Implement the child bridge: reactive in-memory edit state from patches, geometry reporting via the browser's ResizeObserver and MutationObserver (core has no VueUse dependency), selection/hover events; verify edits render within 150 ms in e2e
 - [ ] 14.4 Implement the parent editor shell (`@nuxt-atelier/editor`): iframe host, overlay drawn in parent from reported geometry, structure tree, side panel forms (TanStack Form + Valibot), responsive presets; verify click-to-select syncs tree and panel in e2e
 - [ ] 14.5 Implement add/move/duplicate/delete with `@atlaskit/pragmatic-drag-and-drop` in tree and picker plus relayed in-preview dragging respecting placement rules; verify invalid drop rejection e2e
 - [ ] 14.6 Implement inline text/rich-text editing (Tiptap 3) in the preview synced to the admin form; verify inline edit e2e

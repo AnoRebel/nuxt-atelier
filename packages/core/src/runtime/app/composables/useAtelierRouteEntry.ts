@@ -40,7 +40,7 @@ export function useAtelierRouteEntry<N extends CollectionName = CollectionName>(
     const token = route.query._atelier_preview
     return {
       ...i18n ? splitLocalePath(i18n, route.path) : { path: route.path },
-      ...route.query._atelier === 'preview' ? { draft: 'true' } : {},
+      ...route.query._atelier === 'preview' || route.query._atelier === 'edit' ? { draft: 'true' } : {},
       ...typeof token === 'string' ? { preview: token } : {},
     }
   }

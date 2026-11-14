@@ -1,15 +1,49 @@
 // <AtelierBlocks :blocks="entry.data.content" />: renders a block list. Each block's fields and options
 // are its component's props; each nested area is the component's slot of the same name, so block
 // components need nothing from Nuxt Atelier. Components load lazily, per block type.
-import type { Component, PropType, Slot } from 'vue'
+import type { Component, PropType, Slot, VNode } from 'vue'
 import type { BlockInstance } from '../../shared/infer'
 import type { AtelierArea } from '../composables/useAtelierArea'
-import { computed, defineAsyncComponent, defineComponent, h, inject, provide } from 'vue'
+import { computed, defineAsyncComponent, defineComponent, h, inject, onBeforeUnmount, onMounted, onUpdated, provide, ref } from 'vue'
 import { blocks as registry } from '#atelier-blocks'
 import { areaKey } from '../composables/useAtelierArea'
+import { frameChecks } from '../editor/frames'
 import { useAtelierPreview } from '../composables/useAtelierPreview'
 
 const components = new Map<string, Component>()
+
+/**
+ * Editing only: shows a block, and when it renders no element (a list with nothing to list, say) a stand-in
+ * naming it, carrying its markers, so the editor can still select, move and delete it.
+ */
+const BlockFrame = defineComponent({
+  name: 'AtelierBlockFrame',
+  props: { id: { type: String, required: true }, type: { type: String, required: true } },
+  setup(props, { slots }) {
+    const empty = ref(false)
+    let child: VNode | undefined
+    // after each render: did the block put an element on the page?
+    const check = () => {
+      const el = child?.el as Node | null | undefined
+      empty.value = !el || el.nodeType !== 1
+    }
+    onMounted(() => {
+      check()
+      frameChecks.add(check)
+    })
+    onUpdated(check)
+    onBeforeUnmount(() => frameChecks.delete(check))
+    return () => {
+      child = slots.default?.()[0]
+      return [
+        child,
+        empty.value
+          ? h('div', { 'data-at-block': props.id, 'data-at-type': props.type, 'data-at-placeholder': '', 'style': 'min-height:2.5rem;padding:.5rem;border:1px dashed #94a3b8;color:#64748b;font:500 .875rem/1.5 system-ui,sans-serif' }, `${props.type} (nothing to show)`)
+          : null,
+      ]
+    }
+  },
+})
 const warned = new Set<string>()
 
 function componentOf(type: string): Component {
@@ -55,8 +89,11 @@ const AtelierBlocks = defineComponent({
             [h(AtelierBlocks, { blocks: nested, area: { name: area, props: slotProps, block: { id: block.id, type: block.type } } })]
         }
       }
-      const editing = preview.value ? { 'data-at-block': block.id, 'data-at-type': block.type } : {}
-      return h(componentOf(block.type), { key: block.id, ...values, ...editing }, slots)
+      if (!preview.value)
+        return h(componentOf(block.type), { key: block.id, ...values }, slots)
+      // editing: the markers the editor maps the page by, and a stand-in when the block renders nothing
+      const rendered = h(componentOf(block.type), { ...values, 'data-at-block': block.id, 'data-at-type': block.type }, slots)
+      return h(BlockFrame, { key: block.id, id: block.id, type: block.type }, () => rendered)
     })
   },
 })

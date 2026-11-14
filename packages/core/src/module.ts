@@ -1,7 +1,7 @@
 import type { NuxtModule, NuxtPage } from '@nuxt/schema'
 import { resolve as resolvePath } from 'node:path'
 import type { ModuleOptions } from './options'
-import { addComponentsDir, addImports, extendPages, hasNuxtModule, addServerHandler, addServerPlugin, addServerTemplate, addTemplate, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, tryResolveModule, updateTemplates } from '@nuxt/kit'
+import { addComponentsDir, addImports, addPlugin, extendPages, hasNuxtModule, addServerHandler, addServerPlugin, addServerTemplate, addTemplate, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, tryResolveModule, updateTemplates } from '@nuxt/kit'
 import { blockComponentsTemplate, blockDirectories, discoverBlocks } from './blocks/discover'
 import { transformBlockSfc } from './blocks/transform'
 import { setupDevMigrations } from './cli/dev'
@@ -96,6 +96,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addImports({ name: 'useAtelierPreview', from: resolve('./runtime/app/composables/useAtelierPreview') })
     addImports({ name: 'useAtelierSiteSearch', from: resolve('./runtime/app/composables/useAtelierSiteSearch') })
     addComponentsDir({ path: resolve('./runtime/app/components'), prefix: 'Atelier' })
+    // the visual editor's bridge, loaded only in an edit session
+    addPlugin({ src: resolve('./runtime/app/plugins/editor.client'), mode: 'client' })
     // the catch-all serving routable entries: ranked below every page of the app, so the app's own pages win.
     // Only in apps that route: Nuxt turns its router on when this hook adds a page, and an app with just an
     // app.vue (no <NuxtPage>) would then 404 everywhere. Those apps render entries themselves.
@@ -240,6 +242,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     }
     addServerHandler({ route: '/api/_atelier/routes', handler: resolve('./runtime/server/api/routes') })
     addServerHandler({ route: '/api/_atelier/preview-links', handler: resolve('./runtime/server/api/preview-links') })
+    addServerHandler({ route: '/api/_atelier/editor/**', handler: resolve('./runtime/server/api/editor') })
     addServerHandler({ route: '/api/_atelier/jobs', handler: resolve('./runtime/server/api/jobs') })
     addServerHandler({ route: '/api/_atelier/webhooks', handler: resolve('./runtime/server/api/webhooks') })
     addServerHandler({ route: '/api/_atelier/media', handler: resolve('./runtime/server/api/media') })
