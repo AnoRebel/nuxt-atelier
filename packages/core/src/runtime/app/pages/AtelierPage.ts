@@ -55,10 +55,14 @@ export default defineComponent({
         throw createError({ statusCode: 410, statusMessage: 'Preview link expired', message: 'This preview link has expired. Ask for a new one.', fatal: true })
       throw createError({ statusCode: status >= 500 ? status : 404, statusMessage: status >= 500 ? 'Server error' : 'Page not found', fatal: true })
     }
-    return () => h(NuxtLayout, { name: page.layout ?? 'default' }, {
-      default: () => page.component
-        ? h(resolveDynamicComponent(page.component) as Component, { entry: page.entry })
-        : page.blocks.map(key => h(AtelierBlocks, { key, blocks: (page.entry.data as Record<string, unknown>)[key] as never })),
-    })
+    // read on every render: in the visual editor, the entry's data changes with each edit (editor/bridge.ts)
+    return () => {
+      const current = data.value ?? page
+      return h(NuxtLayout, { name: current.layout ?? 'default' }, {
+        default: () => current.component
+          ? h(resolveDynamicComponent(current.component) as Component, { entry: current.entry })
+          : current.blocks.map(key => h(AtelierBlocks, { key, blocks: (current.entry.data as Record<string, unknown>)[key] as never })),
+      })
+    }
   },
 })

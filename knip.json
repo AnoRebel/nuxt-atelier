@@ -47,6 +47,8 @@
         "src/runtime/builtin/blocks/app/blocks/*.ts",
         "src/runtime/server/middleware/*.ts",
         "src/runtime/app/components/*.{ts,vue}",
+        "src/runtime/app/plugins/*.ts",
+        "src/runtime/app/editor/bridge.ts",
         "src/runtime/app/pages/*.ts",
         "src/adapter.ts",
         "src/storage.ts",
