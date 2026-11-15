@@ -92,7 +92,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     nuxt.options.alias['#atelier-inline-rich'] = resolve('./runtime/app/editor/rich-off')
 
     addImports({ name: 'useAtelierConfig', from: resolve('./runtime/app/composables/useAtelierConfig') })
-    addImports(['useAtelierQuery', 'useAtelierEntry'].map(name => ({ name, from: resolve('./runtime/app/composables/useAtelierQuery') })))
+    addImports(['useAtelierQuery', 'useAtelierEntry', 'useAtelierSingleton'].map(name => ({ name, from: resolve('./runtime/app/composables/useAtelierQuery') })))
     addImports({ name: 'useAtelierArea', from: resolve('./runtime/app/composables/useAtelierArea') })
     addImports({ name: 'useAtelierRouteEntry', from: resolve('./runtime/app/composables/useAtelierRouteEntry') })
     addImports({ name: 'useAtelierLocalePath', from: resolve('./runtime/app/composables/useAtelierLocalePath') })

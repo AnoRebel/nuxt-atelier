@@ -1,0 +1,656 @@
+{
+  "home": {
+    "title": "Homepage",
+    "footerBorder": false,
+    "content": [
+      {
+        "id": "home-1",
+        "type": "PageIntro",
+        "props": {
+          "title": "Welcome to Rayleigh",
+          "kicker": "A minimalistic portfolio template, made with Nuxt and Nuxt Atelier."
+        }
+      },
+      {
+        "id": "home-2",
+        "type": "Portfolio",
+        "props": {
+          "title": "Interior design",
+          "gallery": [
+            {
+              "image": "media:modern-armchair",
+              "caption": "Modern armchair"
+            },
+            {
+              "image": "media:contemporary-coffee-table",
+              "caption": "Contemporary coffee table"
+            },
+            {
+              "image": "media:sleek-lamp",
+              "caption": "Sleek lamp"
+            },
+            {
+              "image": "media:elegant-vase",
+              "caption": "Elegant vase"
+            },
+            {
+              "image": "media:simple-bookshelf",
+              "caption": "Simple bookshelf"
+            },
+            {
+              "image": "media:stylish-sofa",
+              "caption": "Stylish sofa"
+            }
+          ]
+        }
+      },
+      {
+        "id": "home-3",
+        "type": "Portfolio",
+        "props": {
+          "title": "Exterior design",
+          "gallery": [
+            {
+              "image": "media:luna-bench",
+              "caption": "Luna bench"
+            },
+            {
+              "image": "media:aurora-lamp",
+              "caption": "Aurora lamp"
+            },
+            {
+              "image": "media:serenity-fountain",
+              "caption": "Serenity fountain"
+            },
+            {
+              "image": "media:zephyr-sculpture",
+              "caption": "Zephyr sculpture"
+            },
+            {
+              "image": "media:harmony-seating",
+              "caption": "Harmony seating"
+            },
+            {
+              "image": "media:mystic-path",
+              "caption": "Mystic path"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "pages": [
+    {
+      "title": "About",
+      "slug": "about",
+      "footerBorder": true,
+      "content": [
+        {
+          "id": "about-4",
+          "type": "PageIntro",
+          "props": {
+            "title": "About",
+            "kicker": "Unveiling the artistry of interior and exterior design."
+          }
+        },
+        {
+          "id": "about-5",
+          "type": "Image",
+          "props": {
+            "image": "media:about"
+          }
+        },
+        {
+          "id": "about-6",
+          "type": "Prose",
+          "props": {
+            "text": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Welcome to my world of transforming spaces with art! I am an interior/exterior artist with a passion for creating visually stunning environments. With my expertise in both interior and exterior design, I have the ability to capture the essence of a space and elevate it to new heights. Whether it's revamping a room's interior or rejuvenating the exterior of a building, I take pride in my ability to bring life and personality to every project. From selecting the perfect color palette to incorporating unique textures and patterns, I believe that each element plays a crucial role in crafting a space that truly reflects the client's vision."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "I have a keen eye for detail and a deep understanding of spatial aesthetics. I strive to create balanced compositions that evoke emotions, inspire creativity, and enhance the surrounding atmosphere. By carefully blending form and function, I aim to create harmonious spaces that not only look breathtaking but also fulfill practical needs. My artistic journey began at a young age, fueled by my fascination with colors, textures, and the interplay of light and shadows. Over the years, I have honed my skills through formal education and hands-on experience, working on a diverse range of projects, from residential homes to commercial establishments."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Being an avid traveler, I draw inspiration from various cultures, architectural styles, and natural landscapes. This allows me to infuse a distinct global perspective into my designs, resulting in truly unique and captivating spaces. I strongly believe in the power of collaboration and value open communication with my clients. By understanding their preferences, needs, and aspirations, I am able to create personalized and tailored designs that exceed expectations. Thank you for visiting my portfolio. I look forward to the opportunity to work with you and turn your interior or exterior space into a work of art. Let's embark on a creative journey together!"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "Blog",
+      "slug": "blog",
+      "footerBorder": true,
+      "content": [
+        {
+          "id": "blog-7",
+          "type": "PageIntro",
+          "props": {
+            "title": "Blog",
+            "kicker": "Inspiration at every turn."
+          }
+        },
+        {
+          "id": "blog-8",
+          "type": "Posts",
+          "props": {}
+        }
+      ]
+    }
+  ],
+  "posts": [
+    {
+      "title": "Harmony in Space: The Essence of Minimalist Design",
+      "slug": "harmony-in-space",
+      "headline": "Harmony in Space: The Essence of Minimalist Design",
+      "description": "\"Harmony in Space\" elegantly captures the essence of minimalist design, blending indoor and outdoor elements against a tranquil light gray backdrop. Its clean lines and balanced composition evoke serenity, embodying a design philosophy where less is truly more, and simplicity reigns supreme.",
+      "cover": "media:blog-article-1",
+      "author": "Muris",
+      "publishedOn": "2024-02-21",
+      "content": [
+        {
+          "id": "harmony-in-space-9",
+          "type": "Image",
+          "props": {
+            "image": "media:blog-article-1"
+          }
+        },
+        {
+          "id": "harmony-in-space-10",
+          "type": "Prose",
+          "props": {
+            "text": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "In an age where clutter and complexity often overwhelm our senses, the allure of minimalist design stands out like a beacon of tranquility. \"Harmony in Space: The Essence of Minimalist Design\" is more than just an image; it's a philosophy, a way of life encapsulated within a frame. This article delves into the profound simplicity and elegance captured in this evocative artwork."
+                    }
+                  ]
+                },
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The Concept of Minimalism"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Minimalism in design is often misunderstood as mere simplicity. However, it's a concept that goes beyond the absence of clutter. It's about finding the essence of design by stripping away the non-essential. This artistic representation brings this philosophy to life, merging interior and exterior spaces in a harmonious dance of lines, forms, and space."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "\"Harmony in Space\" masterfully dissolves the boundaries between indoor and outdoor living. The clean lines of furniture, the sleekness of an outdoor bench, and the subtlety of a minimalist garden suggest a seamless flow between the home and nature. This blend is symbolic of our intrinsic connection to our environment, highlighting a design ethos that embraces both the built and the natural world."
+                    }
+                  ]
+                },
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The Color Palette"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The choice of a light gray background is not incidental. It acts as a canvas, bringing out the soft, natural tones of the design elements. This muted palette evokes a sense of calm and elegance, allowing the viewer to experience the art without the interference of vibrant colors. It’s a testament to how minimal color usage can lead to a profound impact in design. Each element in \"Harmony in Space\" has been thoughtfully selected and positioned. The absence of intricate details is not a lack of complexity but an ode to thoughtful reductionism. Every line, curve, and open space is intentional, creating a sense of balance and peace. It’s a reminder that in design, as in life, what we choose to leave out is just as important as what we include."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "\"Harmony in Space: The Essence of Minimalist Design\" is more than an image; it’s a narrative on contemporary design philosophy. It speaks to the heart of what many seek in today’s fast-paced, cluttered world – a sense of peace, balance, and connection to the environment. In its quiet elegance, it challenges us to rethink our spaces, our homes, and our lives through the lens of minimalist beauty. This artwork doesn’t just occupy space; it transforms it, inviting us to imagine a world where less truly is more."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "Digital Roots: Blending Technology with Nature",
+      "slug": "digital-roots",
+      "headline": "Digital Roots: Blending Technology with Nature",
+      "description": "\"Digital Roots\" artfully merges technology and nature in a minimalist tableau. It portrays a world where digital elements and natural beauty coexist in harmony, symbolizing a future where progress and preservation walk hand in hand.",
+      "cover": "media:blog-article-2",
+      "author": "Muris",
+      "publishedOn": "2024-01-11",
+      "content": [
+        {
+          "id": "digital-roots-11",
+          "type": "Image",
+          "props": {
+            "image": "media:blog-article-2"
+          }
+        },
+        {
+          "id": "digital-roots-12",
+          "type": "Prose",
+          "props": {
+            "text": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "In the artwork \"Digital Roots,\" we witness a captivating fusion of the digital and natural worlds. This piece is a profound exploration of how technology can coexist with the organic elements of our planet, symbolizing a harmonious balance between progress and preservation."
+                    }
+                  ]
+                },
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The Essence of Fusion"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "At the heart of \"Digital Roots\" lies the seamless integration of sleek technological components, like a modern computer interface, with elements of nature, such as plants and wood textures. The artwork embodies a minimalist design, where every detail is purposefully placed to convey a message of unity and balance. The calm, neutral background sets the stage for this visual narrative, allowing the viewer to focus on the delicate interplay between technology and nature. The image suggests that technology, often seen as cold and impersonal, can be softened and enriched through the touch of nature."
+                    }
+                  ]
+                },
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Harmony in Design"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "This artwork challenges the conventional boundaries between the digital and natural realms. It proposes a world where technology does not disrupt but rather enhances our natural environment. The minimalist approach underscores this idea, suggesting that simplicity can lead to a deeper understanding and appreciation of both worlds. \"Digital Roots\" is more than just an image; it's a modern-day parable on the importance of integrating technology with the natural world. It calls for a future where technological advancements harmoniously blend with the environment, leading to a sustainable, balanced way of life."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "Linear Elegance: The Beauty of Architectural Minimalism",
+      "slug": "linear-elegance",
+      "headline": "Linear Elegance: The Beauty of Architectural Minimalism",
+      "description": "\"Linear Elegance\" artistically showcases the sophistication of minimalist architecture. With its sleek silhouettes and monochromatic palette, this image embodies the serene beauty and refined simplicity of modern design, inviting viewers to appreciate the elegance in minimal forms.",
+      "cover": "media:blog-article-3",
+      "author": "Muris",
+      "publishedOn": "2024-01-10",
+      "content": [
+        {
+          "id": "linear-elegance-13",
+          "type": "Image",
+          "props": {
+            "image": "media:blog-article-3"
+          }
+        },
+        {
+          "id": "linear-elegance-14",
+          "type": "Prose",
+          "props": {
+            "text": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "\"Linear Elegance\" is an artistic representation that beautifully encapsulates the essence of minimalist architecture. This image is a tribute to the sophistication and purity of architectural design, where less is indeed more."
+                    }
+                  ]
+                },
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Celebrating Modern Architecture"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The artwork features elements of modern architecture, such as sleek building silhouettes and innovative structures. These elements are woven into a minimalist art style characterized by clean lines and uncluttered compositions. The monochromatic color scheme in shades of gray highlights the structures' form and texture, emphasizing their inherent beauty."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The choice of a monochromatic palette is deliberate, adding depth and focus to the architectural forms. This simplicity in color allows the viewer to appreciate the intricacies of the design, the interplay of light and shadow, and the overall harmony of the composition."
+                    }
+                  ]
+                },
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Sophistication in Simplicity"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "\"Linear Elegance\" is a celebration of refined simplicity. It challenges the viewer to find beauty in the bare essentials of form and space. The image is a testament to the power of minimalist design in creating impactful, timeless pieces. This artwork is a homage to the elegance of architectural minimalism. It's a visual journey that invites viewers to appreciate the subtle sophistication of minimalist design. \"Linear Elegance\" is not just an image; it's an experience of tranquility and purity, a reminder of the serene beauty that lies in simplicity."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "City Meets Countryside: A Vision of Harmonious Coexistence",
+      "slug": "city-meets-countryside",
+      "headline": "City Meets Countryside: A Vision of Harmonious Coexistence",
+      "description": "\"City Meets Countryside\" is more than just a visual piece; it's a contemplation on how harmonious coexistence can be achieved in our increasingly complex world. It encourages viewers to appreciate the unique qualities of both urban and rural environments while imagining a future where these two spheres complement and enhance one another.",
+      "cover": "media:blog-article-4",
+      "author": "Muris",
+      "publishedOn": "2024-01-09",
+      "content": [
+        {
+          "id": "city-meets-countryside-15",
+          "type": "Image",
+          "props": {
+            "image": "media:blog-article-4"
+          }
+        },
+        {
+          "id": "city-meets-countryside-16",
+          "type": "Prose",
+          "props": {
+            "text": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "\"City Meets Countryside\" is an artistic representation of the beautiful interplay between urban energy and rural serenity. This minimalist artwork paints a picture of a world where the fast-paced urban environment and the tranquil rural life coexist in perfect harmony."
+                    }
+                  ]
+                },
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Blending Contrasts"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "The artwork seamlessly integrates elements of urban landscapes, such as towering skyscrapers and bustling city streets, with the gentle charm of rural settings, including sprawling fields, lush trees, and quaint farmhouses. This blend is symbolic of the potential synergy between the advancement of city life and the natural simplicity of the countryside."
+                    }
+                  ]
+                },
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "A Serene Neutral Backdrop"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Against a calm and neutral background, \"City Meets Countryside\" focuses on the juxtaposition of these two worlds. The serene backdrop serves to highlight the individual characteristics of both the urban and rural elements while emphasizing their interconnectedness. The minimalist design of the artwork underscores the message of unity despite contrasting lifestyles. It suggests that urban advancements and rural tranquility need not be at odds but can instead enrich each other, creating a more balanced and fulfilling way of life."
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "\"City Meets Countryside\" is more than just a visual piece; it's a contemplation on how harmonious coexistence can be achieved in our increasingly complex world. It encourages viewers to appreciate the unique qualities of both urban and rural environments while imagining a future where these two spheres complement and enhance one another."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "settings": {
+    "menu": [
+      {
+        "label": "Portfolio",
+        "link": "/"
+      },
+      {
+        "label": "Blog",
+        "link": "/blog"
+      },
+      {
+        "label": "About",
+        "link": "/about"
+      }
+    ],
+    "copyrightText": "© 2024 Muris Ceman. Rayleigh, ported to Nuxt Atelier.",
+    "socialMedia": [
+      {
+        "icon": "github",
+        "link": "https://github.com/AnoRebel/nuxt-atelier",
+        "title": "Nuxt Atelier on GitHub"
+      },
+      {
+        "icon": "github",
+        "link": "https://github.com/pruvious/rayleigh",
+        "title": "The original Rayleigh on GitHub"
+      }
+    ],
+    "blogPath": "/blog"
+  },
+  "media": {
+    "blog-article-1": {
+      "file": "blog-article-1.webp",
+      "width": 1600,
+      "height": 914,
+      "alt": "Harmony in Space: The Essence of Minimalist Design"
+    },
+    "blog-article-2": {
+      "file": "blog-article-2.webp",
+      "width": 1600,
+      "height": 914,
+      "alt": "Digital Roots: Blending Technology with Nature"
+    },
+    "blog-article-3": {
+      "file": "blog-article-3.webp",
+      "width": 1600,
+      "height": 914,
+      "alt": "Linear Elegance: The Beauty of Architectural Minimalism"
+    },
+    "blog-article-4": {
+      "file": "blog-article-4.webp",
+      "width": 1600,
+      "height": 914,
+      "alt": "City Meets Countryside: A Vision of Harmonious Coexistence"
+    },
+    "aurora-lamp": {
+      "file": "aurora-lamp.webp",
+      "width": 1024,
+      "height": 1024,
+      "alt": "Aurora lamp"
+    },
+    "harmony-seating": {
+      "file": "harmony-seating.webp",
+      "width": 1024,
+      "height": 1024,
+      "alt": "Harmony seating"
+    },
+    "luna-bench": {
+      "file": "luna-bench.webp",
+      "width": 1024,
+      "height": 1024,
+      "alt": "Luna bench"
+    },
+    "mystic-path": {
+      "file": "mystic-path.webp",
+      "width": 1024,
+      "height": 1024,
+      "alt": "Mystic path"
+    },
+    "serenity-fountain": {
+      "file": "serenity-fountain.webp",
+      "width": 1024,
+      "height": 1024,
+      "alt": "Serenity fountain"
+    },
+    "zephyr-sculpture": {
+      "file": "zephyr-sculpture.webp",
+      "width": 1024,
+      "height": 1024,
+      "alt": "Zephyr sculpture"
+    },
+    "contemporary-coffee-table": {
+      "file": "contemporary-coffee-table.webp",
+      "width": 1024,
+      "height": 1024,
+      "alt": "Contemporary coffee table"
+    },
+    "elegant-vase": {
+      "file": "elegant-vase.webp",
+      "width": 1024,
+      "height": 1024,
+      "alt": "Elegant vase"
+    },
+    "modern-armchair": {
+      "file": "modern-armchair.webp",
+      "width": 1024,
+      "height": 1024,
+      "alt": "Modern armchair"
+    },
+    "simple-bookshelf": {
+      "file": "simple-bookshelf.webp",
+      "width": 1024,
+      "height": 1024,
+      "alt": "Simple bookshelf"
+    },
+    "sleek-lamp": {
+      "file": "sleek-lamp.webp",
+      "width": 1024,
+      "height": 1024,
+      "alt": "Sleek lamp"
+    },
+    "stylish-sofa": {
+      "file": "stylish-sofa.webp",
+      "width": 1024,
+      "height": 1024,
+      "alt": "Stylish sofa"
+    },
+    "about": {
+      "file": "about.webp",
+      "width": 1600,
+      "height": 914,
+      "alt": "An interior and exterior designer's studio"
+    }
+  }
+}

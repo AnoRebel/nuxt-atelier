@@ -53,7 +53,7 @@ export default createConfigForNuxt({
   {
     // Nuxt names pages and layouts after their file (index, about, default); blocks are named like Hero,
     // and shadcn-vue's copied components keep its names (Button, Card)
-    files: ['**/app/{pages,layouts,blocks}/**/*.vue', 'test/fixtures/ui-shadcn/app/components/ui/**/*.vue'],
+    files: ['**/app/{pages,layouts,blocks}/**/*.vue', 'test/fixtures/ui-shadcn/app/components/ui/**/*.vue', 'examples/*/app/components/icon/*.vue'],
     rules: { 'vue/multi-word-component-names': 'off' },
   },
   {

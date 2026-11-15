@@ -9,6 +9,7 @@
   "workspaces": {
     "packages": [
       "packages/*",
+      "examples/*",
       "playground",
       "docs",
       "test/fixtures/*"

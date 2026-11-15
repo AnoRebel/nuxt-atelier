@@ -42,6 +42,14 @@
         "src/runtime/inline-rich.ts"
       ]
     },
+    "examples/rayleigh": {
+      "entry": [
+        "app/**/*.vue",
+        "app/composables/*.ts",
+        "server/atelier/**/*.ts",
+        "server/middleware/*.ts"
+      ]
+    },
     "test/fixtures/editor": {
       "entry": [
         "app/**/*.vue",

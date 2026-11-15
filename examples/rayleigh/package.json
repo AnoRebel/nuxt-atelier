@@ -1,0 +1,22 @@
+{
+  "name": "@nuxt-atelier/example-rayleigh",
+  "private": true,
+  "type": "module",
+  "description": "Rayleigh, a minimalistic portfolio template by Muris Ceman, ported to Nuxt Atelier",
+  "license": "MIT",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "migrate": "atelier migrate generate"
+  },
+  "dependencies": {
+    "@nuxt-atelier/admin": "workspace:*",
+    "@nuxt-atelier/editor": "workspace:*",
+    "@tailwindcss/vite": "catalog:ui",
+    "nuxt": "catalog:",
+    "nuxt-atelier": "workspace:*",
+    "sharp": "catalog:media",
+    "tailwindcss": "catalog:ui"
+  }
+}
