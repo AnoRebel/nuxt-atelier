@@ -1,7 +1,7 @@
 // Roles, for roles with the `roles` capability:
-//   GET     /          every role, with its source (builtin, code, database)
-//   PUT     /<name>    creates or replaces a database role
-//   DELETE  /<name>    deletes a database role no user has
+//   GET     /api/_atelier/roles  every role, with its source (builtin, code, database)
+//   PUT     /api/_atelier/roles/<name>  creates or replaces a database role
+//   DELETE  /api/_atelier/roles/<name>  deletes a database role no user has
 import { defineEventHandler, getRequestURL } from 'nuxt/server'
 import { assertMigrated, audit, requireUser, useAtelierAuth, useAtelierRoles } from '../index'
 import { forgetCached } from '../cache'

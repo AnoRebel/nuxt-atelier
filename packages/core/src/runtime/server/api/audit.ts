@@ -1,4 +1,5 @@
-// The audit log, for administrators: GET ?limit=50&before=<at of the last entry>&action=user.updated
+// The audit log, for administrators:
+//   GET  /api/_atelier/audit   ?limit=50&before=<at of the last entry>&action=user.updated: newest first
 import * as v from 'valibot'
 import { defineEventHandler, getQuery } from 'nuxt/server'
 import { ADMIN_ROLE } from '../../shared/policy'

@@ -1,4 +1,5 @@
-// The content API's OpenAPI 3.1 description, for administrators
+// The content API's OpenAPI 3.1 description, for administrators:
+//   GET  /api/_atelier/openapi.json   the document, for this app's collections and singletons
 import { defineEventHandler } from 'nuxt/server'
 import { ADMIN_ROLE } from '../../shared/policy'
 import { apiError } from '../errors'

@@ -1,3 +1,4 @@
+//   GET  /api/_atelier/auth/providers   { providers }: sign-in options besides email and password
 import { defineEventHandler } from 'nuxt/server'
 import { useAtelierAuth } from '../../index'
 
