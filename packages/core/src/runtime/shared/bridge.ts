@@ -39,9 +39,13 @@ export const ChildMessage = v.variant('type', [
   v.object({ type: v.literal('atelier:hover'), version, id: v.nullable(id) }),
   /**
    * A marked field edited in place: `path` is `<field>` for the entry's own, `<block id>/<field>` for a
-   * block's; text only.
+   * block's; its text, or a rich-text field's document (null: emptied).
    */
-  v.object({ type: v.literal('atelier:inline'), version, path: v.pipe(v.string(), v.maxLength(512)), value: v.pipe(v.string(), v.maxLength(100_000)) }),
+  v.object({ type: v.literal('atelier:inline'), version, path: v.pipe(v.string(), v.maxLength(512)), value: v.union([
+    v.pipe(v.string(), v.maxLength(100_000)),
+    v.pipe(v.looseObject({ type: v.literal('doc') }), v.check(doc => JSON.stringify(doc).length <= 1_000_000)),
+    v.null(),
+  ]) }),
 ])
 export type ChildMessage = v.InferOutput<typeof ChildMessage>
 

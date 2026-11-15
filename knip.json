@@ -38,7 +38,8 @@
     "packages/editor": {
       "entry": [
         "src/runtime/VisualEditor.vue",
-        "src/runtime/commands.ts"
+        "src/runtime/commands.ts",
+        "src/runtime/inline-rich.ts"
       ]
     },
     "test/fixtures/editor": {
@@ -62,6 +63,7 @@
         "src/runtime/app/components/*.{ts,vue}",
         "src/runtime/app/plugins/*.ts",
         "src/runtime/app/editor/bridge.ts",
+        "src/runtime/app/editor/rich-off.ts",
         "src/runtime/app/pages/*.ts",
         "src/adapter.ts",
         "src/storage.ts",
@@ -289,6 +291,8 @@
     "#atelier-admin-ai",
     "^#atelier-admin-runtime/.*",
     "#atelier-editor",
+    "#atelier-inline-rich",
+    "#atelier/editor/rich-off",
     "#atelier-ai",
     "#atelier-better-auth",
     "#atelier-blocks",

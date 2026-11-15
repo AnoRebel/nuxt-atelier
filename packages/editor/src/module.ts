@@ -27,6 +27,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     })
     // plugins add commands to the editor's palette with `addEditorCommands` from here
     nuxt.options.alias['#atelier-editor'] = resolve('./runtime/commands')
+    // in-place rich text in the preview (core's is none)
+    nuxt.options.alias['#atelier-inline-rich'] = resolve('./runtime/inline-rich')
     // the admin shows its "Visual editor" button when this is set
     nuxt.options.runtimeConfig.public.atelierEditor = { presets: options.presets ?? [] }
     ;(nuxt.hook as Hook)('atelier:admin:pages', (pages) => {
