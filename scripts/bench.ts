@@ -90,7 +90,7 @@ async function run(): Promise<Result> {
   if (!existsSync(join(fixture, '.output/server/index.mjs')))
     throw new Error('Build the fixture first: cd test/fixtures/routing && npx nuxi build')
   const database = `file:${join(mkdtempSync(join(tmpdir(), 'atelier-bench-')), 'db.sqlite')}`
-  const delay = process.env.ATELIER_TEST_DELAY_MS ? { ATELIER_TEST_DELAY_MS: process.env.ATELIER_TEST_DELAY_MS } : {}
+  const delay: Record<string, string> = process.env.ATELIER_TEST_DELAY_MS ? { ATELIER_TEST_DELAY_MS: process.env.ATELIER_TEST_DELAY_MS } : {}
   const cachedServer = await serve(43211, { NUXT_ATELIER_DATABASE_URL: database, NUXT_ATELIER_CACHE_PAGES: '300', ...delay })
   try {
     await seed('http://127.0.0.1:43211')
