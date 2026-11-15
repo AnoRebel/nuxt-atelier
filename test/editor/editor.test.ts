@@ -169,6 +169,50 @@ describe('visual editor', async () => {
     await field.fill('shout')
     await page.keyboard.press('Enter')
     await expect.poll(() => preview(page).locator('[data-at-field="title"]').textContent()).toMatch(/!\s*$/)
+    // a block action a plugin added: in the headline's actions, not in other blocks'
+    await page.locator('[data-tree-block="s1"]').click()
+    expect(await page.locator('[data-block-action="fixture:translate"]').count()).toBe(0)
+    await page.locator('[data-tree-block="h1"]').click()
+    await page.locator('[data-block-action="fixture:translate"]').click()
+    await preview(page).getByText('[fr] Original headline').waitFor()
+    await page.getByRole('button', { name: 'Undo' }).click()
+    await preview(page).getByText('Original headline', { exact: true }).waitFor()
+  })
+
+  it('uploads an image file dropped on a block in the page, and sets it as that block\'s image', async () => {
+    const page = await openEditor()
+    const entryId = await page.evaluate(async () => {
+      const csrf = document.cookie.split('; ').find(c => c.startsWith('atelier-csrf='))!.slice('atelier-csrf='.length)
+      const response = await window.fetch('/api/_atelier/collections/pages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-atelier-csrf': csrf }, body: JSON.stringify({ data: {
+        title: 'Pictured',
+        slug: 'pictured',
+        content: [{ id: 'h9', type: 'Headline', props: { heading: 'No images here' } }, { id: 'p1', type: 'Picture', props: {} }],
+      } }) })
+      return (await response.json()).id as string
+    })
+    await page.goto(url(`/admin/collections/pages/${entryId}`))
+    await page.locator('[data-visual-editor]').first().click()
+    const picture = preview(page).locator('[data-at-block="p1"]')
+    await picture.getByText('No image yet').waitFor()
+    const box = (await picture.boundingBox())!
+    // what the browser sends for a PNG dragged in from the desktop and dropped on the picture
+    await page.locator('[data-preview-drop]').evaluate(async (overlay, { x, y }) => {
+      const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), c => c.charCodeAt(0))
+      const dataTransfer = new DataTransfer()
+      dataTransfer.items.add(new File([png], 'dropped.png', { type: 'image/png' }))
+      const fire = (target: EventTarget, type: string) => target.dispatchEvent(new DragEvent(type, { dataTransfer, clientX: x, clientY: y, bubbles: true, cancelable: true }))
+      fire(document.body, 'dragenter')
+      await new Promise(resolve => requestAnimationFrame(resolve))
+      fire(overlay, 'dragover')
+      await new Promise(resolve => requestAnimationFrame(resolve))
+      fire(overlay, 'drop')
+    }, { x: box.x + box.width / 2, y: box.y + box.height / 2 })
+    await picture.getByText('An image').waitFor()
+    const image = await picture.getAttribute('data-image')
+    expect(await (await page.request.get(url(`/api/_atelier/media/${image}`))).json()).toMatchObject({ filename: 'dropped.png', mime: 'image/png' })
+    // one step: undone at once
+    await page.getByRole('button', { name: 'Undo' }).click()
+    await picture.getByText('No image yet').waitFor()
   })
 
   it('inserts a pattern as copies, saves a block as a shared block and detaches it', async () => {
@@ -356,7 +400,7 @@ describe('visual editor', async () => {
 
   it('has no serious accessibility problems in its chrome', async () => {
     const page = await openEditor()
-    await page.addScriptTag({ content: axeSource })
+    await page.evaluate(axeSource) // through the devtools protocol: the admin's CSP refuses inline scripts
     const violations = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (context: unknown, options: unknown) => Promise<{ violations: { id: string, impact: string, nodes: unknown[] }[] }> } }).axe
       const result = await axe.run({ include: [['atelier-admin']] }, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] } })

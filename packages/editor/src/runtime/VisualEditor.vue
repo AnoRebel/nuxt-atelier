@@ -17,7 +17,7 @@ import { copyBlocks, resolveShared, SHARED_BLOCK, SHARED_BLOCKS } from '#atelier
 import { BRIDGE_VERSION, ChildMessage, readMessage } from '#atelier/shared/bridge'
 import styles from './editor.css?raw'
 import CommandPalette from './CommandPalette.vue'
-import { addedCommands } from './commands'
+import { addedBlockActions, addedCommands } from './commands'
 import { dndKey } from './dnd'
 import { createHistory } from './history'
 import StructureList from './StructureList.vue'
@@ -236,13 +236,20 @@ provide(dndKey, dnd)
 /** Over the preview while dragging: the innermost block under the pointer that takes it, before or after it by halves. */
 const overlay = ref<HTMLElement | null>(null)
 const previewLine = ref<{ left: string, top: string, width: string } | null>(null)
-function overPreview(event: DragEvent) {
+/** The blocks under the pointer, innermost first, and where the pointer is over the preview. */
+function blocksUnder(event: DragEvent) {
   const origin = overlay.value!.getBoundingClientRect()
   const x = event.clientX - origin.left
   const y = event.clientY - origin.top
   const under = (geometry.value?.blocks ?? [])
     .filter(b => x >= b.rect.x && x <= b.rect.x + b.rect.width && y >= b.rect.y && y <= b.rect.y + b.rect.height)
     .sort((a, b) => a.rect.width * a.rect.height - b.rect.width * b.rect.height)
+  return { under, y }
+}
+function overPreview(event: DragEvent) {
+  if (isFileDrag(event))
+    return overWithFile(event)
+  const { under, y } = blocksUnder(event)
   for (const hit of under) {
     const at = locate(lists.value, hit.id)
     const after = y > hit.rect.y + hit.rect.height / 2
@@ -260,6 +267,62 @@ watch(dropAt, (at) => {
   if (!at)
     previewLine.value = null
 })
+
+// --- files dropped on the preview: onto the innermost block with a media field that takes the file, uploaded
+// to the media library and set as that field (one undoable step)
+const draggingFiles = ref(false)
+const fileTarget = ref<string | null>(null)
+const isFileDrag = (event: DragEvent) => !!event.dataTransfer?.types.includes('Files')
+/** The block's first media field that takes `mime` (`accept` patterns like `image/*`), if it has one. */
+function mediaFieldOf(blockType: string, mime: string): string | undefined {
+  const fields = (registry.value as Record<string, { fields: Record<string, { type: string, accept?: readonly string[] }> }>)[blockType]?.fields ?? {}
+  return Object.entries(fields).find(([, f]) => f.type === 'media'
+    && (!f.accept || f.accept.some(a => a === mime || (a.endsWith('/*') && mime.startsWith(a.slice(0, -1))))))?.[0]
+}
+// the types of dragged files are known while dragging, their names only on drop: judge by the first item
+const draggedMime = (event: DragEvent) => [...event.dataTransfer?.items ?? []].find(i => i.kind === 'file')?.type ?? ''
+function overWithFile(event: DragEvent) {
+  const mime = draggedMime(event)
+  const hit = blocksUnder(event).under.find((b) => {
+    const at = locate(lists.value, b.id)
+    return at && mediaFieldOf(at.block.type, mime)
+  })
+  fileTarget.value = hit?.id ?? null
+  if (hit)
+    event.preventDefault()
+}
+async function dropFile(event: DragEvent) {
+  event.preventDefault()
+  const blockId = fileTarget.value
+  const file = event.dataTransfer?.files[0]
+  draggingFiles.value = false
+  fileTarget.value = null
+  const at = blockId ? locate(lists.value, blockId) : undefined
+  const field = at && file && mediaFieldOf(at.block.type, file.type)
+  if (!at || !file || !field)
+    return
+  try {
+    // ponytail: one request, so up to media.maxUploadSize; the media page's chunked upload for larger files
+    const item = await api<{ id: string }>('/media', { method: 'POST', query: { filename: file.name }, body: file })
+    const block = blockOf(at.block.path) as unknown as Block
+    context.setProps(blockId!, { ...block.props, [field]: item.id })
+    announce(t('editor.uploaded', { file: file.name }))
+  }
+  catch (error) {
+    toast.add({ color: 'error', title: (error as { message?: string }).message ?? String(error) })
+  }
+}
+// a file dragged in from outside: let the overlay catch it over the frame, until it's dropped or leaves
+function onWindowDrag(event: DragEvent) {
+  if (event.type === 'dragenter' && isFileDrag(event))
+    draggingFiles.value = true
+  else if ((event.type === 'dragleave' && !event.relatedTarget) || event.type === 'drop') {
+    draggingFiles.value = false
+    fileTarget.value = null
+  }
+}
+onMounted(() => ['dragenter', 'dragleave', 'drop'].forEach(type => addEventListener(type, onWindowDrag as EventListener)))
+onBeforeUnmount(() => ['dragenter', 'dragleave', 'drop'].forEach(type => removeEventListener(type, onWindowDrag as EventListener)))
 // --- keys: undo, redo, the command palette (Ctrl+K here: the editor's, not the admin's search)
 const commandsOpen = ref(false)
 /** Ctrl/⌘ + `key`, here or passed on by the page when it has focus: whether it was the editor's. */
@@ -306,7 +369,14 @@ const context: EditorContext = {
   undo,
   redo,
   save: () => save(),
+  setProps: (blockId, props) => {
+    const at = locate(lists.value, blockId)
+    if (at)
+      replaceAt(at.block.path, { ...blockOf(at.block.path) as unknown as Block, props: clone(props) })
+  },
 }
+/** The selected block's actions from plugins (addBlockActions). */
+const pluginActions = computed(() => selectedBlock.value ? addedBlockActions(clone(selectedBlock.value), context) : [])
 // --- comments: a marker on each block with open threads, opening them in the side panel
 const commentsTarget = computed(() => type.value ? { type: name, id: kind.value === 'singleton' ? name : id ?? '' } : null)
 const comments = useAtelierComments(commentsTarget)
@@ -463,6 +533,7 @@ const commands = computed<EditorCommand[]>(() => {
           { id: 'move-down', label: t('editor.moveDown'), group: editing, run: () => moveBy(at.block.id, 1) },
           { id: 'duplicate', label: t('editor.duplicate'), group: editing, run: () => duplicateBlock(at.block.id) },
           { id: 'delete', label: t('editor.delete'), group: editing, run: () => removeBlock(at.block.id) },
+          ...pluginActions.value.map(a => ({ ...a, group: a.group ?? editing })),
         ]
       : [],
     ...patterns.value.map(p => ({ id: `pattern:${p.id}`, label: t('editor.insert', { block: p.label }), group: t('editor.patterns'), run: () => void insertPattern(p) })),
@@ -660,13 +731,19 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
           <div
             ref="overlay"
             class="ate-editor__overlay"
-            :class="{ 'ate-editor__overlay--dropping': dragging }"
+            :class="{ 'ate-editor__overlay--dropping': dragging || draggingFiles }"
             aria-hidden="true"
             data-preview-drop
             @dragover="overPreview"
             @dragleave="previewLine = null"
-            @drop="dnd.drop"
+            @drop="isFileDrag($event) ? dropFile($event) : dnd.drop($event)"
           >
+            <div
+              v-if="fileTarget && boxOf(fileTarget)"
+              class="ate-editor__box ate-editor__box--selected"
+              data-file-target
+              :style="boxOf(fileTarget)"
+            />
             <div
               v-if="previewLine"
               class="ate-editor__drop"
@@ -776,6 +853,16 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
               @click="removeBlock(selectedAt.block.id)"
             >
               {{ t('editor.delete') }}
+            </CnButton>
+            <CnButton
+              v-for="action in pluginActions"
+              :key="action.id"
+              variant="ghost"
+              size="sm"
+              :data-block-action="action.id"
+              @click="runCommand(action)"
+            >
+              {{ action.label }}
             </CnButton>
           </div>
           <p
