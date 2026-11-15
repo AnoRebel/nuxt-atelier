@@ -439,6 +439,8 @@ describe('site routing', async () => {
     const served = await fetch(photo.body.url)
     expect([served.status, served.headers.get('content-type'), served.headers.get('cache-control')]).toEqual([200, 'image/png', 'public, max-age=31536000, immutable'])
     expect(new Uint8Array(await served.arrayBuffer())).toEqual(png)
+    // an upload is the uploader's content: sandboxed, so nothing in it runs on the site's origin
+    expect([served.headers.get('content-security-policy'), served.headers.get('content-disposition')]).toEqual(['sandbox', 'inline; filename*=UTF-8\'\'team.png'])
     expect((await fetch(`/_atelier/media/${photo.body.id}/other-name.png`)).status).toBe(404)
 
     const exe = new Uint8Array(512)
