@@ -321,7 +321,8 @@ const markers = computed(() => {
   return [...open].flatMap(([blockId, threads]) => {
     const at = geometry.value?.blocks.find(b => b.id === blockId)
     const label = locate(lists.value, blockId)?.block.label ?? ''
-    return at ? [{ blockId, threads, label, style: { left: `${at.rect.x + at.rect.width}px`, top: `${at.rect.y}px` } }] : []
+    // at the block's start, which is in view even when the frame is wider than the stage
+    return at ? [{ blockId, threads, label, style: { left: `${at.rect.x}px`, top: `${at.rect.y}px` } }] : []
   })
 })
 async function openThread(blockId: string, thread: string) {
@@ -679,6 +680,7 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
             <div
               v-if="boxOf(selected)"
               class="ate-editor__box ate-editor__box--selected"
+              :class="{ 'ate-editor__box--top': (geometry?.blocks.find(b => b.id === selected)?.rect.y ?? 0) < 20 }"
               :style="boxOf(selected)"
               data-overlay-selected
             >
@@ -713,7 +715,7 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
         :aria-label="panel === 'comments' ? t('editor.comments') : t('editor.block')"
       >
         <div
-          class="app-row"
+          class="app-row ate-editor__tabs"
           role="group"
           :aria-label="t('editor.panel')"
         >

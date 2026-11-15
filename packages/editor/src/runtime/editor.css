@@ -12,12 +12,14 @@
 .ate-editor__box { position: absolute; box-sizing: border-box; border-radius: 2px; }
 .ate-editor__box--hover { outline: 2px dashed var(--accent-primary-base); outline-offset: -2px; }
 .ate-editor__box--selected { outline: 2px solid var(--accent-primary-strong); outline-offset: -2px; }
-.ate-editor__tag { position: absolute; inset-block-start: 0; inset-inline-start: 0; padding: 0 0.4em; background: var(--accent-primary-strong); color: var(--content-on-accent); font-size: 0.75rem; line-height: 1.5; pointer-events: auto; cursor: grab; }
+.ate-editor__tag { position: absolute; inset-block-end: 100%; inset-inline-start: -2px; padding: 0 0.4em; background: var(--accent-primary-strong); color: var(--content-on-accent); font-size: 0.75rem; line-height: 1.5; pointer-events: auto; cursor: grab; }
 /* while dragging, the overlay catches the drag over the frame (which would swallow it) */
 .ate-editor__overlay--dropping { pointer-events: auto; }
 .ate-editor__drop { position: absolute; block-size: 3px; margin-block-start: -1px; background: var(--accent-primary-strong); border-radius: 2px; }
+.ate-editor__box--top .ate-editor__tag { inset-block: 0 auto; inset-inline-start: 0; }
+.ate-editor__tabs [aria-pressed="true"] { background: var(--accent-primary-soft); color: var(--content-primary); }
 .ate-editor__markers { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.ate-editor__marker { position: absolute; transform: translate(-100%, 0); min-inline-size: 1.5rem; block-size: 1.5rem; margin: 2px; padding: 0 0.35em; border: 0; border-radius: 0.75rem 0.75rem 0.75rem 0.15rem; background: var(--accent-secondary-strong); color: var(--content-on-accent); font: inherit; font-size: 0.75rem; font-weight: 600; pointer-events: auto; cursor: pointer; }
+.ate-editor__marker { position: absolute; transform: translate(-0.25rem, -0.25rem); min-inline-size: 1.5rem; block-size: 1.5rem; margin: 2px; padding: 0 0.35em; border: 0; border-radius: 0.75rem 0.75rem 0.75rem 0.15rem; background: var(--accent-secondary-strong); color: var(--content-on-accent); font: inherit; font-size: 0.75rem; font-weight: 600; pointer-events: auto; cursor: pointer; }
 .ate-editor__marker:focus-visible { outline: 2px solid var(--accent-primary-strong); outline-offset: 2px; }
 .ate-editor__panel [data-highlighted] { outline: 2px solid var(--accent-primary-strong); }
 .ate-editor__reuse { display: grid; gap: var(--space-2); margin-block: var(--space-2); }
