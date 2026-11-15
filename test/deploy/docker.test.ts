@@ -4,16 +4,15 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { cleanup, dockerLogs, dockerRemove, dockerRun, enabled, envExample, EXAMPLES, exampleApp, expectHealthy, expectRunning, freePort, parseConfig, run, SECRET, servePacks } from './deploy'
+import { cleanup, dockerBuild, dockerLogs, dockerRemove, dockerRun, enabled, envExample, EXAMPLES, exampleApp, expectHealthy, expectRunning, freePort, parseConfig, run, SECRET, servePacks } from './deploy'
 
 const PROJECT = `atelier-deploy-${process.pid}`
-const IMAGE = `${PROJECT}-app` // the image compose builds for the service `app`
+const IMAGE = `${PROJECT}-app` // the Dockerfile's image, as the service `app` runs it
 
 describe.skipIf(!enabled)('Docker and Docker Compose (examples/hosting/docker)', () => {
   let dir: string
   let packs: Awaited<ReturnType<typeof servePacks>>
-  // the classic builder: Compose's Bake builder asks for a grant to build on the host network (compose.smoke.yml)
-  const compose = (...args: string[]) => run('docker', ['compose', '-p', PROJECT, '-f', 'compose.yml', '-f', 'compose.smoke.yml', ...args], { cwd: dir, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, COMPOSE_BAKE: 'false' } })
+  const compose = (...args: string[]) => run('docker', ['compose', '-p', PROJECT, '-f', 'compose.yml', '-f', 'compose.smoke.yml', ...args], { cwd: dir, maxBuffer: 64 * 1024 * 1024 })
   const volume = `${PROJECT}-sqlite`
   let container: string | undefined
 
@@ -32,13 +31,15 @@ describe.skipIf(!enabled)('Docker and Docker Compose (examples/hosting/docker)',
   it('runs with PostgreSQL from `docker compose up -d --build` and the .env made from .env.example', async () => {
     const env = envExample(join(dir, '.env.example'))
     writeFileSync(join(dir, '.env'), Object.entries(env).map(([key, value]) => `${key}=${value}`).join('\n'))
-    // compose.yml as it is, plus: the build on the host's network (it installs the served tarballs) and a free
-    // host port in place of 3000
+    // compose.yml as it is, plus: its app image built beforehand from the same Dockerfile on the host's
+    // network (it installs the served tarballs; Compose's own builder wants a grant for that), and a free host
+    // port in place of 3000
+    await dockerBuild(dir, IMAGE)
     const port = await freePort()
-    writeFileSync(join(dir, 'compose.smoke.yml'), `services:\n  app:\n    build:\n      network: host\n    ports: !override\n      - "127.0.0.1:${port}:3000"\n`)
+    writeFileSync(join(dir, 'compose.smoke.yml'), `services:\n  app:\n    image: ${IMAGE}\n    pull_policy: never\n    ports: !override\n      - "127.0.0.1:${port}:3000"\n`)
     const logs = async () => (await compose('logs').catch(error => error)).stdout as string
     // --wait: until the image's HEALTHCHECK and the database's report healthy
-    await compose('up', '-d', '--build', '--wait').catch(async (error) => {
+    await compose('up', '-d', '--no-build', '--wait').catch(async (error) => {
       throw new Error(`${error.message}\n${await logs()}`)
     })
     await expectRunning(`http://127.0.0.1:${port}`, logs)
