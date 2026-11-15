@@ -37,7 +37,8 @@
     },
     "packages/editor": {
       "entry": [
-        "src/runtime/VisualEditor.vue"
+        "src/runtime/VisualEditor.vue",
+        "src/runtime/commands.ts"
       ]
     },
     "test/fixtures/editor": {
@@ -287,6 +288,7 @@
     "#atelier-mailer",
     "#atelier-admin-ai",
     "^#atelier-admin-runtime/.*",
+    "#atelier-editor",
     "#atelier-ai",
     "#atelier-better-auth",
     "#atelier-blocks",
