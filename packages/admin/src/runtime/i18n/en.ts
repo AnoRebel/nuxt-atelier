@@ -170,6 +170,7 @@ export default {
   'editor.moveUp': 'Move up',
   'editor.moveDown': 'Move down',
   'editor.duplicate': 'Duplicate',
+  'editor.uploaded': '{file} uploaded and placed',
   'editor.delete': 'Delete',
   'editor.undo': 'Undo',
   'editor.redo': 'Redo',
