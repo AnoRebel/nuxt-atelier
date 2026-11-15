@@ -1,4 +1,6 @@
-// Media files: GET /_atelier/media/<id>/<name>, and image variants with `?w=640&ar=1:1&format=webp` (a width
+// Media files:
+//   GET  /_atelier/media/<id>/<name>   the file; images also ?w=640&ar=1:1&format=webp
+// Image variants with `?w=640&ar=1:1&format=webp` (a width
 // from `media.widths`, an aspect ratio cropped around the focal point, a format). A URL never changes what
 // it serves (a new file gets a new id), so public files are cached for a year; private ones only reach
 // signed-in users, are never cached, and are a 404 for anyone else, as if they didn't exist.

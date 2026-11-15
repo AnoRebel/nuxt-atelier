@@ -1,3 +1,4 @@
+//   GET  /api/_atelier/auth/me   { user }: the signed-in user, or null
 import { defineEventHandler } from 'nuxt/server'
 import { useAtelierAuth } from '../../index'
 

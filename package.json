@@ -125,6 +125,7 @@
     "docs:dev": "bun run --filter @nuxt-atelier/docs dev",
     "dev": "bun run --filter @nuxt-atelier/playground dev",
     "docs:config": "bun scripts/config-reference.ts",
+    "docs:api": "bun scripts/api-reference.ts",
     "licenses": "bun scripts/check-licenses.ts",
     "deps": "bun scripts/check-dependencies.ts",
     "pack": "bun scripts/pack.ts",

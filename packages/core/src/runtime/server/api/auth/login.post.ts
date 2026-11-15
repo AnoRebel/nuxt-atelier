@@ -1,3 +1,5 @@
+// Signing in with email and password (the built-in auth adapter, or the app's):
+//   POST  /api/_atelier/auth/login   { email, password }: sets the session cookie; limited per email and IP
 import * as v from 'valibot'
 import { defineEventHandler, isNuxtError } from 'nuxt/server'
 import { assertMigrated, audit, signInLimits, useAtelierAuth, useAtelierRateLimiter } from '../../index'

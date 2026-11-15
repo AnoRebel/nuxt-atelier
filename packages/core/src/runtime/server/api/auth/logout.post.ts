@@ -1,3 +1,5 @@
+// Signing out:
+//   POST  /api/_atelier/auth/logout   ends this session on the server and clears its cookie
 import { defineEventHandler } from 'nuxt/server'
 import { audit, useAtelierAuth } from '../../index'
 

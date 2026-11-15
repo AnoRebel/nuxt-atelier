@@ -1,10 +1,10 @@
 // User management, for roles with the `users` capability:
-//   GET     /                 every user
-//   POST    /                 { email, name?, role, password? }
-//   PATCH   /<id>             { email?, name?, role?, password? }  a password change signs them out everywhere
-//   DELETE  /<id>
-//   GET     /<id>/sites       with `sites`: their role on each site, { shop: 'editor' } (administrators reach every site)
-//   PUT     /<id>/sites       { sites: { shop: 'editor' } }: replaces them; a site left out loses access
+//   GET     /api/_atelier/users  every user
+//   POST    /api/_atelier/users  { email, name?, role, password? }
+//   PATCH   /api/_atelier/users/<id>  { email?, name?, role?, password? }  a password change signs them out everywhere
+//   DELETE  /api/_atelier/users/<id>
+//   GET     /api/_atelier/users/<id>/sites  with `sites`: their role on each site, { shop: 'editor' } (administrators reach every site)
+//   PUT     /api/_atelier/users/<id>/sites  { sites: { shop: 'editor' } }: replaces them; a site left out loses access
 // The last administrator can't lose the admin role or be deleted, so the CMS can't be locked out.
 // Only administrators can grant the admin role or change an administrator, and nobody can change
 // their own role: otherwise the `users` capability would be a way to become an administrator.

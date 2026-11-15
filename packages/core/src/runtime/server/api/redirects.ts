@@ -1,8 +1,8 @@
 // Redirects, for roles with the `redirects` capability:
-//   GET     /         every redirect, oldest first
-//   POST    /         { source, target, status? }   status 301 (default), 302, 307 or 308
-//   PATCH   /<id>     { source, target, status? }   an edited automatic redirect becomes a manual one
-//   DELETE  /<id>
+//   GET     /api/_atelier/redirects  every redirect, oldest first
+//   POST    /api/_atelier/redirects  { source, target, status? }   status 301 (default), 302, 307 or 308
+//   PATCH   /api/_atelier/redirects/<id>  { source, target, status? }   an edited automatic redirect becomes a manual one
+//   DELETE  /api/_atelier/redirects/<id>
 // Loops, sources in use and sources that are an entry's URL are refused with 422.
 import * as v from 'valibot'
 import { defineEventHandler, getRequestURL } from 'nuxt/server'

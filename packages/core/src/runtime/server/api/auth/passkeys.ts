@@ -1,11 +1,11 @@
 // Passkey (WebAuthn) routes of the built-in auth adapter, registered only with `auth.passkeys`:
 //
-//   POST   register-options   signed in: options for navigator.credentials.create()
-//   POST   register           signed in: { response, name? } stores the new passkey
-//   POST   login-options      options for navigator.credentials.get() (discoverable credentials)
-//   POST   login              { response } signs in as the passkey's user
-//   GET    /                  signed in: your passkeys
-//   DELETE /<id>              signed in: removes one of your passkeys
+//   POST   /api/_atelier/auth/passkeys/register-options   signed in: options for navigator.credentials.create()
+//   POST   /api/_atelier/auth/passkeys/register           signed in: { response, name? } stores the new passkey
+//   POST   /api/_atelier/auth/passkeys/login-options      options for navigator.credentials.get() (discoverable credentials)
+//   POST   /api/_atelier/auth/passkeys/login              { response } signs in as the passkey's user
+//   GET    /api/_atelier/auth/passkeys                    signed in: your passkeys
+//   DELETE /api/_atelier/auth/passkeys/<id>               signed in: removes one of your passkeys
 //
 // A passkey is an extra way in: users add one after a password sign-in, and the password stays the
 // recovery path. User verification is required and the signature counter is checked.
