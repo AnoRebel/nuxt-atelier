@@ -48,6 +48,18 @@
         "nuxt-umami": "catalog:docs",
       },
     },
+    "examples/rayleigh": {
+      "name": "@nuxt-atelier/example-rayleigh",
+      "dependencies": {
+        "@nuxt-atelier/admin": "workspace:*",
+        "@nuxt-atelier/editor": "workspace:*",
+        "@tailwindcss/vite": "catalog:ui",
+        "nuxt": "catalog:",
+        "nuxt-atelier": "workspace:*",
+        "sharp": "catalog:media",
+        "tailwindcss": "catalog:ui",
+      },
+    },
     "packages/admin": {
       "name": "@nuxt-atelier/admin",
       "version": "0.0.0",
@@ -1088,6 +1100,8 @@
     "@nuxt-atelier/docs": ["@nuxt-atelier/docs@workspace:docs"],
 
     "@nuxt-atelier/editor": ["@nuxt-atelier/editor@workspace:packages/editor"],
+
+    "@nuxt-atelier/example-rayleigh": ["@nuxt-atelier/example-rayleigh@workspace:examples/rayleigh"],
 
     "@nuxt-atelier/fixture-admin": ["@nuxt-atelier/fixture-admin@workspace:test/fixtures/admin"],
 
