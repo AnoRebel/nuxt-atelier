@@ -269,7 +269,15 @@ async function remove() {
         :key="code"
       >
         <NuxtLink
-          v-if="edit.translations.value[code]"
+          v-if="kind === 'singleton'"
+          :to="`${to('singletons', name)}?locale=${code}`"
+          class="cn-button cn-button--ghost cn-button--size-sm"
+          :hreflang="code"
+        >
+          {{ code.toUpperCase() }}
+        </NuxtLink>
+        <NuxtLink
+          v-else-if="edit.translations.value[code]"
           :to="to('collections', name, edit.translations.value[code]!)"
           class="cn-button cn-button--ghost cn-button--size-sm"
           :hreflang="code"
