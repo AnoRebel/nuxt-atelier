@@ -4,7 +4,7 @@
 <script setup lang="ts">
 import type { EditorCommand, EditorContext } from './commands'
 import type { Dnd, Dragged, DropAt } from './dnd'
-import type { BlockList } from './tree'
+import type { Block, BlockList } from './tree'
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { navigateTo, useAdminI18n, useAtelierAdmin, useAtelierAdminSchema, useAtelierEntryForm, useRoute, useRuntimeConfig } from '#imports'
 import FieldInput from '#atelier-admin-runtime/components/FieldInput.vue'
@@ -12,6 +12,7 @@ import CnAlert from '#atelier-admin-runtime/crystal-neuo/components/Alert.vue'
 import CnButton from '#atelier-admin-runtime/crystal-neuo/components/Button.vue'
 import CnSelect from '#atelier-admin-runtime/crystal-neuo/components/Select.vue'
 import { useAdminToast } from '#atelier-admin-runtime/toast'
+import { copyBlocks, resolveShared, SHARED_BLOCK, SHARED_BLOCKS } from '#atelier/shared/blocks'
 import { BRIDGE_VERSION, ChildMessage, readMessage } from '#atelier/shared/bridge'
 import styles from './editor.css?raw'
 import CommandPalette from './CommandPalette.vue'
@@ -302,6 +303,122 @@ const context: EditorContext = {
   redo,
   save: () => save(),
 }
+// --- reuse: patterns and shared blocks to insert, a block saved as either, detached, copied and pasted
+interface Pattern { id: string, label: string, blocks: Block[] }
+interface Shared { id: string, label: string, block: Block }
+const patterns = ref<Pattern[]>([])
+const sharedBlocks = ref<Shared[]>([])
+async function loadReusable() {
+  const [found, shared] = await Promise.all([
+    api<{ id: string, label: string, blocks: Block[] }[]>('/patterns').catch(() => []),
+    schema.value?.collections.some(c => c.name === SHARED_BLOCKS)
+      ? api<{ items: { id: string, data: { title?: string, block?: Block[] } }[] }>(`/collections/${SHARED_BLOCKS}`, { query: { draft: 'true', limit: 100, sort: 'title' } }).catch(() => ({ items: [] }))
+      : { items: [] },
+  ])
+  patterns.value = found
+  sharedBlocks.value = shared.items.filter(e => e.data.block?.[0]).map(e => ({ id: e.id, label: e.data.title ?? e.id, block: e.data.block![0]! }))
+}
+onMounted(loadReusable)
+/** Whether `blocks` all go at `at`: each type's rules, and the list's size limit for them all. */
+function fits(blocks: Block[], at: DropAt) {
+  const list = listAt(at.list)
+  return !!list && blocks.length > 0 && blocks.every(b => accepts(list, b.type, registry.value, true))
+    && (list.rules.max === undefined || list.blocks.length + blocks.length <= list.rules.max)
+}
+/** Inserts copies of `blocks` at `at` (or after the selection): false if they can't go there. */
+function insertBlocks(blocks: Block[], at = target.value): boolean {
+  if (!at || !fits(blocks, at)) {
+    announce(t('editor.cantPlace', { block: blocks.map(b => labelOf(b.type)).join(', ') }))
+    return false
+  }
+  let data = values.value
+  blocks.forEach((block, i) => data = insert(data, at.list, at.index + i, block))
+  setData(data, 'operation')
+  selected.value = blocks[0]!.id
+  return true
+}
+const labelOf = (blockType: string) => (registry.value as Record<string, { label?: string }>)[blockType]?.label ?? blockType
+// (plain copies first: structuredClone, in copyBlocks, refuses reactive proxies)
+const insertPattern = (pattern: Pattern) => insertBlocks(copyBlocks(clone(pattern.blocks)))
+/** A shared block placed by reference: shown with its content, saved as the reference. */
+const insertShared = (shared: Shared) => insertBlocks([resolveShared([{ id: crypto.randomUUID(), type: SHARED_BLOCK, props: { ref: shared.id } }], () => clone(shared.block))[0]! as Block])
+/** Replaces the block at `path` with `block` (one step). */
+function replaceAt(path: string, block: Block) {
+  const at = locate(lists.value, (get(values.value, path) as Block).id)!
+  setData(insert(remove(values.value, lists.value, at.block.id), at.list.path, at.index, block), 'operation')
+  selected.value = block.id
+}
+const selectedBlock = computed(() => selectedAt.value ? blockOf(selectedAt.value.block.path) as unknown as Block & { shared?: string } : undefined)
+const reuseTitle = ref('')
+async function saveAs(kind: 'shared' | 'pattern') {
+  const block = selectedBlock.value
+  const title = reuseTitle.value.trim()
+  if (!block || !title)
+    return
+  try {
+    const [copy] = copyBlocks([clone(block)])
+    if (kind === 'pattern') {
+      await api(`/collections/atelier-patterns`, { method: 'POST', body: { data: { title, blocks: [copy] } } })
+    }
+    else {
+      const created = await api<{ id: string }>(`/collections/${SHARED_BLOCKS}`, { method: 'POST', body: { data: { title, block: [copy] } } })
+      // the page now places it by reference (its content shown as it is)
+      replaceAt(selectedAt.value!.block.path, { ...block, shared: created.id } as Block)
+    }
+    reuseTitle.value = ''
+    toast.add({ color: 'success', title: t(kind === 'shared' ? 'editor.savedShared' : 'editor.savedPattern', { title }) })
+    await loadReusable()
+  }
+  catch (e) {
+    toast.add({ color: 'error', title: (e as { message?: string }).message ?? '' })
+  }
+}
+/** The shared block's content as the page's own: a copy, linked to nothing. */
+function detach() {
+  if (selectedBlock.value?.shared)
+    replaceAt(selectedAt.value!.block.path, copyBlocks([clone(selectedBlock.value)])[0]!)
+}
+
+// copy and paste, through the clipboard (so across entries and tabs): Ctrl+C / Ctrl+V outside text fields
+const CLIPBOARD = 'atelier/blocks'
+const editable = (event: Event) => {
+  const el = event.composedPath()[0] as HTMLElement | undefined
+  return !!el && (el.isContentEditable || /^(?:INPUT|TEXTAREA|SELECT)$/.test(el.tagName))
+}
+function onCopy(event: ClipboardEvent) {
+  if (editable(event) || !selectedBlock.value || !event.clipboardData)
+    return
+  event.preventDefault()
+  event.clipboardData.setData('text/plain', JSON.stringify({ [CLIPBOARD]: [selectedBlock.value] }))
+  announce(t('editor.copied', { block: selectedAt.value!.block.label }))
+}
+function onPaste(event: ClipboardEvent) {
+  if (editable(event) || !event.clipboardData)
+    return
+  let blocks: unknown
+  try {
+    blocks = (JSON.parse(event.clipboardData.getData('text/plain')) as Record<string, unknown>)[CLIPBOARD]
+  }
+  catch {
+    return
+  }
+  if (!Array.isArray(blocks) || !blocks.every(b => b && typeof b === 'object' && typeof b.type === 'string' && registry.value[b.type as never]))
+    return
+  event.preventDefault()
+  insertBlocks(copyBlocks(blocks as Block[]))
+}
+onMounted(() => {
+  addEventListener('copy', onCopy)
+  addEventListener('paste', onPaste)
+})
+onBeforeUnmount(() => {
+  removeEventListener('copy', onCopy)
+  removeEventListener('paste', onPaste)
+})
+function announce(text: string) {
+  announcement.value = text
+}
+
 const commands = computed<EditorCommand[]>(() => {
   const blocks = t('editor.groupBlocks')
   const editing = t('editor.groupEdit')
@@ -316,6 +433,9 @@ const commands = computed<EditorCommand[]>(() => {
           { id: 'delete', label: t('editor.delete'), group: editing, run: () => removeBlock(at.block.id) },
         ]
       : [],
+    ...patterns.value.map(p => ({ id: `pattern:${p.id}`, label: t('editor.insert', { block: p.label }), group: t('editor.patterns'), run: () => void insertPattern(p) })),
+    ...sharedBlocks.value.map(b => ({ id: `shared:${b.id}`, label: t('editor.insert', { block: b.label }), group: t('editor.sharedBlocks'), run: () => void insertShared(b) })),
+    ...selectedBlock.value?.shared ? [{ id: 'detach', label: t('editor.detach'), group: editing, run: detach }] : [],
     { id: 'undo', label: t('editor.undo'), group: editing, run: undo },
     { id: 'redo', label: t('editor.redo'), group: editing, run: redo },
     ...canSave.value ? [{ id: 'save', label: type.value?.versioned ? t('entry.saveDraft') : t('common.save'), group: editing, run: save }] : [],
@@ -459,6 +579,34 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
             </button>
           </li>
         </ul>
+        <template
+          v-for="group in [{ label: t('editor.patterns'), items: patterns.map(p => ({ id: p.id, label: p.label, insert: () => insertPattern(p) })), attr: 'data-pattern' }, { label: t('editor.sharedBlocks'), items: sharedBlocks.map(b => ({ id: b.id, label: b.label, insert: () => insertShared(b) })), attr: 'data-shared-block' }]"
+          :key="group.attr"
+        >
+          <template v-if="group.items.length">
+            <p class="ate-tree__area">
+              {{ group.label }}
+            </p>
+            <ul
+              class="ate-palette"
+              :aria-label="group.label"
+            >
+              <li
+                v-for="item in group.items"
+                :key="item.id"
+              >
+                <button
+                  type="button"
+                  class="ate-palette__block"
+                  v-bind="{ [group.attr]: item.id }"
+                  @click="item.insert()"
+                >
+                  {{ item.label }}
+                </button>
+              </li>
+            </ul>
+          </template>
+        </template>
       </nav>
       <div
         class="ate-editor__stage"
@@ -552,6 +700,51 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
               {{ t('editor.delete') }}
             </CnButton>
           </div>
+          <p
+            v-if="selectedBlock?.shared"
+            class="app-row"
+          >
+            <span class="app-muted">{{ t('editor.isShared') }}</span>
+            <CnButton
+              variant="ghost"
+              size="sm"
+              data-detach
+              @click="detach"
+            >
+              {{ t('editor.detach') }}
+            </CnButton>
+          </p>
+          <details
+            v-else
+            class="ate-editor__reuse"
+          >
+            <summary>{{ t('editor.reuse') }}</summary>
+            <label class="ate-editor__width">
+              <span>{{ t('editor.reuseTitle') }}</span>
+              <input
+                v-model="reuseTitle"
+                class="cn-input cn-input--size-sm"
+              >
+            </label>
+            <div class="app-row">
+              <CnButton
+                variant="ghost"
+                size="sm"
+                :disabled="!reuseTitle.trim()"
+                @click="saveAs('shared')"
+              >
+                {{ t('editor.saveAsShared') }}
+              </CnButton>
+              <CnButton
+                variant="ghost"
+                size="sm"
+                :disabled="!reuseTitle.trim()"
+                @click="saveAs('pattern')"
+              >
+                {{ t('editor.saveAsPattern') }}
+              </CnButton>
+            </div>
+          </details>
           <div
             class="app-form"
             data-block-form
