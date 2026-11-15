@@ -42,7 +42,7 @@ const fixture = fileURLToPath(new URL('../test/fixtures/routing/', import.meta.u
 async function serve(port: number, env: Record<string, string>): Promise<ChildProcess> {
   const server = spawn(process.execPath.includes('bun') ? 'node' : process.execPath, [join(fixture, '.output/server/index.mjs')], {
     env: { ...process.env, PORT: String(port), NODE_ENV: 'production', NUXT_APP_SECRET: 'a-benchmark-secret-that-is-long-enough-1', ...env },
-    stdio: 'ignore',
+    stdio: ['ignore', 'ignore', 'inherit'], // the server's errors, if a run fails
   })
   for (let i = 0; i < 100; i++) {
     if (await fetch(`http://127.0.0.1:${port}/api/_atelier/health/live`).then(r => r.ok, () => false))
@@ -57,6 +57,8 @@ async function serve(port: number, env: Record<string, string>): Promise<ChildPr
 async function seed(base: string) {
   await fetch(`${base}/api/test/users`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'bench@example.com', role: 'admin', password: 'password 123' }) })
   const login = await fetch(`${base}/api/_atelier/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'bench@example.com', password: 'password 123' }) })
+  if (!login.ok)
+    throw new Error(`Signing in to seed the page failed: ${login.status} ${await login.text()}`)
   const cookies = login.headers.getSetCookie().map(c => c.split(';')[0]!)
   const content = Array.from({ length: 50 }, (_, i) => ({ id: `b${i}`, type: 'Headline', props: { heading: `Block number ${i}` } }))
   const created = await fetch(`${base}/api/_atelier/collections/posts`, {

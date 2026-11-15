@@ -229,7 +229,12 @@
     "test/fixtures/ui-shadcn": {
       "entry": [
         "app/**/*.{vue,ts}"
-      ]
+      ],
+      "paths": {
+        "@/*": [
+          "app/*"
+        ]
+      }
     },
     "test/fixtures/ui-tailwind": {
       "entry": [
