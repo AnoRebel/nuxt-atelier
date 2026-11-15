@@ -1,8 +1,9 @@
-import { useAtelierEntries, useAtelierSite } from '#atelier/server'
+import { assertMigrated, useAtelierEntries, useAtelierSite } from '#atelier/server'
 import { defineEventHandler } from 'nuxt/server'
 
 // Test probe: an English product with its German translation, and a page every locale shares
 export default defineEventHandler(async (event) => {
+  await assertMigrated() // the tables exist: the server applies migrations as it starts
   const entries = await useAtelierEntries(useAtelierSite(event))
   const chair = await entries.save('products', { data: { slug: 'chair', title: 'Chair', subtitle: 'Sit down' } })
   await entries.save('products', { data: { slug: 'stuhl', title: 'Stuhl' }, locale: 'de', translationOf: chair.id })

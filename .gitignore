@@ -34,3 +34,4 @@ test/fixtures/i18n-micro*/locales/
 .bench/
 .steps/
 .standalone/
+test-results/

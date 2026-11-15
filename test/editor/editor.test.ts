@@ -2,7 +2,7 @@
 // the structure and the form, moving blocks by keyboard (announced) and undoing it, editing the entry's
 // own title in place, and an accessible chrome.
 import type { Locator, Page } from 'playwright-core'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -378,10 +378,9 @@ describe('visual editor', async () => {
     const box = (await frame.boundingBox())!
     const visitor = await createPage(url('/plain'), { viewport: { width: 375, height: Math.floor(box.height) } })
     await visitor.getByText('Plain card').waitFor()
-    // blurred a little: a frame at a fractional offset anti-aliases every glyph edge differently (about 1% of
-    // the pixels on CI's Chromium), while CSS leaking in moves whole boxes, far past the limit below
-    const raw = async (png: Buffer) => sharp(png).blur(1).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
-    const [inEditor, onSite] = await Promise.all([raw(await frame.screenshot()), raw(await visitor.screenshot())])
+    const raw = async (png: Buffer) => sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+    const shots = await Promise.all([frame.screenshot(), visitor.screenshot()])
+    const [inEditor, onSite] = await Promise.all([raw(shots[0]), raw(shots[1])])
     const width = Math.min(inEditor.info.width, onSite.info.width) - 2
     const height = Math.min(inEditor.info.height, onSite.info.height) - 2
     const differing = (dx: number, dy: number) => {
@@ -397,6 +396,11 @@ describe('visual editor', async () => {
       return count / (width * height)
     }
     const best = Math.min(...[-1, 0, 1].flatMap(dx => [-1, 0, 1].map(dy => differing(dx, dy))))
+    if (best >= 0.001) { // both screenshots, to see what differs (CI uploads test-results/)
+      mkdirSync('test-results/editor-isolation', { recursive: true })
+      writeFileSync('test-results/editor-isolation/in-editor.png', shots[0])
+      writeFileSync('test-results/editor-isolation/on-site.png', shots[1])
+    }
     expect(best).toBeLessThan(0.001)
   })
 

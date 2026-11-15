@@ -28,7 +28,8 @@ describe.each(engines)('%s collaboration', (_, url) => {
     await resetDatabase(driver)
     await createTables(driver, url, schemaFile)
     collab = createCollabStore(driver, { lockTimeout: 60, presenceTimeout: 50 })
-    short = createCollabStore(driver, { lockTimeout: 0.2, presenceTimeout: 0.2 })
+    // short, yet long enough for two calls on a busy CI runner (D1 in Miniflare among them)
+    short = createCollabStore(driver, { lockTimeout: 1.5, presenceTimeout: 1.5 })
   }, 120_000)
   afterAll(() => driver?.close())
 
@@ -53,7 +54,7 @@ describe.each(engines)('%s collaboration', (_, url) => {
   it('frees an abandoned lock once it expires', async () => {
     await short.acquire('posts', 'p2', 'ann')
     expect(await short.acquire('posts', 'p2', 'bob')).toMatchObject({ granted: false })
-    await new Promise(resolve => setTimeout(resolve, 400))
+    await new Promise(resolve => setTimeout(resolve, 1700))
     expect(await short.lockOf('posts', 'p2')).toBeNull()
     expect(await short.acquire('posts', 'p2', 'bob')).toMatchObject({ granted: true, lock: { userId: 'bob' } })
     expect((await short.acquire('posts', 'p2', 'bob')).takenFrom).toBeUndefined()
@@ -66,7 +67,7 @@ describe.each(engines)('%s collaboration', (_, url) => {
     expect((await collab.viewers('posts', 'p3')).map(v => v.userId).toSorted()).toEqual(['ann', 'bob'])
     await collab.leave('posts', 'p3', 'bob')
     expect((await collab.viewers('posts', 'p3')).map(v => v.userId)).toEqual(['ann'])
-    await new Promise(resolve => setTimeout(resolve, 400))
+    await new Promise(resolve => setTimeout(resolve, 1700))
     expect(await short.viewers('posts', 'p3')).toEqual([])
   })
 

@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { request } from 'node:http'
-import { fetch, setup, startServer, url } from '@nuxt/test-utils/e2e'
+import { fetch, getServerLogs, setup, startServer, url } from '@nuxt/test-utils/e2e'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 interface Session { cookie: string, csrf: string }
@@ -52,6 +52,8 @@ export function contentApiSuite(label: string, rootDir: string) {
         const user = await (await fetch('/api/test/users', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: `${name}@example.com`, role, password: 'password 123' }) })).json()
         ids[name] = user.id
         const signedIn = await fetch('/api/_atelier/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: `${name}@example.com`, password: 'password 123' }) })
+        if (!signedIn.ok) // what the server did, for a failure only CI sees
+          throw new Error(`Signing in ${name} failed: ${signedIn.status} ${await signedIn.text()}\n${getServerLogs().slice(-100).join('\n')}`)
         const cookies = signedIn.headers.getSetCookie().map(c => c.split(';')[0]!)
         sessions[name] = { cookie: cookies.join('; '), csrf: cookies.find(c => c.startsWith('atelier-csrf='))!.split('=')[1]! }
       }

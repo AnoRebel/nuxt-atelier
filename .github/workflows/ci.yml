@@ -70,6 +70,13 @@ jobs:
       # the e2e tests drive Chromium
       - run: bunx playwright-core install --with-deps chromium
       - run: bun run test
+      # what a failing test left to look at (the editor's isolation screenshots)
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results-node-${{ matrix.node }}
+          path: test-results/
+          if-no-files-found: ignore
       - run: bun run check:pkg
       - run: bun run pack
 
