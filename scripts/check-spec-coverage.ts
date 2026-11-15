@@ -10,7 +10,7 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const SPECS = `${root}openspec/changes/nuxt-atelier-v1/specs/`
 
 /** Every scenario, as `<capability>/<name>`. */
-export function scenarios(): string[] {
+function scenarios(): string[] {
   return readdirSync(SPECS).toSorted().flatMap(capability =>
     [...readFileSync(`${SPECS}${capability}/spec.md`, 'utf8').matchAll(/^#### Scenario: (.+)$/gm)].map(m => `${capability}/${m[1]!.trim()}`))
 }

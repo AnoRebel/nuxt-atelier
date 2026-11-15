@@ -5,11 +5,15 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { build, cleanup, enabled, envExample, EXAMPLES, exampleApp, parseConfig } from './deploy'
 
+// the platform's build environment, not the CI's: on GitHub Actions, Nitro would see GITHUB_ACTIONS first
+// and pick another preset
+const NOT_CI = { GITHUB_ACTIONS: '' }
+
 describe.skipIf(!enabled)('Vercel (examples/hosting/vercel)', () => {
   let dir: string
   beforeAll(async () => {
     dir = await exampleApp('vercel', { packages: ['pg', '@nuxt-atelier/storage-vercel-blob'], dialects: ['postgres'] })
-    await build(dir, { VERCEL: '1' })
+    await build(dir, { ...NOT_CI, VERCEL: '1' })
   }, 900_000)
   afterAll(() => cleanup(dir))
 
@@ -38,7 +42,7 @@ describe.skipIf(!enabled)('Netlify (examples/hosting/netlify)', () => {
     dir = await exampleApp('netlify', { packages: ['pg', '@nuxt-atelier/storage-s3'], dialects: ['postgres'] })
     toml = await parseConfig(join(dir, 'netlify.toml'))
     const [command, ...args] = toml.build.command.split(' ')
-    await build(dir, { NETLIFY: 'true' }, [command!, ...args])
+    await build(dir, { ...NOT_CI, NETLIFY: 'true' }, [command!, ...args])
   }, 900_000)
   afterAll(() => cleanup(dir))
 

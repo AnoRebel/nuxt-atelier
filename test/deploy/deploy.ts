@@ -12,7 +12,7 @@ import { promisify } from 'node:util'
 import { expect } from 'vitest'
 import { createStandaloneApp } from '../../scripts/standalone-app'
 
-export const ROOT = resolve(import.meta.dirname, '../..')
+const ROOT = resolve(import.meta.dirname, '../..')
 export const EXAMPLES = join(ROOT, 'examples', 'hosting')
 /** Slow: run with ATELIER_DEPLOY=1 (a CI job of its own). */
 export const enabled = !!process.env.ATELIER_DEPLOY

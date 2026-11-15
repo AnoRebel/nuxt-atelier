@@ -6,10 +6,13 @@
   "workspaces": {
     ".": {
       "entry": [
-        "test/vue-tsc/NestedSlots.vue"
+        "test/vue-tsc/NestedSlots.vue",
+        "examples/hosting/**/*.ts",
+        "examples/hosting/railway/.railway/railway.ts"
       ],
       "ignoreDependencies": [
-        "axe-core"
+        "axe-core",
+        "railway"
       ]
     },
     "packages/*": {
@@ -78,7 +81,8 @@
         "src/storage.ts",
         "src/project.ts",
         "src/runtime/app/composables/*.ts",
-        "src/runtime/server/routes/*.ts"
+        "src/runtime/server/routes/*.ts",
+        "src/runtime/server/media/no-sharp.ts"
       ],
       "ignoreDependencies": [
         "nitropack"
@@ -307,6 +311,17 @@
     "test/fixtures/devtools": {
       "entry": [
         "server/atelier/**/*.ts"
+      ]
+    },
+    "test/fixtures/journey": {
+      "entry": [
+        "app/blocks/*.vue",
+        "server/atelier/**/*.ts"
+      ]
+    },
+    "test/fixtures/i18n-nuxtjs-v5": {
+      "ignoreDependencies": [
+        "@nuxtjs/i18n"
       ]
     }
   },

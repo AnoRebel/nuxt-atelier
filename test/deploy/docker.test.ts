@@ -12,7 +12,8 @@ const IMAGE = `${PROJECT}-app` // the image compose builds for the service `app`
 describe.skipIf(!enabled)('Docker and Docker Compose (examples/hosting/docker)', () => {
   let dir: string
   let packs: Awaited<ReturnType<typeof servePacks>>
-  const compose = (...args: string[]) => run('docker', ['compose', '-p', PROJECT, '-f', 'compose.yml', '-f', 'compose.smoke.yml', ...args], { cwd: dir, maxBuffer: 64 * 1024 * 1024 })
+  // the classic builder: Compose's Bake builder asks for a grant to build on the host network (compose.smoke.yml)
+  const compose = (...args: string[]) => run('docker', ['compose', '-p', PROJECT, '-f', 'compose.yml', '-f', 'compose.smoke.yml', ...args], { cwd: dir, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, COMPOSE_BAKE: 'false' } })
   const volume = `${PROJECT}-sqlite`
   let container: string | undefined
 

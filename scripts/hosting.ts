@@ -13,11 +13,11 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export const EXAMPLES = fileURLToPath(new URL('../examples/hosting/', import.meta.url))
+const EXAMPLES = fileURLToPath(new URL('../examples/hosting/', import.meta.url))
 const PAGES = fileURLToPath(new URL('../docs/content/4.deployment/', import.meta.url))
 
 /** Each hosting guide's page name (`<n>.<name>.md`) and its example directory. Dokploy and Coolify run Docker's. */
-export const PLATFORMS: Record<string, string> = {
+const PLATFORMS: Record<string, string> = {
   'vps': 'vps',
   'docker': 'docker',
   'dokploy-coolify': 'docker',
