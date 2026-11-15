@@ -46,6 +46,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       media: { accept: resolved.media.accept, widths: resolved.media.widths },
       limits: { maxBodySize: resolved.limits.maxBodySize, maxUploadSize: resolved.limits.maxUploadSize, maxPageSize: resolved.limits.maxPageSize, maxRelationDepth: resolved.limits.maxRelationDepth, maxNestingDepth: resolved.limits.maxNestingDepth, writesPerMinute: resolved.limits.writesPerMinute, cacheSize: resolved.limits.cacheSize, jobConcurrency: resolved.limits.jobConcurrency },
       jobs: { secret: '', triggerBudget: resolved.jobs.triggerBudget }, // NUXT_ATELIER_JOBS_SECRET
+      cache: { pages: resolved.cache.pages }, // NUXT_ATELIER_CACHE_PAGES
       revisions: { keep: resolved.revisions.keep, days: resolved.revisions.days },
       webhooks: { allow: resolved.webhooks.allow }, // NUXT_ATELIER_WEBHOOKS_ALLOW
       migrations: { autoApply: resolved.migrations.autoApply }, // NUXT_ATELIER_MIGRATIONS_AUTO_APPLY
@@ -219,6 +220,9 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/site') })
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/csrf') })
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/redirects') })
+    // after redirects: rendered pages, served again to visitors (cache.pages), never signed-in or preview ones
+    addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/page-cache') })
+    addServerPlugin(resolve('./runtime/server/plugins/page-cache'))
     addServerHandler({ route: '/api/_atelier/audit', method: 'get', handler: resolve('./runtime/server/api/audit') })
     addServerHandler({ route: '/api/_atelier/openapi.json', method: 'get', handler: resolve('./runtime/server/api/openapi') })
     addServerHandler({ route: '/api/_atelier/health/live', method: 'get', handler: resolve('./runtime/server/api/health-live') })
