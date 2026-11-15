@@ -42,6 +42,7 @@
   },
   "devDependencies": {
     "@nuxt/devtools-kit": "catalog:devtools",
-    "@nuxt/schema": "catalog:"
+    "@nuxt/schema": "catalog:",
+    "nuxt-atelier": "workspace:*"
   }
 }

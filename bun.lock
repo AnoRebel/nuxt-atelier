@@ -184,6 +184,7 @@
       "devDependencies": {
         "@nuxt/devtools-kit": "catalog:devtools",
         "@nuxt/schema": "catalog:",
+        "nuxt-atelier": "workspace:*",
       },
       "peerDependencies": {
         "nuxt": ">=4.6.0",
