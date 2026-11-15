@@ -31,7 +31,7 @@ describe('first-run setup, users and roles', async () => {
   })
 
   it('creates the first administrator only while there are no users, and signs them in', async () => {
-    expect((await api('GET', '/setup')).body).toEqual({ needed: true })
+    expect((await api('GET', '/setup')).body).toEqual({ needed: true, token: false })
     expect((await api('POST', '/setup', { email: 'root@example.com', password: 'short' })).status).toBe(422)
 
     const created = await api('POST', '/setup', { email: 'root@example.com', name: 'Root', password: 'password 123' })
@@ -40,7 +40,7 @@ describe('first-run setup, users and roles', async () => {
     adminId = created.body.id
     expect((await api('GET', '/auth/me', undefined, admin)).body.user).toMatchObject({ role: 'admin' })
 
-    expect((await api('GET', '/setup')).body).toEqual({ needed: false })
+    expect((await api('GET', '/setup')).body).toEqual({ needed: false, token: false })
     expect((await api('POST', '/setup', { email: 'intruder@example.com', password: 'password 123' })).status).toBe(409)
   })
 

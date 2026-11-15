@@ -52,7 +52,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       webhooks: { allow: resolved.webhooks.allow }, // NUXT_ATELIER_WEBHOOKS_ALLOW
       migrations: { autoApply: resolved.migrations.autoApply }, // NUXT_ATELIER_MIGRATIONS_AUTO_APPLY
       storage: { driver: resolved.storage.driver, dir: resolved.storage.dir }, // NUXT_ATELIER_STORAGE_DIR
-      auth: { signInAttempts: resolved.auth.signInAttempts, signInWindow: resolved.auth.signInWindow, trustProxy: resolved.auth.trustProxy },
+      auth: { signInAttempts: resolved.auth.signInAttempts, signInWindow: resolved.auth.signInWindow, trustProxy: resolved.auth.trustProxy, setupToken: '' }, // NUXT_ATELIER_AUTH_SETUP_TOKEN
       robots: resolved.seo.robots ?? null, // the default robots rules; the admin's override them
       collaboration: { lockTimeout: resolved.collaboration.lockTimeout },
       sites: { list: resolved.sites ?? null, fallback: resolved.fallbackSite ?? null }, // see sites.ts

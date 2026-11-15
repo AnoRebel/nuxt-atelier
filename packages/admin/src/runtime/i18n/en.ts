@@ -48,6 +48,8 @@ export default {
   'setup.title': 'Welcome',
   'setup.intro': 'Create the first administrator account.',
   'setup.passwordHint': 'At least 8 characters.',
+  'setup.token': 'Setup token',
+  'setup.tokenHint': 'The NUXT_ATELIER_AUTH_SETUP_TOKEN set on the server.',
   'setup.submit': 'Create administrator',
   // not found
   'notFound.title': 'Nothing here',

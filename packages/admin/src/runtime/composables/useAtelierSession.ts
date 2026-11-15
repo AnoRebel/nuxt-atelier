@@ -7,7 +7,7 @@ import { atelierFetch } from './useAtelierAdmin'
 export function useAtelierSession() {
   const client = useQueryClient()
   const me = useQuery({ queryKey: ['atelier', 'me'], queryFn: () => atelierFetch<{ user: AdminUser | null }>('/auth/me') })
-  const setup = useQuery({ queryKey: ['atelier', 'setup'], queryFn: () => atelierFetch<{ needed: boolean }>('/setup') })
+  const setup = useQuery({ queryKey: ['atelier', 'setup'], queryFn: () => atelierFetch<{ needed: boolean, token?: boolean }>('/setup') })
   const providers = useQuery({ queryKey: ['atelier', 'providers'], queryFn: () => atelierFetch<{ providers: { id: string, name: string, url: string }[] }>('/auth/providers'), staleTime: Infinity })
   // a new user sees other data: drop everything cached, then read who's signed in
   const reset = async () => {
@@ -21,7 +21,7 @@ export function useAtelierSession() {
   })
   const signOut = useMutation({ mutationFn: () => atelierFetch('/auth/logout', { method: 'POST' }), onSuccess: reset })
   const createAdmin = useMutation({
-    mutationFn: (admin: { email: string, name?: string, password: string }) => atelierFetch<AdminUser>('/setup', { method: 'POST', body: admin }),
+    mutationFn: (admin: { email: string, name?: string, password: string, token?: string }) => atelierFetch<AdminUser>('/setup', { method: 'POST', body: admin }),
     onSuccess: reset,
   })
 
@@ -31,6 +31,8 @@ export function useAtelierSession() {
     loading: computed(() => me.isPending.value || setup.isPending.value),
     /** No user exists yet: show first-run setup. */
     setupNeeded: computed(() => setup.data.value?.needed ?? false),
+    /** Setup takes the server's setup token (NUXT_ATELIER_AUTH_SETUP_TOKEN). */
+    setupToken: computed(() => setup.data.value?.token ?? false),
     /** Other ways to sign in (the auth adapter's OAuth providers): links that come back to `redirect`. */
     providers: computed(() => providers.data.value?.providers ?? []),
     signIn,
