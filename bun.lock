@@ -328,6 +328,12 @@
         "nuxt": "catalog:",
       },
     },
+    "test/fixtures/demo": {
+      "name": "@nuxt-atelier/fixture-demo",
+      "dependencies": {
+        "nuxt": "catalog:",
+      },
+    },
     "test/fixtures/dev-migrate": {
       "name": "@nuxt-atelier/fixture-dev-migrate",
       "dependencies": {
@@ -1123,6 +1129,8 @@
     "@nuxt-atelier/fixture-blocks": ["@nuxt-atelier/fixture-blocks@workspace:test/fixtures/blocks"],
 
     "@nuxt-atelier/fixture-blocks-dev": ["@nuxt-atelier/fixture-blocks-dev@workspace:test/fixtures/blocks-dev"],
+
+    "@nuxt-atelier/fixture-demo": ["@nuxt-atelier/fixture-demo@workspace:test/fixtures/demo"],
 
     "@nuxt-atelier/fixture-dev-migrate": ["@nuxt-atelier/fixture-dev-migrate@workspace:test/fixtures/dev-migrate"],
 

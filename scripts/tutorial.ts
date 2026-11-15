@@ -62,6 +62,7 @@ const FILES: Record<string, Chapter> = {
   'README.md': 'extras',
   'LICENSE': 'extras',
   'server/middleware/seed.ts': 'extras',
+  'demo.Dockerfile': 'extras',
 }
 /** Directories that are the example's alone, every file in them: the demo content, its migrations. */
 const EXTRA_DIRS = ['seed/', 'server/atelier/migrations/']

@@ -47,6 +47,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       limits: { maxBodySize: resolved.limits.maxBodySize, maxUploadSize: resolved.limits.maxUploadSize, maxPageSize: resolved.limits.maxPageSize, maxRelationDepth: resolved.limits.maxRelationDepth, maxNestingDepth: resolved.limits.maxNestingDepth, writesPerMinute: resolved.limits.writesPerMinute, cacheSize: resolved.limits.cacheSize, jobConcurrency: resolved.limits.jobConcurrency },
       jobs: { secret: '', triggerBudget: resolved.jobs.triggerBudget }, // NUXT_ATELIER_JOBS_SECRET
       cache: { pages: resolved.cache.pages }, // NUXT_ATELIER_CACHE_PAGES
+      demo: resolved.demo,
       revisions: { keep: resolved.revisions.keep, days: resolved.revisions.days },
       webhooks: { allow: resolved.webhooks.allow }, // NUXT_ATELIER_WEBHOOKS_ALLOW
       migrations: { autoApply: resolved.migrations.autoApply }, // NUXT_ATELIER_MIGRATIONS_AUTO_APPLY
@@ -77,7 +78,9 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     // and nothing under it or the CMS API is sniffed into another type. A rule the host sets for the same path wins.
     const base = resolved.admin.base
     const common = { 'x-content-type-options': 'nosniff', 'referrer-policy': 'same-origin' }
-    const admin = { headers: { ...common, 'x-frame-options': 'SAMEORIGIN', 'content-security-policy': 'frame-ancestors \'self\'; base-uri \'self\'; object-src \'none\'; form-action \'self\'' } }
+    // a demo may be shown in other sites' frames (its docs): then they're named, and X-Frame-Options can't say so
+    const ancestors = ['\'self\'', ...resolved.demo.enabled ? resolved.demo.frameAncestors : []].join(' ')
+    const admin = { headers: { ...common, ...ancestors === '\'self\'' ? { 'x-frame-options': 'SAMEORIGIN' } : {}, 'content-security-policy': `frame-ancestors ${ancestors}; base-uri 'self'; object-src 'none'; form-action 'self'` } }
     nuxt.options.routeRules = {
       [base]: admin,
       [`${base}/**`]: admin,
@@ -223,6 +226,14 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/site') })
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/csrf') })
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/redirects') })
+    // a public demo: a copy of the site per visitor (runtime/server/demo/sessions.ts)
+    if (resolved.demo.enabled) {
+      nuxt.options.experimental.asyncContext = true // Nitro's too: database calls find their request
+      addServerPlugin(resolve('./runtime/server/demo/plugin'))
+      addServerHandler({ middleware: true, handler: resolve('./runtime/server/demo/middleware') })
+      addServerHandler({ route: '/api/_atelier/demo', handler: resolve('./runtime/server/api/demo') })
+      addServerHandler({ route: '/api/_atelier/demo/**', handler: resolve('./runtime/server/api/demo') })
+    }
     // after redirects: rendered pages, served again to visitors (cache.pages), never signed-in or preview ones
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/page-cache') })
     addServerPlugin(resolve('./runtime/server/plugins/page-cache'))

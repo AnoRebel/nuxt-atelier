@@ -1,7 +1,8 @@
 // The admin's content security policy, in production: scripts only from the site and the inline ones this
 // very page carries (Nuxt's config and import map), by hash, so an injected script can't run. Styles may be
-// inline: the admin's are injected into its shadow root. Images and video may come from any https origin
-// (media on object storage or a CDN). Frames: the visual editor's preview of the site, nothing else.
+// inline (the admin's are injected into its shadow root), and with fonts from any https origin, as an app's
+// own head may link some for every page. Images and video may come from any https origin (media on object
+// storage or a CDN). Frames: the visual editor's preview of the site, nothing else.
 import type { RequestEvent } from 'nuxt/server'
 import { createHash } from 'node:crypto'
 import { useRuntimeConfig, useServerHooks } from 'nuxt/server'
@@ -22,18 +23,18 @@ export function inlineScriptHashes(html: string): string[] {
   return [...hashes]
 }
 
-export function adminPolicy(hashes: string[]): string {
+export function adminPolicy(hashes: string[], ancestors = '\'self\''): string {
   return [
     `default-src 'self'`,
     `script-src 'self' ${hashes.join(' ')}`.trim(),
-    `style-src 'self' 'unsafe-inline'`,
+    `style-src 'self' 'unsafe-inline' https:`,
     `img-src 'self' data: blob: https:`,
     `media-src 'self' blob: https:`,
-    `font-src 'self' data:`,
+    `font-src 'self' data: https:`,
     `connect-src 'self'`,
     `frame-src 'self'`,
     `worker-src 'self' blob:`,
-    `frame-ancestors 'self'`,
+    `frame-ancestors ${ancestors}`,
     `base-uri 'self'`,
     `object-src 'none'`,
     `form-action 'self'`,
@@ -42,12 +43,14 @@ export function adminPolicy(hashes: string[]): string {
 
 export default () => {
   const base = (useRuntimeConfig().public.atelier as { admin?: { base?: string } }).admin?.base ?? '/admin'
+  const demo = (useRuntimeConfig().atelier as { demo?: { enabled: boolean, frameAncestors: string[] } }).demo
+  const ancestors = ['\'self\'', ...demo?.enabled ? demo.frameAncestors : []].join(' ')
   ;(useServerHooks().hook as (name: 'render:html', fn: (html: RenderHtml, context: { event: RequestEvent }) => void) => void)('render:html', (html, { event }) => {
     const raw = event as unknown as RawEvent
     const path = (raw.path ?? '').split('?')[0]!
     if (path !== base && !path.startsWith(`${base}/`))
       return
-    const policy = adminPolicy(inlineScriptHashes([...html.head, ...html.bodyPrepend, ...html.body, ...html.bodyAppend].join('')))
+    const policy = adminPolicy(inlineScriptHashes([...html.head, ...html.bodyPrepend, ...html.body, ...html.bodyAppend].join('')), ancestors)
     if (raw.node?.res?.setHeader)
       raw.node.res.setHeader('content-security-policy', policy)
     else

@@ -24,6 +24,7 @@ import { assertMigrated as assertMigratedWith } from './db/state'
 import type { Entry, EntryStore } from './db/store'
 import { ConflictError, createEntryStore, NotFoundError, ReferencedError, ValidationError } from './db/store'
 import { drivers } from '#atelier-drivers'
+import { demoDriver, demoStorage } from './demo/sessions'
 import type { RequestEvent } from 'nuxt/server'
 import type { Capability, Policy } from '../shared/policy'
 import type { AuthAdapter, AuthUser } from './auth/adapter'
@@ -103,7 +104,8 @@ let database: Promise<AtelierDriver> | undefined
 /** The database connection for `runtimeConfig.atelier.databaseUrl`, opened on first use and shared. */
 export function useAtelierDatabase(): Promise<AtelierDriver> {
   const { databaseUrl, dbPoolSize } = useAtelierServerConfig()
-  database ??= connect(databaseUrl, { loaders: drivers, poolSize: dbPoolSize }).catch((error) => {
+  const demo = (useAtelierServerConfig() as unknown as { demo?: { enabled: boolean } }).demo?.enabled
+  database ??= connect(databaseUrl, { loaders: drivers, poolSize: dbPoolSize }).then(driver => demo ? demoDriver(driver) : driver).catch((error) => {
     database = undefined // retry on the next call, e.g. once the database is up
     throw error
   })
@@ -192,7 +194,8 @@ export function useAtelierStorage(): Promise<StorageDriver> {
     const config = useAtelierServerConfig() as unknown as { storage: { driver: string, dir: string } }
     if (config.storage.driver !== 'local' && !customStorage)
       throw new Error(`[nuxt-atelier] storage.driver is "${config.storage.driver}": add @nuxt-atelier/storage-${config.storage.driver} to your modules`)
-    return customStorage ? customStorage() : createLocalDriver(config.storage.dir)
+    const storage = customStorage ? await customStorage() : createLocalDriver(config.storage.dir)
+    return (config as unknown as { demo?: { enabled: boolean } }).demo?.enabled ? demoStorage(storage) : storage
   })().catch((error) => {
     storageDriver = undefined
     throw error

@@ -9,6 +9,10 @@ export default defineAppConfig({
   header: {
     title: 'Nuxt Atelier',
   },
+  // the live demo (examples/rayleigh in demo mode): every reader who starts it gets a copy of their own
+  atelierDemo: {
+    url: 'https://demo.nuxt-atelier.anorebel.net',
+  },
   github: {
     url: 'https://github.com/AnoRebel/nuxt-atelier',
     branch: 'main',

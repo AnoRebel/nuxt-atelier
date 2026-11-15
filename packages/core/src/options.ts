@@ -159,6 +159,16 @@ export const optionsSchema = v.strictObject({
       v.description('Hosts webhooks may reach even though they\'re internal (private, loopback or link-local addresses), e.g. a service on your own network. Override at runtime with `NUXT_ATELIER_WEBHOOKS_ALLOW` (a JSON list).'),
     ), []),
   }), {}),
+  demo: v.optional(v.strictObject({
+    enabled: v.optional(v.pipe(v.boolean('expected true or false'), v.description('A public demo: each visitor who starts one (`/api/_atelier/demo/start`) edits a copy of the site of their own, deleted when they leave; the site itself takes no changes. Needs an SQLite database and the built-in auth.')), false),
+    idleTimeout: int(10, 86_400, 1800, 'Seconds a demo stays without a request before its copy is deleted.'),
+    maxSessions: int(1, 10_000, 100, 'Demos at once; the oldest idle ones end to make room.'),
+    perAddress: int(1, 1000, 5, 'Demos at once from one IP address.'),
+    frameAncestors: v.optional(v.pipe(
+      v.array(v.pipe(v.string(), v.url('expected an origin like https://docs.example.com')), 'expected a list of origins'),
+      v.description('Sites allowed to show the demo\'s admin in a frame (your docs), besides the site itself.'),
+    ), []),
+  }), {}),
   cache: v.optional(v.strictObject({
     pages: int(0, 86_400, 0, 'Seconds a rendered page is kept in memory and served to visitors again (0: not at all). Only anonymous GET requests are cached, never signed-in, preview or draft ones, and any content change clears it. Override at runtime with `NUXT_ATELIER_CACHE_PAGES`.'),
   }), {}),
