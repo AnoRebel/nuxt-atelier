@@ -1,9 +1,9 @@
 // Webhooks in a running app: content changes queue a delivery job per subscribed webhook (see webhooks.ts).
 import type { StoreChange } from './db/store'
-import type { Lookup, Message, WebhookEvent } from './webhooks'
+import type { Lookup, Message, Send, WebhookEvent } from './webhooks'
 import { deriveSecret } from 'nuxt/server'
 import { useAtelierJobs, useAtelierServerConfig, useAtelierWebhooks } from './index'
-import { decryptSecret, deliver } from './webhooks'
+import { connectionCheckedSend, decryptSecret, deliver } from './webhooks'
 
 export const WEBHOOK_JOB = 'atelier:webhook'
 const SECRET_PURPOSE = 'nuxt-atelier:webhook-secrets'
@@ -25,6 +25,10 @@ export function lookup(): Promise<Lookup | undefined> {
     .catch(() => undefined)
   return resolver
 }
+
+let sender: Promise<Send | undefined> | undefined
+/** Deliveries over node:http(s) where there is one, checking the addresses they connect to (see webhooks.ts). */
+const send = () => sender ??= connectionCheckedSend(allowedHosts())
 
 /** Queues a delivery to every active webhook subscribed to this change. */
 export const queueWebhooks = (change: StoreChange): Promise<void> =>
@@ -50,5 +54,5 @@ export async function runDelivery(payload: { webhookId: string, message: Message
   if (!webhook?.active)
     return // deleted or paused since: nothing to deliver
   const secret = await decryptSecret((await store.secret(webhook.id))!, await secretKey())
-  await deliver(store, webhook, secret, payload.message, { attempt, allow: allowedHosts(), lookup: await lookup() })
+  await deliver(store, webhook, secret, payload.message, { attempt, allow: allowedHosts(), lookup: await lookup(), send: await send() })
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { decryptSecret, encryptSecret, isInternalAddress, newSecret, sign, targetProblem } from '../../packages/core/src/runtime/server/webhooks'
+import { createServer } from 'node:http'
+import { connectionCheckedSend, decryptSecret, encryptSecret, isInternalAddress, newSecret, sign, targetProblem } from '../../packages/core/src/runtime/server/webhooks'
 
 describe('webhook signatures', () => {
   it('signs as the Standard Webhooks reference does', async () => {
@@ -40,5 +41,22 @@ describe('webhook targets', () => {
     expect(await targetProblem('https://user:pass@hooks.example.com/', [], lookup)).toMatch(/credentials/)
     // without DNS (Workers), only literal addresses and localhost can be checked
     expect(await targetProblem('https://sneaky.example.com/in', [])).toBeUndefined()
+  })
+})
+
+describe('webhook delivery', () => {
+  it('checks the addresses the connection itself resolves, so a rebinding host is refused', async () => {
+    const server = createServer((_, res) => res.writeHead(204).end())
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+    const url = `http://localhost:${(server.address() as { port: number }).port}/hook`
+    const init = { headers: { 'content-type': 'application/json' }, body: '{}', timeoutMs: 5000 }
+    try {
+      // `localhost` stands in for a public name that resolves to an internal address at connect time
+      await expect((await connectionCheckedSend([]))!(url, init)).rejects.toThrow(/internal address/)
+      expect(await (await connectionCheckedSend(['localhost']))!(url, init)).toBe(204)
+    }
+    finally {
+      server.close()
+    }
   })
 })

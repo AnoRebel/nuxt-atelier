@@ -6,6 +6,8 @@
 // Server-side request forgery: a target must be http(s), and its host must not resolve to a private,
 // loopback, link-local or otherwise internal address, unless the host is allowlisted (`webhooks.allow`).
 // That's checked when the webhook is saved and again before every delivery; redirects aren't followed.
+// Where the platform has node:http (Node, Bun, Deno), the delivery's own connection checks the addresses it
+// connects to as well, so a host that resolves differently a moment later (DNS rebinding) is still refused.
 import type { AtelierDriver } from './db/driver'
 import type { Db } from './db/entries'
 import { and, desc, eq, lt } from 'drizzle-orm'
@@ -96,6 +98,20 @@ export function isInternalAddress(address: string): boolean {
 }
 
 export type Lookup = (host: string) => Promise<string[]>
+/** POSTs `body` to `url`, resolving with the status; never follows redirects. */
+export type Send = (url: string, init: { headers: Record<string, string>, body: string, timeoutMs: number }) => Promise<number>
+
+const fetchSend: Send = async (url, init) => {
+  const response = await fetch(url, {
+    method: 'POST',
+    redirect: 'manual', // a redirect could lead anywhere, internal addresses included
+    signal: AbortSignal.timeout(init.timeoutMs),
+    headers: init.headers,
+    body: init.body,
+  })
+  await response.body?.cancel()
+  return response.status
+}
 
 /**
  * Why `url` can't be a webhook target, or undefined when it can: an http(s) URL whose host isn't
@@ -134,6 +150,53 @@ export async function targetProblem(url: string, allow: string[], lookup?: Looku
     return `${host} resolves to an internal address (${internal}); allowlist it in webhooks.allow if that's intended`
   if (!addresses.length)
     return `${host} doesn't resolve`
+}
+
+/**
+ * A Send over node:http(s) whose connection refuses internal addresses itself, unless the host is
+ * allowlisted: the addresses checked are the ones connected to. Undefined without node:http (Workers).
+ */
+export async function connectionCheckedSend(allow: string[]): Promise<Send | undefined> {
+  let modules
+  try {
+    modules = await Promise.all([import('node:http'), import('node:https'), import('node:dns')])
+  }
+  catch {
+    return undefined
+  }
+  const [http, https, dns] = modules
+  const allowed = allow.map(h => h.toLowerCase())
+  return (url, init) => new Promise<number>((resolve, reject) => {
+    const parsed = new URL(url)
+    const trusted = allowed.includes(parsed.hostname.replace(/^\[|\]$/g, '').toLowerCase())
+    // literal addresses never reach this: targetProblem checked them
+    const lookup = ((hostname: string, options: { all?: boolean }, callback: (...args: unknown[]) => void) => {
+      dns.lookup(hostname, { ...options, all: true, verbatim: true }, (error, addresses) => {
+        const internal = !trusted && addresses?.find(a => isInternalAddress(a.address))
+        if (error || internal || !addresses?.length)
+          return callback(error ?? new Error(internal ? `${hostname} resolves to an internal address (${internal.address})` : `${hostname} doesn't resolve`))
+        if (options.all)
+          callback(null, addresses)
+        else
+          callback(null, addresses[0]!.address, addresses[0]!.family)
+      })
+    }) as never
+    const request = (parsed.protocol === 'https:' ? https : http).request(parsed, {
+      method: 'POST',
+      headers: { ...init.headers, 'content-length': String(new TextEncoder().encode(init.body).length) },
+      lookup,
+    }, (response) => {
+      clearTimeout(timer)
+      response.resume() // the body isn't read
+      resolve(response.statusCode ?? 0)
+    })
+    const timer = setTimeout(() => request.destroy(new Error('timed out')), init.timeoutMs)
+    request.on('error', (error) => {
+      clearTimeout(timer)
+      reject(error)
+    })
+    request.end(init.body)
+  })
 }
 
 // ---- stored webhooks and deliveries ----
@@ -219,7 +282,7 @@ export interface Message {
  * POSTs a message to a webhook's URL, signed with its (decrypted) secret: resolves when the target answers
  * 2xx, throws otherwise (the job retries). Every attempt is logged.
  */
-export async function deliver(store: WebhookStore, webhook: Webhook, secret: string, message: Message, options: { attempt: number, allow: string[], lookup?: Lookup, timeoutMs?: number }): Promise<void> {
+export async function deliver(store: WebhookStore, webhook: Webhook, secret: string, message: Message, options: { attempt: number, allow: string[], lookup?: Lookup, send?: Send, timeoutMs?: number }): Promise<void> {
   const started = Date.now()
   const log = (status: number | null, error: string | null) =>
     store.logDelivery({ webhookId: webhook.id, messageId: message.id, event: message.event, attempt: options.attempt, status, error, durationMs: Date.now() - started })
@@ -230,12 +293,10 @@ export async function deliver(store: WebhookStore, webhook: Webhook, secret: str
   }
   const body = JSON.stringify({ type: message.event, timestamp: new Date(message.at).toISOString(), data: message.data })
   const timestamp = Math.floor(Date.now() / 1000)
-  let response: Response
+  let status: number
   try {
-    response = await fetch(webhook.url, {
-      method: 'POST',
-      redirect: 'manual', // a redirect could lead anywhere, internal addresses included
-      signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
+    status = await (options.send ?? fetchSend)(webhook.url, {
+      timeoutMs: options.timeoutMs ?? 10_000,
       headers: {
         'content-type': 'application/json',
         'user-agent': 'nuxt-atelier-webhooks',
@@ -245,16 +306,15 @@ export async function deliver(store: WebhookStore, webhook: Webhook, secret: str
       },
       body,
     })
-    await response.body?.cancel()
   }
   catch (error) {
     const reason = error instanceof Error ? (error.name === 'TimeoutError' ? 'timed out' : error.message) : String(error)
     await log(null, reason)
     throw new Error(`Webhook ${webhook.id}: ${reason}`, { cause: error })
   }
-  if (response.status < 200 || response.status >= 300) {
-    await log(response.status, `Answered ${response.status}`)
-    throw new Error(`Webhook ${webhook.id} answered ${response.status}`)
+  if (status < 200 || status >= 300) {
+    await log(status, `Answered ${status}`)
+    throw new Error(`Webhook ${webhook.id} answered ${status}`)
   }
-  await log(response.status, null)
+  await log(status, null)
 }
