@@ -8,11 +8,13 @@
 // The last administrator can't lose the admin role or be deleted, so the CMS can't be locked out.
 // Only administrators can grant the admin role or change an administrator, and nobody can change
 // their own role: otherwise the `users` capability would be a way to become an administrator.
+// With sites, a manager who isn't an administrator holds `users` on one site only: they see and manage
+// the users whose access is that site at most, change only that site's access, and never their own.
 import type { AuthUser } from '../auth/adapter'
 import * as v from 'valibot'
 import { defineEventHandler, getRequestURL } from 'nuxt/server'
 import { ADMIN_ROLE, PUBLIC_ROLE } from '../../shared/policy'
-import { assertMigrated, atelierSites, audit, requireUser, useAtelierAuth, useAtelierRoles, useAtelierSiteRoles } from '../index'
+import { assertMigrated, atelierSites, audit, requireUser, useAtelierAuth, useAtelierRoles, useAtelierSite, useAtelierSiteRoles } from '../index'
 import { apiError, readValid } from '../errors'
 
 const PREFIX = '/api/_atelier/users'
@@ -42,9 +44,16 @@ export default defineEventHandler(async (event) => {
       throw apiError(422, `There's no role "${name}"`)
   }
   const adminOnly = () => apiError(403, 'Only an administrator can grant the admin role or change an administrator')
+  // with sites, a manager who isn't an administrator manages this site's users alone (see the top)
+  const site = useAtelierSite(event)
+  const local = site.scoped && actor.role !== ADMIN_ROLE ? site.name : undefined
+  const siteRoles = local ? await useAtelierSiteRoles() : undefined
+  const manageable = async (user: AuthUser) =>
+    !local || (user.role !== ADMIN_ROLE && Object.keys(await siteRoles!.of(user.id)).every(s => s === local))
   const target = async () => {
     const users = await auth.users.list()
-    if (!users.some(u => u.id === id))
+    const user = users.find(u => u.id === id)
+    if (!user || !await manageable(user))
       throw apiError(404, `No user "${id}"`)
     return users
   }
@@ -57,6 +66,12 @@ export default defineEventHandler(async (event) => {
     const store = await useAtelierSiteRoles()
     if (method === 'PUT') {
       const body = await readValid(event, v.object({ sites: v.record(v.string(), role) }))
+      if (local) {
+        if (id === actor.id)
+          throw apiError(403, 'You can\'t change your own access')
+        if (Object.keys(body.sites).some(s => s !== local))
+          throw apiError(403, `You can only give access to "${local}"`)
+      }
       for (const [site, siteRole] of Object.entries(body.sites)) {
         if (!sites[site])
           throw apiError(422, `There's no site "${site}"`)
@@ -71,8 +86,11 @@ export default defineEventHandler(async (event) => {
     }
     return store.of(id)
   }
-  if (!id && method === 'GET')
-    return auth.users.list()
+  if (!id && method === 'GET') {
+    const users = await auth.users.list()
+    const shown = await Promise.all(users.map(manageable))
+    return users.filter((_, i) => shown[i])
+  }
   if (!id && method === 'POST') {
     const body = await readValid(event, NewUser)
     if (body.role === ADMIN_ROLE && actor.role !== ADMIN_ROLE)

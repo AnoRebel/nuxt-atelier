@@ -172,6 +172,35 @@ describe('sites', async () => {
     expect((await on(A, 'editor', 'POST', '/collections/posts', { data: { title: 'Sneaky', slug: 'sneaky' } }, { 'x-atelier-site': 'b' })).status).toBe(403)
     expect((await on(A, 'admin', 'GET', '/collections/posts', undefined, { 'x-atelier-site': 'b' })).body.items.map((p: { data: { title: string } }) => p.data.title)).toEqual(['Hello B'])
   })
+  it('lets a user manager on one site manage that site\'s users alone', async () => {
+    const make = async (email: string) => (await (await fetch('/api/test/users', { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-host': A }, body: JSON.stringify({ email, role: 'editor', password: 'password 123' }) })).json()).id as string
+    const manager = await make('manager@example.com')
+    const onB = await make('on-b@example.com')
+    expect((await on(A, 'admin', 'PUT', `/users/${manager}/sites`, { sites: { a: 'manager' } })).status).toBe(200)
+    expect((await on(A, 'admin', 'PUT', `/users/${onB}/sites`, { sites: { b: 'editor' } })).status).toBe(200)
+    const signedIn = await fetch('/api/_atelier/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-host': A }, body: JSON.stringify({ email: 'manager@example.com', password: 'password 123' }) })
+    const cookies = signedIn.headers.getSetCookie().map(c => c.split(';')[0]!)
+    sessions.manager = { cookie: cookies.join('; '), csrf: cookies.find(c => c.startsWith('atelier-csrf='))!.split('=')[1]! }
+
+    // they see site A's users, not B's or the administrators
+    const listed = (await on(A, 'manager', 'GET', '/users')).body.map((u: { email: string }) => u.email)
+    expect(listed).toEqual(expect.arrayContaining(['manager@example.com', 'editor@example.com']))
+    expect(listed).not.toContain('on-b@example.com')
+    expect(listed).not.toContain('admin@example.com')
+    // they can't give themselves site B, nor take over B's users
+    expect((await on(A, 'manager', 'PUT', `/users/${manager}/sites`, { sites: { a: 'manager', b: 'manager' } })).status).toBe(403)
+    expect((await on(A, 'manager', 'PATCH', `/users/${onB}`, { password: 'taken over 123' })).status).toBe(404)
+    expect((await on(A, 'manager', 'PUT', `/users/${onB}/sites`, { sites: { a: 'editor' } })).status).toBe(404)
+    expect((await on(A, 'manager', 'DELETE', `/users/${onB}`)).status).toBe(404)
+    // nor give site B to one of their own
+    expect((await on(A, 'manager', 'PUT', `/users/${ids.editor}/sites`, { sites: { a: 'editor', b: 'editor' } })).status).toBe(403)
+    // roles are every site's: theirs to read, not to change
+    expect((await on(A, 'manager', 'GET', '/roles')).status).toBe(200)
+    expect((await on(A, 'manager', 'PUT', '/roles/writer', { capabilities: ['users'] })).status).toBe(403)
+    // site A's own users stay theirs to manage
+    expect((await on(A, 'manager', 'PATCH', `/users/${ids.editor}`, { name: 'Ed' })).status).toBe(200)
+    expect((await on(A, 'manager', 'PUT', `/users/${ids.editor}/sites`, { sites: { a: 'editor' } })).body).toEqual({ a: 'editor' })
+  })
   it('shows each user the sites they may reach in the admin, and switches between them', async () => {
     const admin = await createPage()
     await admin.setExtraHTTPHeaders({ 'x-forwarded-host': A })
