@@ -87,6 +87,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     nuxt.options.alias['#atelier/server'] = resolve('./runtime/server')
     nuxt.options.alias['#atelier/shared'] = resolve('./runtime/shared') // field schemas and policy, for the admin
     nuxt.options.alias['#atelier'] = resolve('./runtime/app')
+    // in-place rich-text editing in the visual editor's preview: none here, @nuxt-atelier/editor's Tiptap
+    nuxt.options.alias['#atelier-inline-rich'] = resolve('./runtime/app/editor/rich-off')
 
     addImports({ name: 'useAtelierConfig', from: resolve('./runtime/app/composables/useAtelierConfig') })
     addImports(['useAtelierQuery', 'useAtelierEntry'].map(name => ({ name, from: resolve('./runtime/app/composables/useAtelierQuery') })))

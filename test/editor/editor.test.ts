@@ -240,6 +240,36 @@ describe('visual editor', async () => {
     await page.locator('[data-tree-block="c1"][aria-pressed="true"]').waitFor()
   })
 
+  it('edits rich text in place, with formatting, into the form and the saved entry', async () => {
+    const page = await openEditor()
+    const textId = await page.evaluate(async () => {
+      const csrf = document.cookie.split('; ').find(c => c.startsWith('atelier-csrf='))!.slice('atelier-csrf='.length)
+      const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hello rich world' }] }] }
+      const response = await window.fetch('/api/_atelier/collections/pages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-atelier-csrf': csrf }, body: JSON.stringify({ data: { title: 'Rich', slug: 'rich', content: [{ id: 'x1', type: 'Text', props: { body } }] } }) })
+      return (await response.json()).id as string
+    })
+    const editor = await openEditor(textId)
+    const field = preview(editor).locator('[data-at-field="body"]')
+    await field.getByText('Hello rich world').dblclick()
+    await field.locator('.ProseMirror[contenteditable="true"]').waitFor()
+    await editor.keyboard.press('End')
+    await editor.keyboard.type(' again ')
+    await editor.keyboard.press('Control+b')
+    await editor.keyboard.type('boldly')
+    await field.locator('.ProseMirror').evaluate((el: HTMLElement) => el.blur())
+    // back to the page's own rendering, with the edit
+    await field.locator('strong').getByText('boldly').waitFor()
+    expect(await field.locator('.ProseMirror').count()).toBe(0)
+    await expect.poll(() => field.textContent()).toContain('Hello rich world again boldly')
+    // in the form too, and saved
+    await editor.locator('[data-tree-block="x1"]').click()
+    await editor.locator('[data-block-form]').getByText('Hello rich world again boldly').waitFor()
+    await editor.getByRole('button', { name: 'Save draft' }).click()
+    await editor.getByText('Saved').first().waitFor()
+    const saved = await editor.evaluate(async id => (await (await window.fetch(`/api/_atelier/collections/pages/${id}?draft=true`)).json()).data.content[0].props.body, textId)
+    expect(JSON.stringify(saved)).toContain('"type":"bold"')
+  })
+
   it('has no serious accessibility problems in its chrome', async () => {
     const page = await openEditor()
     await page.addScriptTag({ content: axeSource })

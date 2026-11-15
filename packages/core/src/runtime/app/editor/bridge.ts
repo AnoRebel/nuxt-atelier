@@ -48,7 +48,8 @@ export function startBridge(nuxtApp: ReturnType<typeof useNuxtApp>): void {
   }
   const fieldPath = (el: Element) => {
     const name = el.getAttribute('data-at-field')!
-    const block = el.parentElement?.closest('[data-at-block]')
+    // the block it's in: itself, when a block renders the field as its root element
+    const block = el.closest('[data-at-block]')
     return block ? `${block.getAttribute('data-at-block')}/${name}` : name
   }
   let frame = 0
@@ -79,7 +80,7 @@ export function startBridge(nuxtApp: ReturnType<typeof useNuxtApp>): void {
   // --- the pointer: a click selects the innermost block (and follows no link); hovering reports it
   const blockAt = (target: EventTarget | null) => (target instanceof Element ? target.closest('[data-at-block]') : null)?.getAttribute('data-at-block') ?? null
   addEventListener('click', (event) => {
-    if ((event.target as Element | null)?.closest?.('[contenteditable="plaintext-only"]'))
+    if ((event.target as Element | null)?.closest?.('[contenteditable]'))
       return // typing in place
     const id = blockAt(event.target)
     event.preventDefault()
@@ -98,24 +99,29 @@ export function startBridge(nuxtApp: ReturnType<typeof useNuxtApp>): void {
   // While someone types, the editor's state waits: rendering it would move the caret.
   let editing: HTMLElement | null = null
   let deferred: [string, Record<string, unknown>] | undefined
-  addEventListener('dblclick', (event) => {
-    const field = (event.target as Element | null)?.closest?.('[data-at-field]') as HTMLElement | null
-    if (!field || field.isContentEditable)
-      return
-    event.preventDefault()
-    // typing would change the nodes Vue renders into: set them aside, edit a plain copy of the text, and
-    // put them back when the edit ends (Vue then renders the edited value into them)
+  let latest: Record<string, unknown> = {}
+  /** A field's value in the latest state: the entry's own, or the block's (`<block id>/<field>`). */
+  const valueAt = (path: string): unknown => {
+    const [blockId, name] = path.includes('/') ? path.split('/') as [string, string] : [null, path]
+    if (!blockId)
+      return latest[name]
+    const find = (value: unknown): Record<string, unknown> | undefined => {
+      if (Array.isArray(value))
+        return value.reduce<Record<string, unknown> | undefined>((found, item) => found ?? find(item), undefined)
+      if (!value || typeof value !== 'object')
+        return undefined
+      const block = value as { id?: unknown, props?: Record<string, unknown> }
+      return block.id === blockId && block.props ? block.props : find(Object.values(value))
+    }
+    return find(latest)?.[name]
+  }
+  /** The field's rendered nodes set aside while it's edited, put back after (Vue renders the edit into them). */
+  const editIn = (field: HTMLElement, replacement: Node[], end: () => void) => {
     const owned = [...field.childNodes]
-    field.replaceChildren(document.createTextNode(field.textContent?.trim() ?? ''))
+    field.replaceChildren(...replacement)
     editing = field
-    field.setAttribute('contenteditable', 'plaintext-only')
-    field.focus()
-    const path = fieldPath(field)
-    const input = () => send({ type: 'atelier:inline', path, value: field.textContent?.trim() ?? '' })
-    const done = () => {
-      field.removeAttribute('contenteditable')
-      field.removeEventListener('input', input)
-      field.removeEventListener('blur', done)
+    return () => {
+      end()
       field.replaceChildren(...owned)
       editing = null
       // what the editor sent meanwhile, now that Vue may render again
@@ -123,6 +129,44 @@ export function startBridge(nuxtApp: ReturnType<typeof useNuxtApp>): void {
         applyState(...deferred)
       deferred = undefined
     }
+  }
+  /** Rich text: the editor's in-place rich-text editor (loaded on first use), until focus leaves it. */
+  const editRich = async (field: HTMLElement) => {
+    const { inlineRich } = await import('#atelier-inline-rich')
+    if (!inlineRich || editing)
+      return
+    const path = fieldPath(field)
+    let destroy = () => {}
+    const finish = editIn(field, [], () => destroy())
+    destroy = inlineRich(field, valueAt(path) ?? null, doc => send({ type: 'atelier:inline', path, value: doc }))
+    const leave = (event: FocusEvent) => {
+      if (event.relatedTarget instanceof Node && field.contains(event.relatedTarget))
+        return
+      field.removeEventListener('focusout', leave)
+      finish()
+    }
+    field.addEventListener('focusout', leave)
+  }
+  addEventListener('dblclick', (event) => {
+    const field = (event.target as Element | null)?.closest?.('[data-at-field]') as HTMLElement | null
+    if (!field || field.isContentEditable || editing)
+      return
+    event.preventDefault()
+    if (field.hasAttribute('data-at-rich')) {
+      void editRich(field)
+      return
+    }
+    // typing would change the nodes Vue renders into: set them aside, edit a plain copy of the text, and
+    // put them back when the edit ends (Vue then renders the edited value into them)
+    const path = fieldPath(field)
+    const input = () => send({ type: 'atelier:inline', path, value: field.textContent?.trim() ?? '' })
+    const done = editIn(field, [document.createTextNode(field.textContent?.trim() ?? '')], () => {
+      field.removeAttribute('contenteditable')
+      field.removeEventListener('input', input)
+      field.removeEventListener('blur', done)
+    })
+    field.setAttribute('contenteditable', 'plaintext-only')
+    field.focus()
     field.addEventListener('input', input)
     field.addEventListener('blur', done)
   }, { capture: true })
@@ -133,6 +177,7 @@ export function startBridge(nuxtApp: ReturnType<typeof useNuxtApp>): void {
     if (!message)
       return
     if (message.type === 'atelier:state') {
+      latest = message.data
       if (editing)
         deferred = [message.id, message.data]
       else

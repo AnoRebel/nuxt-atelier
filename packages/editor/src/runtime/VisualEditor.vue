@@ -136,7 +136,7 @@ function redo() {
   if (next)
     setData(next, 'restore')
 }
-function applyInline(path: string, value: string) {
+function applyInline(path: string, value: unknown) {
   const [blockId, field] = path.includes('/') ? path.split('/') : [null, path]
   const at = blockId ? locate(lists.value, blockId) : undefined
   if (blockId && !at)
