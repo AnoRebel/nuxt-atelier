@@ -132,6 +132,23 @@ describe('admin', async () => {
     await rita.getByRole('heading', { name: 'Posts' }).waitFor()
     expect(await rita.getByRole('link', { name: 'New' }).count()).toBe(0)
     expect(await rita.getByRole('link', { name: 'Authors' }).count()).toBe(0)
+
+    // without publish: she saves drafts, and has no Publish, in the admin or the API
+    await rita.getByRole('link', { name: 'Hello world' }).click()
+    await rita.getByLabel('Title *').fill('Hello world, reviewed')
+    await rita.getByRole('button', { name: 'Save draft' }).click()
+    await rita.getByText('Draft saved').waitFor()
+    expect(await rita.getByRole('button', { name: 'Publish' }).count()).toBe(0)
+    const status = await rita.evaluate(async (path) => {
+      const csrf = document.cookie.split('; ').find(c => c.startsWith('atelier-csrf='))!.slice('atelier-csrf='.length)
+      const entry = await (await window.fetch(`/api/_atelier/collections/posts/${path}?draft=true`)).json()
+      const refused = (await window.fetch(`/api/_atelier/collections/posts/${path}/publish`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-atelier-csrf': csrf }, body: JSON.stringify({ version: entry.version }) })).status
+      // done: she gives up her edit lock, which the next tests' edits would wait on
+      await window.fetch(`/api/_atelier/collab/posts/${path}`, { method: 'DELETE', headers: { 'x-atelier-csrf': csrf } })
+      return refused
+    }, new URL(rita.url()).pathname.split('/').pop()!)
+    expect(status).toBe(403)
+    await rita.close()
   })
 
   it('shows the app\'s branding, theme tokens, field input override and own page, the page only to those allowed', async () => {
@@ -193,6 +210,37 @@ describe('admin', async () => {
     await page.reload()
     await page.getByLabel('Summary').waitFor()
     expect(await page.locator('[data-recovery]').count()).toBe(0) // saved: no copy left
+  })
+
+  it('lists an entry\'s history with author, time and publication, compares two versions and restores one', async () => {
+    const page = await signIn()
+    await page.goto(url('/admin/collections/posts/new'))
+    await page.getByLabel('Title *').fill('A history')
+    await page.getByLabel('Category').selectOption('news')
+    await page.getByRole('button', { name: 'Save draft' }).click()
+    await page.waitForURL(/\/admin\/collections\/posts\/(?!new)[^/]+$/)
+    await page.getByRole('button', { name: 'Publish' }).click()
+    await page.getByText('Published', { exact: true }).first().waitFor()
+    await page.getByLabel('Title *').fill('A history, rewritten')
+    await page.getByRole('button', { name: 'Save draft' }).click()
+    await page.getByText('Draft saved').waitFor()
+
+    const history = page.locator('[data-history]')
+    await history.getByText('History', { exact: true }).click()
+    const rows = history.locator('[data-revision]')
+    await expect.poll(() => rows.evaluateAll(els => els.map(el => el.getAttribute('data-revision')))).toEqual(['3', '2', '1']) // newest first
+    expect(await rows.first().textContent()).toMatch(/by ada@example\.com/)
+    expect(await history.locator('[data-revision="2"]').getByText('Published').count()).toBe(1)
+    expect(await history.locator('[data-revision="3"]').getByText('Published').count()).toBe(0)
+
+    await history.getByLabel('Version 1').check()
+    await history.getByLabel('Version 3').check()
+    await history.locator('[data-changes]').getByText('title: A history → A history, rewritten').waitFor()
+
+    await history.locator('[data-revision="1"]').getByRole('button', { name: 'Restore' }).click()
+    await page.getByText('Version 1 restored as a new draft').waitFor()
+    await expect.poll(() => page.getByLabel('Title *').inputValue()).toBe('A history')
+    await expect.poll(() => rows.count()).toBe(4) // the versions in between stay
   })
 
   it('creates a related entry from a relation field, keeping the form\'s unsaved changes', async () => {

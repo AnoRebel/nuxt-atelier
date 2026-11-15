@@ -408,4 +408,20 @@ describe('visual editor', async () => {
     })
     expect(violations).toEqual([])
   })
+  it('shows no locale switcher or translation UI in an app with one locale', async () => {
+    const page = await openEditor()
+    const id = await page.evaluate(async () => {
+      const csrf = document.cookie.split('; ').find(c => c.startsWith('atelier-csrf='))!.slice('atelier-csrf='.length)
+      const response = await window.fetch('/api/_atelier/collections/notes', { method: 'POST', headers: { 'content-type': 'application/json', 'x-atelier-csrf': csrf }, body: JSON.stringify({ data: { title: 'A note' } }) })
+      return (await response.json()).id as string
+    })
+    // notes are localized, but there's only one locale (test/fixtures/editor)
+    await page.goto(url('/admin/collections/notes'))
+    await page.getByText('A note').waitFor()
+    expect(await page.getByLabel('Locale').count()).toBe(0)
+    await page.goto(url(`/admin/collections/notes/${id}`))
+    await page.getByLabel('Title').waitFor()
+    expect(await page.getByRole('navigation', { name: 'Translations' }).count()).toBe(0)
+    expect(await page.getByText(/^In [A-Z]{2}$|Add [A-Z]{2}/).count()).toBe(0)
+  })
 })

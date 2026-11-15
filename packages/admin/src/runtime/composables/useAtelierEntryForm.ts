@@ -189,6 +189,9 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
     form,
     submit,
     entry: computed(() => entry.data.value),
+    /** The entry's API path, and the query its requests take (a localized singleton's locale). */
+    url,
+    localeQuery,
     isNew,
     loading: computed(() => !isNew.value && entry.isPending.value),
     loadError: computed(() => entry.error.value as AdminApiError | null),

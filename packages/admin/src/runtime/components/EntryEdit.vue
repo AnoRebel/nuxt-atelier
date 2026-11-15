@@ -21,6 +21,7 @@ import CnInput from '../crystal-neuo/components/Input.vue'
 import CnSelect from '../crystal-neuo/components/Select.vue'
 import { useAdminToast } from '../toast'
 import CommentsPanel from './CommentsPanel.vue'
+import RevisionHistory from './RevisionHistory.vue'
 import FieldInput from './FieldInput.vue'
 import NotFound from './NotFound.vue'
 import Page from './Page.vue'
@@ -254,7 +255,7 @@ async function remove() {
     </template>
 
     <nav
-      v-if="type.localized && !edit.isNew.value && edit.locale.value"
+      v-if="type.localized && otherLocales.length && !edit.isNew.value && edit.locale.value"
       class="app-row app-translations"
       :aria-label="t('entry.translations')"
     >
@@ -412,6 +413,14 @@ async function remove() {
       v-if="kind === 'collection' && name === 'atelier-shared-blocks' && id && !edit.isNew.value"
       :id="id"
       :can-delete="!!type.can.delete"
+    />
+    <RevisionHistory
+      v-if="target && !edit.loading.value && type.can.update"
+      :url="edit.url.value"
+      :query="edit.localeQuery.value"
+      :version="edit.entry.value?.version ?? null"
+      :can-restore="canSave && !dirty"
+      @restored="edit.reload()"
     />
     <CommentsPanel
       v-if="target && !edit.loading.value"
