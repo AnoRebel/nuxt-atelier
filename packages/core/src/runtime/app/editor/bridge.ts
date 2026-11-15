@@ -173,7 +173,7 @@ export function startBridge(nuxtApp: ReturnType<typeof useNuxtApp>): void {
 
   // --- the editor's shortcuts, when the page has the focus (a block was clicked): passed on, except while
   // editing in place, where undo is the text's
-  addEventListener('keydown', (event) => {
+  addEventListener('keydown', (event: KeyboardEvent) => {
     const key = event.key.toLowerCase()
     if (!(event.ctrlKey || event.metaKey) || event.altKey || editing || (key !== 'k' && key !== 'z' && key !== 'y'))
       return
