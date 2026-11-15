@@ -85,7 +85,8 @@ const breadcrumb = computed(() => props.kind === 'collection' ? [{ label: typeLa
 const mayEdit = computed(() => !!type.value && (edit.isNew.value ? type.value.can.create : type.value.can.update))
 
 // collaboration: who else is here, and the edit lock (a singleton's id is its name)
-const target = computed(() => !type.value || edit.isNew.value ? null : { type: props.name, id: props.kind === 'singleton' ? props.name : props.id! })
+// (none for an adapter's content: locks, presence and comments are kept in the database)
+const target = computed(() => !type.value || edit.isNew.value || type.value.adapter ? null : { type: props.name, id: props.kind === 'singleton' ? props.name : props.id! })
 const presence = useAtelierPresence(target, mayEdit)
 // for fields' AI actions: which entry, and its locales
 provide('atelier-entry', computed(() => type.value ? { type: props.name, locale: edit.locale.value, locales: type.value.localized ? schema.value?.locales.codes ?? [] : [] } : null))
@@ -119,7 +120,7 @@ watch(target, () => (takenBy.value = ''))
 const templates = useQuery({
   queryKey: computed(() => ['atelier', 'templates', props.name]),
   queryFn: () => atelierFetch<{ id: string, label: string, data: Record<string, unknown> }[]>(`/templates/${encodeURIComponent(props.name)}`),
-  enabled: computed(() => props.kind === 'collection' && edit.isNew.value && !!type.value?.can.create),
+  enabled: computed(() => props.kind === 'collection' && edit.isNew.value && !!type.value?.can.create && !type.value.adapter),
 })
 const template = ref('')
 const templateOptions = computed(() => [{ value: '', label: t('templates.blank') }, ...(templates.data.value ?? []).map(x => ({ value: x.id, label: x.label }))])
@@ -383,7 +384,7 @@ async function remove() {
         @apply="applySeo"
       />
       <SeoPanel
-        v-if="kind === 'collection' && type.routable"
+        v-if="kind === 'collection' && type.routable && !type.adapter"
         :input="{ collection: name, id, data: values, path: edit.entry.value?.path, media: edit.entry.value?.media, locale: edit.locale.value }"
       />
       <CnAlert
@@ -415,11 +416,11 @@ async function remove() {
       :can-delete="!!type.can.delete"
     />
     <RevisionHistory
-      v-if="target && !edit.loading.value && type.can.update"
+      v-if="!edit.isNew.value && !edit.loading.value && type.can.update && type.revisions !== false"
       :url="edit.url.value"
       :query="edit.localeQuery.value"
       :version="edit.entry.value?.version ?? null"
-      :can-restore="canSave && !dirty"
+      :can-restore="canSave && !dirty && !type.adapter"
       @restored="edit.reload()"
     />
     <CommentsPanel

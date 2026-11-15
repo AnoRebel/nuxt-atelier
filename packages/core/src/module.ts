@@ -263,6 +263,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ route: '/api/_atelier/routes', handler: resolve('./runtime/server/api/routes') })
     addServerHandler({ route: '/api/_atelier/preview-links', handler: resolve('./runtime/server/api/preview-links') })
     addServerHandler({ route: '/api/_atelier/editor/**', handler: resolve('./runtime/server/api/editor') })
+    addServerHandler({ route: '/api/_atelier/content/**', handler: resolve('./runtime/server/api/content') })
     addServerHandler({ route: '/api/_atelier/jobs', handler: resolve('./runtime/server/api/jobs') })
     addServerHandler({ route: '/api/_atelier/webhooks', handler: resolve('./runtime/server/api/webhooks') })
     addServerHandler({ route: '/api/_atelier/media', handler: resolve('./runtime/server/api/media') })

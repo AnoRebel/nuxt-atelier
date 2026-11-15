@@ -21,6 +21,10 @@ export interface EntryFormTarget {
 
 type Saved = Entry & { version: number }
 
+/** An adapter's edit state (api/content.ts), as the form holds an entry. */
+interface EditState { ref: { name: string, id?: string }, version: number | null, data: Record<string, unknown> }
+const fromState = (state: EditState) => ({ id: state.ref.id ?? state.ref.name, version: state.version, data: state.data, publishedVersion: null }) as unknown as Saved
+
 /** A plain copy of entry data (query results are reactive proxies, which structuredClone refuses). */
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 
@@ -31,7 +35,11 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
   const type = computed(() => t.value.kind === 'collection'
     ? schema.value?.collections.find(c => c.name === t.value.name)
     : schema.value?.singletons.find(s => s.name === t.value.name))
-  const base = computed(() => t.value.kind === 'collection' ? `/collections/${encodeURIComponent(t.value.name)}` : `/singletons/${encodeURIComponent(t.value.name)}`)
+  // a type an adapter serves (an external backend): loaded and saved through the content API, as edit states
+  const adapter = computed(() => !!type.value?.adapter)
+  const base = computed(() => adapter.value
+    ? `/content/${t.value.kind}/${encodeURIComponent(t.value.name)}`
+    : t.value.kind === 'collection' ? `/collections/${encodeURIComponent(t.value.name)}` : `/singletons/${encodeURIComponent(t.value.name)}`)
   const url = computed(() => t.value.kind === 'collection' && t.value.id ? `${base.value}/${encodeURIComponent(t.value.id)}` : base.value)
   const isNew = computed(() => t.value.kind === 'collection' && !t.value.id)
   // a localized singleton: every request is for one locale's version
@@ -40,7 +48,9 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
 
   const entry = useQuery({
     queryKey: ['atelier', computed(() => `${t.value.kind}s`), computed(() => t.value.name), 'entry', computed(() => t.value.id ?? singletonLocale.value ?? '')],
-    queryFn: () => atelierFetch<Saved>(url.value, { query: { draft: 'true', ...localeQuery.value } }),
+    queryFn: () => adapter.value
+      ? atelierFetch<EditState>(url.value).then(fromState)
+      : atelierFetch<Saved>(url.value, { query: { draft: 'true', ...localeQuery.value } }),
     enabled: computed(() => !!type.value && !isNew.value),
   })
   const version = computed<number | null>(() => entry.data.value?.version ?? null)
@@ -151,9 +161,11 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
   }
 
   const save = useMutation({
-    mutationFn: (data: Record<string, unknown>) => isNew.value
-      ? atelierFetch<Saved>(base.value, { method: 'POST', body: { data, ...t.value.locale ? { locale: t.value.locale } : {} } })
-      : atelierFetch<Saved>(url.value, { method: 'PATCH', query: localeQuery.value, body: { version: version.value, data } }),
+    mutationFn: (data: Record<string, unknown>) => adapter.value
+      ? atelierFetch<EditState>(url.value, isNew.value ? { method: 'POST', body: { data } } : { method: 'PUT', body: { version: version.value, data } }).then(fromState)
+      : isNew.value
+        ? atelierFetch<Saved>(base.value, { method: 'POST', body: { data, ...t.value.locale ? { locale: t.value.locale } : {} } })
+        : atelierFetch<Saved>(url.value, { method: 'PATCH', query: localeQuery.value, body: { version: version.value, data } }),
     onSuccess: async (saved) => {
       forgetRecovery()
       client.setQueryData(['atelier', `${t.value.kind}s`, t.value.name, 'entry', saved.id && t.value.kind === 'collection' ? saved.id : ''], saved)
@@ -191,6 +203,8 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
     entry: computed(() => entry.data.value),
     /** The entry's API path, and the query its requests take (a localized singleton's locale). */
     url,
+    /** Served by a content adapter (an external backend), not the database. */
+    adapter,
     localeQuery,
     isNew,
     loading: computed(() => !isNew.value && entry.isPending.value),

@@ -424,4 +424,41 @@ describe('visual editor', async () => {
     expect(await page.getByRole('navigation', { name: 'Translations' }).count()).toBe(0)
     expect(await page.getByText(/^In [A-Z]{2}$|Add [A-Z]{2}/).count()).toBe(0)
   })
+  it('edits content an adapter serves: adds, moves, edits and saves blocks through it, with no history', async () => {
+    const page = await openEditor()
+    // a page kept in the "acme" backend (test/fixtures/editor/server/utils/acme.ts), not the database
+    const id = await page.evaluate(async () => {
+      const csrf = document.cookie.split('; ').find(c => c.startsWith('atelier-csrf='))!.slice('atelier-csrf='.length)
+      const response = await window.fetch('/api/_atelier/content/collection/acme-pages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-atelier-csrf': csrf }, body: JSON.stringify({ data: { title: 'Acme', content: [{ id: 'a1', type: 'Headline', props: { heading: 'From Acme' } }] } }) })
+      return (await response.json()).ref.id as string
+    })
+    const revisionCalls: string[] = []
+    page.on('request', request => request.url().includes('/revisions') && revisionCalls.push(request.url()))
+
+    // its form: no history, since the adapter keeps none
+    await page.goto(url(`/admin/collections/acme-pages/${id}`))
+    await page.getByLabel('Title').waitFor()
+    expect(await page.locator('[data-history]').count()).toBe(0)
+
+    // the visual editor, on the app's own page for it, offering the adapter's blocks
+    await page.locator('[data-visual-editor]').first().click()
+    await preview(page).getByText('From Acme').waitFor()
+    expect(await page.locator('[data-palette-block]').evaluateAll(els => els.map(el => el.getAttribute('data-palette-block')))).toEqual(['Card', 'Headline'])
+    // add a card after the headline, edit it, move it first
+    await page.locator('[data-tree-block="a1"]').click()
+    await page.locator('[data-palette-block="Card"]').click()
+    await page.getByLabel('Heading').fill('An acme card')
+    await preview(page).getByText('An acme card').waitFor()
+    const card = (await treeOrder(page))[1]!
+    await page.locator(`[data-tree-block="${card}"]`).click()
+    await page.keyboard.press('Alt+ArrowUp')
+    await expect.poll(() => treeOrder(page).then(order => order[1])).toBe('a1')
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await page.getByText('Saved', { exact: true }).first().waitFor()
+
+    const saved = await page.evaluate(async id => (await (await window.fetch(`/api/_atelier/content/collection/acme-pages/${id}`)).json()) as { version: number, data: { content: { type: string, props: { heading: string } }[] } }, id)
+    expect(saved.version).toBe(2)
+    expect(saved.data.content.map(b => [b.type, b.props.heading])).toEqual([['Card', 'An acme card'], ['Headline', 'From Acme']])
+    expect(revisionCalls).toEqual([])
+  })
 })

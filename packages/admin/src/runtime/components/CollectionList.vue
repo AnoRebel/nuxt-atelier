@@ -5,6 +5,7 @@ import type { BulkResult } from '../composables/useAtelierCollection'
 import type { Entry } from '../types'
 import { computed, ref, watch } from 'vue'
 import { NuxtLink } from '#components'
+import { navigateTo } from '#imports'
 import { useAtelierAdmin } from '../composables/useAtelierAdmin'
 import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
 import { useAtelierCollection } from '../composables/useAtelierCollection'
@@ -38,6 +39,9 @@ const localeChoice = computed({ get: () => state.locale ?? schema.value?.locales
 const selection = ref(new Set<string>())
 const columnsOpen = ref(false)
 watch(() => list.entries.value, () => selection.value = new Set())
+// a collection an adapter serves has no list here: its entries are opened by id
+const externalId = ref('')
+const openById = () => navigateTo(to('collections', props.name, externalId.value.trim()))
 
 const label = (key: string) => type.value?.fields[key]?.label ?? humanize(key)
 const title = computed(() => type.value?.labels?.plural ?? humanize(props.name))
@@ -107,7 +111,10 @@ const bulk = computed(() => [
         {{ t('list.new') }}
       </NuxtLink>
     </template>
-    <template #toolbar>
+    <template
+      v-if="!type.adapter"
+      #toolbar
+    >
       <CnSelect
         v-if="type.localized && locales.length > 1"
         v-model="localeChoice"
@@ -140,137 +147,160 @@ const bulk = computed(() => [
       </div>
     </template>
 
-    <div class="app-table-wrap">
-      <table class="cn-table">
-        <caption class="sr-only">
-          {{ title }}
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col">
-              <CnCheckbox
-                :checked="allSelected"
-                :indeterminate="!!selected.length && !allSelected"
-                :label="t('list.selectAll')"
-                class="app-check"
-                @update:checked="toggleAll"
-              />
-            </th>
-            <th
-              v-for="key in state.columns"
-              :key="key"
-              scope="col"
-              :aria-sort="sortState(key)"
-            >
-              <button
-                type="button"
-                class="app-sort"
-                @click="sortBy(key)"
-              >
-                {{ label(key) }}
-                <Icon
-                  v-if="sortState(key)"
-                  :name="sortState(key) === 'ascending' ? 'chevron-up' : 'chevron-down'"
-                />
-              </button>
-            </th>
-            <th scope="col">
-              {{ t('list.status') }}
-            </th>
-            <th
-              scope="col"
-              :aria-sort="sortState('_updatedAt')"
-            >
-              <button
-                type="button"
-                class="app-sort"
-                @click="sortBy('_updatedAt')"
-              >
-                {{ t('list.updated') }}
-                <Icon
-                  v-if="sortState('_updatedAt')"
-                  :name="sortState('_updatedAt') === 'ascending' ? 'chevron-up' : 'chevron-down'"
-                />
-              </button>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="list.loading.value">
-            <td :colspan="state.columns.length + 3">
-              <div
-                class="app-stack"
-                aria-busy="true"
-              >
-                <CnSkeleton
-                  v-for="i in 5"
-                  :key="i"
-                  variant="block"
-                />
-              </div>
-            </td>
-          </tr>
-          <tr v-else-if="!list.entries.value.length">
-            <td :colspan="state.columns.length + 3">
-              <div class="app-empty">
-                <Icon name="files" />
-                <p class="app-empty__title">
-                  {{ state.search ? t('list.noMatches') : t('list.empty') }}
-                </p>
-              </div>
-            </td>
-          </tr>
-          <tr
-            v-for="entry in list.entries.value"
-            v-else
-            :key="entry.id"
-            :aria-selected="selection.has(entry.id)"
-          >
-            <td>
-              <CnCheckbox
-                :checked="selection.has(entry.id)"
-                :label="t('list.select')"
-                class="app-check"
-                @update:checked="(on: boolean) => toggle(entry.id, on)"
-              />
-            </td>
-            <td
-              v-for="(key, i) in state.columns"
-              :key="key"
-            >
-              <NuxtLink
-                v-if="i === 0"
-                :to="to('collections', name, entry.id)"
-              >
-                {{ text(entry.data[key]) || t('common.untitled') }}
-              </NuxtLink>
-              <template v-else>
-                {{ text(entry.data[key]) }}
-              </template>
-            </td>
-            <td>
-              <CnBadge
-                :variant="status(entry).variant"
-                size="sm"
-              >
-                {{ status(entry).label }}
-              </CnBadge>
-            </td>
-            <td>
-              <time :datetime="entry.updatedAt">{{ new Date(entry.updatedAt).toLocaleString() }}</time>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="app-row app-row--between">
-      <span class="app-muted">{{ list.total.value === 1 ? t('list.countOne') : t('list.count', { count: list.total.value }) }}</span>
-      <CnPagination
-        v-if="list.pages.value > 1"
-        v-model:page="state.page"
-        :page-count="list.pages.value"
+    <!-- an adapter's content is listed in its own backend: open an entry by its id -->
+    <form
+      v-if="type.adapter"
+      class="app-form"
+      data-external
+      @submit.prevent="openById"
+    >
+      <p class="app-muted">
+        {{ t('list.external', { adapter: type.adapter }) }}
+      </p>
+      <CnInput
+        v-model="externalId"
+        :label="t('list.externalId')"
+        required
       />
-    </div>
+      <div class="app-form__actions">
+        <CnButton type="submit">
+          {{ t('list.open') }}
+        </CnButton>
+      </div>
+    </form>
+    <template v-else>
+      <div class="app-table-wrap">
+        <table class="cn-table">
+          <caption class="sr-only">
+            {{ title }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">
+                <CnCheckbox
+                  :checked="allSelected"
+                  :indeterminate="!!selected.length && !allSelected"
+                  :label="t('list.selectAll')"
+                  class="app-check"
+                  @update:checked="toggleAll"
+                />
+              </th>
+              <th
+                v-for="key in state.columns"
+                :key="key"
+                scope="col"
+                :aria-sort="sortState(key)"
+              >
+                <button
+                  type="button"
+                  class="app-sort"
+                  @click="sortBy(key)"
+                >
+                  {{ label(key) }}
+                  <Icon
+                    v-if="sortState(key)"
+                    :name="sortState(key) === 'ascending' ? 'chevron-up' : 'chevron-down'"
+                  />
+                </button>
+              </th>
+              <th scope="col">
+                {{ t('list.status') }}
+              </th>
+              <th
+                scope="col"
+                :aria-sort="sortState('_updatedAt')"
+              >
+                <button
+                  type="button"
+                  class="app-sort"
+                  @click="sortBy('_updatedAt')"
+                >
+                  {{ t('list.updated') }}
+                  <Icon
+                    v-if="sortState('_updatedAt')"
+                    :name="sortState('_updatedAt') === 'ascending' ? 'chevron-up' : 'chevron-down'"
+                  />
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="list.loading.value">
+              <td :colspan="state.columns.length + 3">
+                <div
+                  class="app-stack"
+                  aria-busy="true"
+                >
+                  <CnSkeleton
+                    v-for="i in 5"
+                    :key="i"
+                    variant="block"
+                  />
+                </div>
+              </td>
+            </tr>
+            <tr v-else-if="!list.entries.value.length">
+              <td :colspan="state.columns.length + 3">
+                <div class="app-empty">
+                  <Icon name="files" />
+                  <p class="app-empty__title">
+                    {{ state.search ? t('list.noMatches') : t('list.empty') }}
+                  </p>
+                </div>
+              </td>
+            </tr>
+            <tr
+              v-for="entry in list.entries.value"
+              v-else
+              :key="entry.id"
+              :aria-selected="selection.has(entry.id)"
+            >
+              <td>
+                <CnCheckbox
+                  :checked="selection.has(entry.id)"
+                  :label="t('list.select')"
+                  class="app-check"
+                  @update:checked="(on: boolean) => toggle(entry.id, on)"
+                />
+              </td>
+              <td
+                v-for="(key, i) in state.columns"
+                :key="key"
+              >
+                <NuxtLink
+                  v-if="i === 0"
+                  :to="to('collections', name, entry.id)"
+                >
+                  {{ text(entry.data[key]) || t('common.untitled') }}
+                </NuxtLink>
+                <template v-else>
+                  {{ text(entry.data[key]) }}
+                </template>
+              </td>
+              <td>
+                <CnBadge
+                  :variant="status(entry).variant"
+                  size="sm"
+                >
+                  {{ status(entry).label }}
+                </CnBadge>
+              </td>
+              <td>
+                <time :datetime="entry.updatedAt">{{ new Date(entry.updatedAt).toLocaleString() }}</time>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="app-row app-row--between">
+        <span class="app-muted">{{ list.total.value === 1 ? t('list.countOne') : t('list.count', { count: list.total.value }) }}</span>
+        <CnPagination
+          v-if="list.pages.value > 1"
+          v-model:page="state.page"
+          :page-count="list.pages.value"
+        />
+      </div>
+    </template>
 
     <CnModal
       v-model:open="columnsOpen"

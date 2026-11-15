@@ -1,5 +1,6 @@
 // The visual editor's way into a page:
-//   POST  /api/_atelier/editor/token     { type, id? }: for someone who may update the entry, a token good for two
+//   POST  /api/_atelier/editor/token     { type, id? }: for someone who may update the entry (an adapter's content: who it
+//                                       lets update, at the page it previews on), a token good for two
 //                                       minutes and the entry's draft URL to open with it (`?_atelier=edit&_atelier_token=…`)
 //   POST  /api/_atelier/editor/session   { token }: the page exchanges it for an HTTP-only edit cookie (8 hours)
 //   GET   /api/_atelier/editor/session   whether this browser is in an edit session (the cookie, for the same user)
@@ -7,6 +8,7 @@
 import type { RequestEvent } from 'nuxt/server'
 import { defineEventHandler, deleteCookie, getCookie, setCookie } from 'nuxt/server'
 import * as v from 'valibot'
+import { adapterFor } from '../content-adapters'
 import { allow, caller, segments } from '../content-access'
 import { apiError, readValid } from '../errors'
 import { useAtelierAuth, useAtelierEntries, useAtelierSchema, useAtelierSite } from '../index'
@@ -39,6 +41,23 @@ export default defineEventHandler(async (event) => {
     const { type, id } = await readValid(event, Open)
     const who = await caller(event)
     const schema = await useAtelierSchema()
+    const issue = async (path: string) => {
+      const token = await signToken(TOKEN, { u: who.principal.id, s: who.site.name, e: Date.now() + TOKEN_TTL })
+      return { token, url: `${path}${path.includes('?') ? '&' : '?'}_atelier=edit&_atelier_token=${encodeURIComponent(token)}` }
+    }
+    // content an adapter serves: its permissions, and the page its registration names
+    const served = !schema.collections[type] && !schema.singletons[type] ? adapterFor(type) : undefined
+    if (served) {
+      if (!who.principal.id || (served.kind === 'collection' && !id))
+        throw apiError(404, `No entry to edit in "${type}"`)
+      const ref = served.kind === 'collection' ? { kind: served.kind, name: type, id: id! } : { kind: served.kind, name: type }
+      if (!(await served.adapter.permissions(ref, { user: who.principal })).update)
+        throw apiError(403, `You can't edit "${type}"`)
+      const path = served.preview?.(ref, await served.adapter.loadEditState(ref, { user: who.principal }))
+      if (!path)
+        throw apiError(422, `"${type}" has no pages to edit visually`)
+      return issue(path)
+    }
     const entries = await useAtelierEntries(who.site)
     const singleton = type in schema.singletons
     const definition = schema.collections[type] ?? schema.singletons[type]
@@ -50,8 +69,7 @@ export default defineEventHandler(async (event) => {
     allow(who, 'update', type, entry && 'createdBy' in entry ? entry : undefined)
     if (!entry?.path)
       throw apiError(422, 'This entry has no URL yet: fill in what its address is made from, and save')
-    const token = await signToken(TOKEN, { u: who.principal.id, s: who.site.name, e: Date.now() + TOKEN_TTL })
-    return { token, url: `${entry.path}?_atelier=edit&_atelier_token=${encodeURIComponent(token)}` }
+    return issue(entry.path)
   }
 
   if (action === 'session' && method === 'POST') {

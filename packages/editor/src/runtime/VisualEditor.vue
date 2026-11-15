@@ -178,7 +178,10 @@ function duplicateBlock(blockId: string) {
 
 // --- adding: a palette block clicked goes after the selected block, or at the end of the first list
 const target = computed<DropAt | undefined>(() => selectedAt.value ? { list: selectedAt.value.list.path, index: selectedAt.value.index + 1 } : lists.value[0] ? { list: lists.value[0].path, index: lists.value[0].blocks.length } : undefined)
-const palette = computed(() => Object.values(registry.value as Record<string, { name: string, label?: string }>).map(b => ({ name: b.name, label: b.label ?? b.name })))
+// the blocks it offers: all of the app's, or the ones an adapter serving this type lists
+const palette = computed(() => Object.values(registry.value as Record<string, { name: string, label?: string }>)
+  .filter(b => !type.value?.blockTypes || type.value.blockTypes.includes(b.name))
+  .map(b => ({ name: b.name, label: b.label ?? b.name })))
 const listAt = (path: string) => allLists(lists.value).find(l => l.path === path)
 /** Whether `dragged` may go at `at`: its rules, its size limit, and never inside itself. */
 function canPlace(dragged: Dragged, at: DropAt): boolean {
@@ -378,7 +381,8 @@ const context: EditorContext = {
 /** The selected block's actions from plugins (addBlockActions). */
 const pluginActions = computed(() => selectedBlock.value ? addedBlockActions(clone(selectedBlock.value), context) : [])
 // --- comments: a marker on each block with open threads, opening them in the side panel
-const commentsTarget = computed(() => type.value ? { type: name, id: kind.value === 'singleton' ? name : id ?? '' } : null)
+// (none for an adapter's content: comments are kept in the database)
+const commentsTarget = computed(() => type.value && !type.value.adapter ? { type: name, id: kind.value === 'singleton' ? name : id ?? '' } : null)
 const comments = useAtelierComments(commentsTarget)
 const panel = ref<'block' | 'comments'>('block')
 const aside = ref<HTMLElement | null>(null)
@@ -409,7 +413,9 @@ async function openThread(blockId: string, thread: string) {
 interface Pattern { id: string, label: string, blocks: Block[] }
 interface Shared { id: string, label: string, block: Block }
 const patterns = ref<Pattern[]>([])
-const sharedBlocks = ref<Shared[]>([])
+const loadedShared = ref<Shared[]>([])
+// shared blocks are references into the database: not for content an adapter keeps elsewhere
+const sharedBlocks = computed(() => type.value?.adapter ? [] : loadedShared.value)
 async function loadReusable() {
   const [found, shared] = await Promise.all([
     api<{ id: string, label: string, blocks: Block[] }[]>('/patterns').catch(() => []),
@@ -418,7 +424,7 @@ async function loadReusable() {
       : { items: [] },
   ])
   patterns.value = found
-  sharedBlocks.value = shared.items.filter(e => e.data.block?.[0]).map(e => ({ id: e.id, label: e.data.title ?? e.id, block: e.data.block![0]! }))
+  loadedShared.value = shared.items.filter(e => e.data.block?.[0]).map(e => ({ id: e.id, label: e.data.title ?? e.id, block: e.data.block![0]! }))
 }
 onMounted(loadReusable)
 /** Whether `blocks` all go at `at`: each type's rules, and the list's size limit for them all. */
@@ -792,6 +798,7 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
         :aria-label="panel === 'comments' ? t('editor.comments') : t('editor.block')"
       >
         <div
+          v-if="commentsTarget"
           class="app-row ate-editor__tabs"
           role="group"
           :aria-label="t('editor.panel')"
@@ -880,7 +887,7 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
             </CnButton>
           </p>
           <details
-            v-else
+            v-else-if="!type?.adapter"
             class="ate-editor__reuse"
           >
             <summary>{{ t('editor.reuse') }}</summary>

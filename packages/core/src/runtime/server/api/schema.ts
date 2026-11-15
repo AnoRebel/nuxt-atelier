@@ -5,6 +5,7 @@
 import type { Capability, ContentAction } from '../../shared/policy'
 import { defineEventHandler } from 'nuxt/server'
 import { serialiseFields } from '../../shared/fields'
+import { adapterTypes } from '../content-adapters'
 import { caller } from '../content-access'
 import { apiError } from '../errors'
 import { ADMIN_ROLE } from '../../shared/policy'
@@ -36,9 +37,37 @@ export default defineEventHandler(async (event) => {
       routable: definition.route !== undefined,
       localized: Boolean(definition.localized),
       versioned: definition.versioned === true,
+      revisions: true,
       ...definition.admin ? { admin: json(definition.admin) } : {},
     }
   }
+
+  // types an adapter serves (content-adapters.ts), for signed-in users it lets read: edited through it, with
+  // only what it supports (no history without revisions, no publishing or deleting)
+  const served = user.id
+    ? (await Promise.all([...adapterTypes()].filter(([name]) => !collections[name] && !singletons[name]).map(async ([name, { adapter, kind, preview }]) => {
+        const ref = { kind, name }
+        const can = await adapter.permissions(ref, { user })
+        if (!can.read)
+          return undefined
+        return {
+          kind,
+          type: {
+            name,
+            fields: json(await adapter.getFieldConfig(ref)),
+            readOnly: [],
+            can: { create: kind === 'collection' && can.update, read: true, update: can.update, delete: false, publish: false, comment: false },
+            ownOnly: [],
+            routable: !!preview,
+            localized: false,
+            versioned: false,
+            revisions: adapter.capabilities.revisions,
+            adapter: adapter.name,
+            blockTypes: (await adapter.listBlockTypes()).map(b => b.type),
+          },
+        }
+      }))).filter(t => !!t)
+    : []
 
   const capabilities = CAPABILITIES.filter(capability => policy.can(user, 'manage', capability))
   // the roles a user can be given, for those who manage users or roles
@@ -60,10 +89,12 @@ export default defineEventHandler(async (event) => {
     locales,
     collections: Object.entries(collections)
       .filter(([name]) => policy.can(user, 'read', name))
-      .map(([name, definition]) => ({ ...type(name, definition), ...definition.labels ? { labels: definition.labels } : {} })),
+      .map(([name, definition]) => ({ ...type(name, definition), ...definition.labels ? { labels: definition.labels } : {} }))
+      .concat(served.filter(t => t.kind === 'collection').map(t => t.type) as never[]),
     singletons: Object.entries(singletons)
       .filter(([name]) => policy.can(user, 'read', name))
-      .map(([name, definition]) => ({ ...type(name, definition), ...definition.label ? { label: definition.label } : {} })),
+      .map(([name, definition]) => ({ ...type(name, definition), ...definition.label ? { label: definition.label } : {} }))
+      .concat(served.filter(t => t.kind === 'singleton').map(t => t.type) as never[]),
     blocks: json(blocks),
   }
 })
