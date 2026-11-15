@@ -12,6 +12,9 @@ import { describe, expect, it } from 'vitest'
 import { projectFromNuxt, projectMigrationStatus } from '../../packages/core/src/project'
 import { renderPanel } from '../../packages/devtools/src/panel'
 
+// the app's own nuxi, not npx: npm reads the root package.json, whose Bun overrides it rejects
+const NUXI = fileURLToPath(new URL('../fixtures/devtools/node_modules/.bin/nuxi', import.meta.url))
+
 const cwd = fileURLToPath(new URL('../fixtures/devtools', import.meta.url))
 process.env.NUXT_ATELIER_DATABASE_URL = `file:${join(mkdtempSync(join(tmpdir(), 'atelier-devtools-')), 'db.sqlite')}`
 
@@ -85,7 +88,7 @@ describe('the DevTools integration', () => {
   }, 120_000)
 
   it('leaves nothing of itself in a production build', async () => {
-    await promisify(execFile)('npx', ['nuxi', 'build'], { cwd, maxBuffer: 64 * 1024 * 1024 })
+    await promisify(execFile)(NUXI, ['build'], { cwd, maxBuffer: 64 * 1024 * 1024 })
     const files = (dir: string): string[] => readdirSync(dir).flatMap(name => statSync(join(dir, name)).isDirectory() ? files(join(dir, name)) : [join(dir, name)])
     const found = files(join(cwd, '.output')).filter(file => /\.(?:m?js|json|html)$/.test(file) && /__atelier_devtools|atelier-actions|devtools:customTabs/.test(readFileSync(file, 'utf8')))
     expect(found).toEqual([])

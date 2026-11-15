@@ -11,6 +11,9 @@ import { AwsClient } from 'aws4fetch'
 import { Miniflare } from 'miniflare'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+// the app's own nuxi, not npx: npm reads the root package.json, whose Bun overrides it rejects
+const NUXI = fileURLToPath(new URL('../fixtures/workers/node_modules/.bin/nuxi', import.meta.url))
+
 const rootDir = fileURLToPath(new URL('../fixtures/workers', import.meta.url))
 const s3 = process.env.ATELIER_TEST_S3_URL ? new URL(process.env.ATELIER_TEST_S3_URL) : undefined
 const PNG = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='), c => c.charCodeAt(0))
@@ -27,7 +30,7 @@ describe('Cloudflare Workers with D1', () => {
   }
 
   beforeAll(async () => {
-    await promisify(execFile)('npx', ['nuxi', 'build'], { cwd: rootDir })
+    await promisify(execFile)(NUXI, ['build'], { cwd: rootDir })
     // every module listed: discovering them, Miniflare refuses a non-literal dynamic import (file-type has
     // one, for reading files, which is never called), where Wrangler's bundling leaves it alone
     const server = `${rootDir}/.output/server`

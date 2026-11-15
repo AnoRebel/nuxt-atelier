@@ -378,7 +378,9 @@ describe('visual editor', async () => {
     const box = (await frame.boundingBox())!
     const visitor = await createPage(url('/plain'), { viewport: { width: 375, height: Math.floor(box.height) } })
     await visitor.getByText('Plain card').waitFor()
-    const raw = async (png: Buffer) => sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+    // blurred a little: a frame at a fractional offset anti-aliases every glyph edge differently (about 1% of
+    // the pixels on CI's Chromium), while CSS leaking in moves whole boxes, far past the limit below
+    const raw = async (png: Buffer) => sharp(png).blur(1).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
     const [inEditor, onSite] = await Promise.all([raw(await frame.screenshot()), raw(await visitor.screenshot())])
     const width = Math.min(inEditor.info.width, onSite.info.width) - 2
     const height = Math.min(inEditor.info.height, onSite.info.height) - 2
