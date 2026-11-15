@@ -1,0 +1,858 @@
+{
+  "access-control/Swap adapter": {
+    "file": "test/auth/better-auth.test.ts",
+    "test": "runs first-run setup and password sign-in through Better Auth"
+  },
+  "access-control/First run": {
+    "file": "test/auth/setup.test.ts",
+    "test": "creates the first administrator only while there are no users"
+  },
+  "access-control/Session cookie flags": {
+    "file": "test/auth/builtin.test.ts",
+    "test": "signs in with a sealed, HTTP-only, Secure, SameSite=Lax cookie"
+  },
+  "access-control/Register and sign in with a passkey": {
+    "file": "test/auth/passkeys.test.ts",
+    "test": "registers a passkey after a password sign-in, then signs in with it as the same user"
+  },
+  "access-control/Passkeys disabled": {
+    "file": "test/admin/admin.test.ts",
+    "test": "has no passkey option, and loads no passkey code, with passkeys off"
+  },
+  "access-control/OAuth login": {
+    "file": "test/auth/better-auth.test.ts",
+    "test": "maps a user signing in through OAuth to a CMS role, and permissions apply to it"
+  },
+  "access-control/Last administrator": {
+    "file": "test/auth/setup.test.ts",
+    "test": "refuses to demote or delete the last administrator"
+  },
+  "access-control/Own entries only": {
+    "file": "test/api/suite.ts",
+    "test": "403 without the permission, own entries only"
+  },
+  "access-control/Cross-site POST": {
+    "file": "test/auth/csrf.test.ts",
+    "test": "refuses a cross-site POST that carries the"
+  },
+  "access-control/Role change recorded": {
+    "file": "test/auth/setup.test.ts",
+    "test": "records who did what, to what and when"
+  },
+  "admin-dashboard/Headless install": {
+    "file": "test/admin/headless.test.ts",
+    "test": "adds no admin route without the admin package"
+  },
+  "admin-dashboard/Custom base": {
+    "file": "test/module/layer-override.test.ts",
+    "test": "serves the admin at its configured base, leaving /admin to the app"
+  },
+  "admin-dashboard/Custom kit": {
+    "file": "test/admin/composables.test.ts",
+    "test": "validates before saving, saves with the version read, and puts server errors on their fields"
+  },
+  "admin-dashboard/Site without Tailwind": {
+    "file": "test/admin/admin.test.ts",
+    "test": "CSS off the site"
+  },
+  "admin-dashboard/Viewer's appearance": {
+    "file": "test/admin/admin.test.ts",
+    "test": "branding, theme tokens, field input override and own page"
+  },
+  "admin-dashboard/Brand color": {
+    "file": "test/admin/admin.test.ts",
+    "test": "branding, theme tokens, field input override and own page"
+  },
+  "admin-dashboard/Override field input": {
+    "file": "test/admin/admin.test.ts",
+    "test": "branding, theme tokens, field input override and own page"
+  },
+  "admin-dashboard/Permission-gated page": {
+    "file": "test/admin/admin.test.ts",
+    "test": "the page only to those allowed"
+  },
+  "admin-dashboard/Bulk publish": {
+    "file": "test/admin/composables.test.ts",
+    "test": "reports bulk failures per entry"
+  },
+  "admin-dashboard/New author from a book": {
+    "file": "test/admin/admin.test.ts",
+    "test": "creates a related entry from a relation field"
+  },
+  "admin-dashboard/Failed jobs visible": {
+    "file": "test/admin/admin.test.ts",
+    "test": "shows failed jobs on the dashboard, with a retry"
+  },
+  "admin-dashboard/Browser crash recovery": {
+    "file": "test/admin/admin.test.ts",
+    "test": "offers unsaved changes back after a crash"
+  },
+  "admin-dashboard/Automated accessibility check": {
+    "file": "test/admin/a11y.test.ts",
+    "test": "has no serious or critical violations on the core views"
+  },
+  "ai-assist/Not configured": {
+    "file": "test/admin/admin.test.ts",
+    "test": "has no AI actions, endpoints or code without @nuxt-atelier/ai"
+  },
+  "ai-assist/Server-side credentials": {
+    "file": "test/ai/ai.test.ts",
+    "test": "keeps the provider key on the server"
+  },
+  "ai-assist/Translate block": {
+    "file": "test/ai/ai.test.ts",
+    "test": "structure, ids and links whatever the model returns"
+  },
+  "ai-assist/Discard suggestion": {
+    "file": "test/ai/ai.test.ts",
+    "test": "shows a suggestion to accept or discard, never saving it"
+  },
+  "ai-assist/Excluded field": {
+    "file": "test/ai/ai.test.ts",
+    "test": "never sends excluded types and fields"
+  },
+  "ai-assist/Usage report": {
+    "file": "test/ai/ai.test.ts",
+    "test": "reports usage per user and action"
+  },
+  "ai-assist/Request beyond the user's permissions": {
+    "file": "test/ai/ai.test.ts",
+    "test": "proposes requests from the command palette, sends only approved ones, as the user"
+  },
+  "block-system/Macro block": {
+    "file": "test/editor/editor.test.ts",
+    "test": "drags blocks in the structure, from the palette and over the preview"
+  },
+  "block-system/Third-party component as block": {
+    "file": "test/blocks/render.test.ts",
+    "test": "renders blocks of both styles"
+  },
+  "block-system/Non-static definition": {
+    "file": "test/blocks/parse.test.ts",
+    "test": "points at a variable in the metadata, with file, line and column"
+  },
+  "block-system/Layer override": {
+    "file": "test/blocks/render.test.ts",
+    "test": "override of a layer block"
+  },
+  "block-system/Disallowed nesting via API": {
+    "file": "test/blocks/render.test.ts",
+    "test": "refuses blocks placed against an area"
+  },
+  "block-system/Option change": {
+    "file": "test/blocks/render.test.ts",
+    "test": "re-renders a block when one of its options changes"
+  },
+  "block-system/Plain CSS block": {
+    "file": "test/editor/editor.test.ts",
+    "test": "selects a block clicked in the page in the structure and the form"
+  },
+  "block-system/Unknown block type in production": {
+    "file": "test/blocks/render.test.ts",
+    "test": "skips a block whose type no longer exists, rendering the rest"
+  },
+  "block-system/Slot props reach a nested block": {
+    "file": "test/blocks/render.test.ts",
+    "test": "gives nested blocks the props their parent passes to the slot"
+  },
+  "block-system/Removed field": {
+    "file": "test/blocks/reconcile.test.ts",
+    "test": "keeps stale content saveable"
+  },
+  "block-system/Added nested area": {
+    "file": "test/blocks/reconcile.test.ts",
+    "test": "add the missing area, without changing the input"
+  },
+  "block-system/Public bundle": {
+    "file": "test/budget/client-js.test.ts",
+    "test": "within 15 KB gzip, with no editing code"
+  },
+  "content-api/List entries": {
+    "file": "test/api/suite.ts",
+    "test": "lists with a filter, sort, field selection and population"
+  },
+  "content-api/Filter and populate": {
+    "file": "test/storage/query.test.ts",
+    "test": "filters, sorts and populates: news by date, newest first, with the author embedded"
+  },
+  "content-api/Type error on unknown field": {
+    "file": "test/fixtures/schema/server/type-checks.ts",
+    "test": "// @ts-expect-error no field \"summary\""
+  },
+  "content-api/Anonymous draft request": {
+    "file": "test/routing/routing.test.ts",
+    "test": "a visitor asking for drafts gets what"
+  },
+  "content-api/Restricted field": {
+    "file": "test/api/suite.ts",
+    "test": "omits fields the caller can"
+  },
+  "content-api/Validation error shape": {
+    "file": "test/api/suite.ts",
+    "test": "answers errors in one shape, with a code and field details"
+  },
+  "content-api/Revoked token": {
+    "file": "test/api/suite.ts",
+    "test": "accepts scoped API tokens, and refuses revoked or expired ones"
+  },
+  "content-api/Login brute force": {
+    "file": "test/auth/csrf.test.ts",
+    "test": "answers 429 after too many failed sign-ins"
+  },
+  "content-api/OpenAPI document": {
+    "file": "test/api/suite.ts",
+    "test": "describes the API in OpenAPI 3.1, for administrators"
+  },
+  "content-lifecycle/Save without publish": {
+    "file": "test/routing/routing.test.ts",
+    "test": "the next draft stays off the site until it"
+  },
+  "content-lifecycle/Unpublish": {
+    "file": "test/routing/routing.test.ts",
+    "test": "and 404 once unpublished"
+  },
+  "content-lifecycle/Restore": {
+    "file": "test/routing/routing.test.ts",
+    "test": "restoring the published version: a new draft with its content, the history kept"
+  },
+  "content-lifecycle/Scheduled publish fires": {
+    "file": "test/storage/schedule.test.ts",
+    "test": "publishes the version that was scheduled when its time comes"
+  },
+  "content-lifecycle/Schedule cancelled by edit": {
+    "file": "test/storage/schedule.test.ts",
+    "test": "whatever the draft holds by then"
+  },
+  "content-lifecycle/Shared preview link": {
+    "file": "test/routing/routing.test.ts",
+    "test": "for anyone with a shared link until it expires"
+  },
+  "content-lifecycle/Cached page updated": {
+    "file": "test/routing/routing.test.ts",
+    "test": "caches what visitors see until content changes"
+  },
+  "content-schema/Collection discovered": {
+    "file": "test/module/schema.test.ts",
+    "test": "registers collections and singletons from the app and its layers"
+  },
+  "content-schema/Layer collection": {
+    "file": "test/module/schema.test.ts",
+    "test": "registers collections and singletons from the app and its layers"
+  },
+  "content-schema/Singleton access": {
+    "file": "test/api/suite.ts",
+    "test": "defaults before its first save, then saves it"
+  },
+  "content-schema/Nested object and repeater": {
+    "file": "test/schema/validation.test.ts",
+    "test": "lists every failing nested object and repeater path"
+  },
+  "content-schema/Server-side rejection": {
+    "file": "test/storage/store.test.ts",
+    "test": "writes nothing for invalid data, with field errors (422)"
+  },
+  "content-schema/Array default": {
+    "file": "test/schema/defaults.test.ts",
+    "test": "never shares array or object defaults between entries or blocks"
+  },
+  "content-schema/Custom field": {
+    "file": "test/admin/admin.test.ts",
+    "test": "own input, and saves its value"
+  },
+  "content-schema/Delete with restrict": {
+    "file": "test/storage/store.test.ts",
+    "test": "refuses to delete an entry a restricting relation points to, listing the references"
+  },
+  "content-schema/Editing one side": {
+    "file": "test/storage/store.test.ts",
+    "test": "keeps both sides of a two-way relation in sync, whichever side is edited"
+  },
+  "content-schema/Declared rename": {
+    "file": "test/storage/migrate.test.ts",
+    "test": "keeps the data of a field declared as renamed"
+  },
+  "content-schema/External link only when chosen": {
+    "file": "test/schema/conditions.test.ts",
+    "test": "drops a field whose condition is false, and requires it only when true"
+  },
+  "content-search/Weighted title": {
+    "file": "test/storage/search.test.ts",
+    "test": "ranks a title match above a body match"
+  },
+  "content-search/Draft excluded": {
+    "file": "test/api/suite.ts",
+    "test": "drafts never"
+  },
+  "content-search/Published content searchable": {
+    "file": "test/api/suite.ts",
+    "test": "indexed as they"
+  },
+  "content-search/Same API across databases": {
+    "file": "test/storage/search.test.ts",
+    "test": "with the same answer shape everywhere"
+  },
+  "content-search/Permission filtering": {
+    "file": "test/admin/admin.test.ts",
+    "test": "finds entries, users and admin pages from the global search, only what the user may see"
+  },
+  "content-search/Injection attempt": {
+    "file": "test/storage/search.test.ts",
+    "test": "treats operators and SQL as plain words: no error, nothing leaked"
+  },
+  "content-storage/Switch database by URL": {
+    "file": "test/module/runtime-config.test.ts",
+    "test": "connects to another engine from the env alone"
+  },
+  "content-storage/Unsupported operation on edge DB": {
+    "file": "test/storage/store.test.ts",
+    "test": "runs a transaction, or refuses it on D1 with the limitation named and nothing changed"
+  },
+  "content-storage/Removed field": {
+    "file": "test/storage/migrate.test.ts",
+    "test": "writes no drop for a removed field until it is confirmed"
+  },
+  "content-storage/Pending migrations in production": {
+    "file": "test/storage/production-migrations.test.ts",
+    "test": "refuses CMS writes while the bundled migrations are pending"
+  },
+  "content-storage/Add field in dev": {
+    "file": "test/storage/dev-migrations.test.ts",
+    "test": "applies an added field without manual steps"
+  },
+  "content-storage/Failure mid-save": {
+    "file": "test/storage/store.test.ts",
+    "test": "leaves no partial data when a save fails after writing some rows"
+  },
+  "content-storage/Stale save": {
+    "file": "test/storage/store.test.ts",
+    "test": "refuses a stale save with 409 and the current version"
+  },
+  "content-storage/SQLite to PostgreSQL": {
+    "file": "test/storage/transfer.test.ts",
+    "test": "reproduces every entry, revision, relation and singleton exactly"
+  },
+  "content-storage/A migration that would fail": {
+    "file": "test/storage/rehearse.test.ts",
+    "test": "reports the migration that fails, runs none after it, and changes nothing"
+  },
+  "documentation-site/Docs build with workspace packages": {
+    "file": ".github/workflows/ci.yml",
+    "test": "run: bun run docs:build"
+  },
+  "documentation-site/Demo reset": {
+    "file": "test/demo/demo.test.ts",
+    "test": "deletes an idle demo, edits and all"
+  },
+  "documentation-site/Editor guide coverage": {
+    "file": "test/docs/completeness.test.ts",
+    "test": "has an editor guide for every admin feature"
+  },
+  "documentation-site/Config reference completeness": {
+    "file": "test/docs/config-reference.test.ts",
+    "test": "documents every module option"
+  },
+  "documentation-site/Following the tutorial": {
+    "file": "test/examples/tutorial-build.test.ts",
+    "test": "chapter %i (%s) builds"
+  },
+  "documentation-site/Generated reference": {
+    "file": "test/docs/api-reference.test.ts",
+    "test": "documents the public API as the source has it"
+  },
+  "editorial-collaboration/Locked entry": {
+    "file": "test/admin/admin.test.ts",
+    "test": "locks an entry for its editor, shows who else is there"
+  },
+  "editorial-collaboration/Abandoned lock": {
+    "file": "test/storage/collab.test.ts",
+    "test": "frees an abandoned lock once it expires"
+  },
+  "editorial-collaboration/Takeover": {
+    "file": "test/admin/admin.test.ts",
+    "test": "pushes a takeover within 2 seconds"
+  },
+  "editorial-collaboration/Presence indicator": {
+    "file": "test/admin/admin.test.ts",
+    "test": "shows who else is there"
+  },
+  "editorial-collaboration/Pushed lock change": {
+    "file": "test/admin/admin.test.ts",
+    "test": "pushes a takeover within 2 seconds"
+  },
+  "editorial-collaboration/Polling fallback": {
+    "file": "test/admin/admin.test.ts",
+    "test": "falls back to polling when the real-time connection is unavailable"
+  },
+  "editorial-collaboration/Cross-site WebSocket rejected": {
+    "file": "test/api/suite.ts",
+    "test": "opens the real-time connection only with a fresh ticket"
+  },
+  "editorial-collaboration/Comment on block": {
+    "file": "test/editor/editor.test.ts",
+    "test": "marks blocks with open comment threads in the preview"
+  },
+  "editorial-collaboration/Block deleted": {
+    "file": "test/blocks/render.test.ts",
+    "test": "keeps comments on a block, marked as about a removed block"
+  },
+  "editorial-collaboration/Mention notification": {
+    "file": "test/admin/admin.test.ts",
+    "test": "notifies a mentioned user of a comment, which takes them to it"
+  },
+  "extensibility/Abort on validation hook": {
+    "file": "test/routing/routing.test.ts",
+    "test": "error reaches the client"
+  },
+  "extensibility/Hook failure isolation": {
+    "file": "test/storage/hooks.test.ts",
+    "test": "keeps a write whose after-hook fails, and reports the failure"
+  },
+  "extensibility/Native platform scheduler": {
+    "file": "test/routing/routing.test.ts",
+    "test": "runs background jobs on Nitro"
+  },
+  "extensibility/Retry then fail": {
+    "file": "test/storage/jobs.test.ts",
+    "test": "retries with backoff, then keeps the job as failed with its last error"
+  },
+  "extensibility/Serverless trigger": {
+    "file": "test/storage/jobs.test.ts",
+    "test": "starts no job after the time budget: the rest stay queued"
+  },
+  "extensibility/Signed delivery": {
+    "file": "test/routing/routing.test.ts",
+    "test": "delivers signed webhooks for published posts"
+  },
+  "extensibility/Internal address blocked": {
+    "file": "test/module/webhooks.test.ts",
+    "test": "refuses URLs reaching internal addresses, by name too, unless allowlisted"
+  },
+  "extensibility/Install plugin": {
+    "file": "test/module/plugin.test.ts",
+    "test": "adds its own admin page and text, and the admin input for its field type"
+  },
+  "extensibility/Reset admin password": {
+    "file": "test/storage/cli.test.ts",
+    "test": "resets a password and signs the user out of every session"
+  },
+  "forms/Create contact form": {
+    "file": "test/forms/forms.test.ts",
+    "test": "refuses a broken definition, and publishes a good one"
+  },
+  "forms/Server rejects bypass": {
+    "file": "test/forms/forms.test.ts",
+    "test": "rejects a submission that skipped the browser"
+  },
+  "forms/Retention": {
+    "file": "test/storage/forms.test.ts",
+    "test": "deletes submissions past their form"
+  },
+  "forms/Honeypot filled": {
+    "file": "test/forms/forms.test.ts",
+    "test": "drops spam quietly: a filled honeypot"
+  },
+  "forms/Private file": {
+    "file": "test/forms/forms.test.ts",
+    "test": "stores a submission with a private file"
+  },
+  "forms/Notify": {
+    "file": "test/forms/forms.test.ts",
+    "test": "stores a submission with a private file, notifies"
+  },
+  "forms/Erasure request": {
+    "file": "test/storage/forms.test.ts",
+    "test": "erases every submission with an email, of any form, files included"
+  },
+  "localization/Shared field": {
+    "file": "test/storage/localized.test.ts",
+    "test": "changes a shared field in every locale"
+  },
+  "localization/Create translation": {
+    "file": "test/admin/admin.test.ts",
+    "test": "adds and links an entry"
+  },
+  "localization/Missing translation": {
+    "file": "test/storage/localized.test.ts",
+    "test": "falls back to another locale, saying which fields came from where"
+  },
+  "localization/Shared structure": {
+    "file": "test/storage/localized.test.ts",
+    "test": "keeps one block structure across locales, with translated text"
+  },
+  "localization/Default adapter": {
+    "file": "test/routing/i18n.ts",
+    "test": "version under its prefix, with fallbacks"
+  },
+  "localization/No i18n module": {
+    "file": "test/api/suite.ts",
+    "test": "creates translations prefilled from the original, and reads a locale with fallbacks"
+  },
+  "localization/Admin in German": {
+    "file": "test/admin/admin.test.ts",
+    "test": "apart from the content, English where a translation lacks text"
+  },
+  "media-library/Disguised file": {
+    "file": "test/storage/media.test.ts",
+    "test": "refuses a disguised executable"
+  },
+  "media-library/Dev restart": {
+    "file": "test/storage/media.test.ts",
+    "test": "stores an upload under its id, its type from its content"
+  },
+  "media-library/Ephemeral filesystem warning": {
+    "file": "test/module/jobs-presets.test.ts",
+    "test": "warns that local media storage won"
+  },
+  "media-library/Search by tag": {
+    "file": "test/storage/media.test.ts",
+    "test": "searches by tag, text and type"
+  },
+  "media-library/Focal point crop": {
+    "file": "test/storage/images.test.ts",
+    "test": "keeps the focal point in a square crop of a wide image"
+  },
+  "media-library/Edge runtime": {
+    "file": "test/storage/workers.test.ts",
+    "test": "serves the original, sized or not, from the Worker"
+  },
+  "media-library/Delete used image": {
+    "file": "test/admin/admin.test.ts",
+    "test": "warns before deleting a file in use"
+  },
+  "media-library/Connection drops mid-upload": {
+    "file": "test/storage/media.test.ts",
+    "test": "resumes an upload after a dropped connection, finishing byte for byte"
+  },
+  "media-library/Anonymous request for a private file": {
+    "file": "test/routing/routing.test.ts",
+    "test": "keeps private files from visitors"
+  },
+  "module-integration/Module without layer": {
+    "file": "test/admin/admin.test.ts",
+    "test": "creates the first administrator, then an entry, and lists it"
+  },
+  "module-integration/Overriding a layer file": {
+    "file": "test/module/layer-override.test.ts",
+    "test": "admin home instead of the layer"
+  },
+  "module-integration/Existing app with pages": {
+    "file": "test/module/host-app.test.ts",
+    "test": "renders the host page %s in the host app.vue and layout"
+  },
+  "module-integration/Invalid option": {
+    "file": "test/module/options.test.ts",
+    "test": "rejects an unsupported database URL scheme, naming option, value and accepted schemes"
+  },
+  "module-integration/Env override": {
+    "file": "test/module/runtime-config.test.ts",
+    "test": "takes env overrides in the same build, without a rebuild"
+  },
+  "module-integration/DevTools installed": {
+    "file": "test/devtools/devtools.test.ts",
+    "test": "shows the schema and the same migration status as the CLI"
+  },
+  "module-integration/Not installed or production": {
+    "file": "test/devtools/devtools.test.ts",
+    "test": "registers nothing in production or with DevTools off"
+  },
+  "module-integration/Authorization disabled": {
+    "file": "test/devtools/devtools.test.ts",
+    "test": "refuses the actions without DevTools"
+  },
+  "module-integration/Unsupported Nuxt version": {
+    "file": "test/module/compatibility.test.ts",
+    "test": "fails on Nuxt 4.5 with the required range"
+  },
+  "module-integration/Nuxt 5 runtime": {
+    "file": "test/api/content-api-v5.test.ts",
+    "test": "contentApiSuite('compatibilityVersion 5'"
+  },
+  "module-integration/Static check": {
+    "file": "test/lint/public-api-only.test.ts",
+    "test": "public-api-only rule flags every forbidden pattern in the fixture"
+  },
+  "multi-site/Default install": {
+    "file": "test/module/sites.test.ts",
+    "test": "has one implicit site without sites"
+  },
+  "multi-site/Resolve site by host": {
+    "file": "test/sites/sites.test.ts",
+    "test": "picks the site by host"
+  },
+  "multi-site/Unknown host": {
+    "file": "test/module/sites.test.ts",
+    "test": "serves unknown hosts with the fallback site, or nobody"
+  },
+  "multi-site/Cross-site isolation": {
+    "file": "test/sites/sites.test.ts",
+    "test": "singletons and URLs to itself"
+  },
+  "multi-site/Restricted editor": {
+    "file": "test/sites/sites.test.ts",
+    "test": "lets an editor reach only the sites they have a role on"
+  },
+  "multi-site/Per-site sitemap": {
+    "file": "test/sites/sites.test.ts",
+    "test": "serves each site its own sitemap"
+  },
+  "multi-site/Isolation test suite": {
+    "file": "test/sites/sites.test.ts",
+    "test": "keeps media, forms, comments and API tokens to their site"
+  },
+  "reusable-content/Update shared footer CTA": {
+    "file": "test/blocks/render.test.ts",
+    "test": "updates every page placing a shared block when it"
+  },
+  "reusable-content/Detach": {
+    "file": "test/blocks/render.test.ts",
+    "test": "and detaches a copy on one page"
+  },
+  "reusable-content/Delete in use": {
+    "file": "test/blocks/render.test.ts",
+    "test": "not deleted while placed; detached everywhere, it can be"
+  },
+  "reusable-content/Insert pattern": {
+    "file": "test/blocks/render.test.ts",
+    "test": "inserts patterns and starts entries from templates as independent copies with fresh ids"
+  },
+  "reusable-content/New page from template": {
+    "file": "test/admin/admin.test.ts",
+    "test": "starts a new entry from a template"
+  },
+  "reusable-content/Cross-entry paste": {
+    "file": "test/editor/editor.test.ts",
+    "test": "copies a block in one entry and pastes it in another"
+  },
+  "runtime-performance/Budget exceeded": {
+    "file": "test/budget/client-js.test.ts",
+    "test": "within 15 KB gzip"
+  },
+  "runtime-performance/Regression detected": {
+    "file": "scripts/bench.test.ts",
+    "test": "fails over budget, and over 10%"
+  },
+  "runtime-performance/Many blocks": {
+    "file": "test/storage/query-count.test.ts",
+    "test": "reads an entry with 200 blocks and 20 relations"
+  },
+  "runtime-performance/Oversized page size": {
+    "file": "test/api/suite.ts",
+    "test": "capped to the largest page size"
+  },
+  "runtime-performance/Deep nesting": {
+    "file": "test/schema/validation.test.ts",
+    "test": "refuses blocks nested deeper than maxNestingDepth"
+  },
+  "runtime-performance/Large export": {
+    "file": "test/storage/transfer-memory.test.ts",
+    "test": "stream a 150 MB archive within the memory ceiling"
+  },
+  "runtime-performance/Preview not cached": {
+    "file": "test/routing/routing.test.ts",
+    "test": "never drafts or signed-in answers"
+  },
+  "runtime-performance/Missing secret in production": {
+    "file": "test/api/health.test.ts",
+    "test": "refuses to start in production without an app secret"
+  },
+  "runtime-performance/Stored XSS attempt": {
+    "file": "test/module/security.test.ts",
+    "test": "removes script-like nodes, event handlers and javascript: links before storage"
+  },
+  "runtime-performance/Unused dependency": {
+    "file": ".github/workflows/ci.yml",
+    "test": "run: bun run knip"
+  },
+  "runtime-performance/Database down": {
+    "file": "test/api/health.test.ts",
+    "test": "answers 503 for readiness, 200 for liveness"
+  },
+  "runtime-performance/Shutdown during job": {
+    "file": "test/storage/jobs.test.ts",
+    "test": "on shutdown, waits for running jobs, then requeues the rest without counting the attempt"
+  },
+  "seo-metadata/Fallback title": {
+    "file": "test/module/seo.test.ts",
+    "test": "own fields and the page"
+  },
+  "seo-metadata/SSR meta": {
+    "file": "test/routing/routing.test.ts",
+    "test": "renders search and social metadata on the server"
+  },
+  "seo-metadata/hreflang": {
+    "file": "test/routing/i18n.ts",
+    "test": "version under its prefix, with fallbacks"
+  },
+  "seo-metadata/Article schema": {
+    "file": "test/routing/routing.test.ts",
+    "test": "renders search and social metadata on the server"
+  },
+  "seo-metadata/Noindex excluded": {
+    "file": "test/routing/routing.test.ts",
+    "test": "lists published, indexable pages in /sitemap.xml"
+  },
+  "seo-metadata/Admin disallowed": {
+    "file": "test/seo/crawlers.test.ts",
+    "test": "keeps the admin and the CMS API out of every group"
+  },
+  "seo-metadata/Missing description": {
+    "file": "test/admin/admin.test.ts",
+    "test": "with advice that never blocks saving"
+  },
+  "site-routing/New page without code": {
+    "file": "test/routing/routing.test.ts",
+    "test": "serves an entry at its URL with the catch-all page"
+  },
+  "site-routing/Localized URL pattern": {
+    "file": "test/routing/routing.test.ts",
+    "test": "pattern with the type"
+  },
+  "site-routing/Conflicting path": {
+    "file": "test/routing/routing.test.ts",
+    "test": "own pages in front of entries with the same URL"
+  },
+  "site-routing/Parent slug change": {
+    "file": "test/storage/store.test.ts",
+    "test": "nests URLs under the parent"
+  },
+  "site-routing/Unpublished path": {
+    "file": "test/routing/routing.test.ts",
+    "test": "and 404 once unpublished"
+  },
+  "site-routing/Redirect loop": {
+    "file": "test/schema/redirects.test.ts",
+    "test": "finds loops, through patterns too"
+  },
+  "site-routing/Linked page renamed": {
+    "file": "test/routing/routing.test.ts",
+    "test": "resolves rich-text links to entries by id, so they follow a rename"
+  },
+  "site-routing/Custom layout reads entry": {
+    "file": "test/routing/routing.test.ts",
+    "test": "pattern with the type"
+  },
+  "visual-editor/Unsaved edit visible": {
+    "file": "test/routing/editor.test.ts",
+    "test": "unsaved state within 150 ms"
+  },
+  "visual-editor/Foreign origin message": {
+    "file": "test/blocks/bridge.test.ts",
+    "test": "ignores another origin, another window, a missing source"
+  },
+  "visual-editor/Edit mode without token": {
+    "file": "test/routing/editor.test.ts",
+    "test": "renders a page public without a valid token"
+  },
+  "visual-editor/Click to select": {
+    "file": "test/editor/editor.test.ts",
+    "test": "selects a block clicked in the page in the structure and the form"
+  },
+  "visual-editor/Drag into disallowed area": {
+    "file": "test/editor/editor.test.ts",
+    "test": "rejects drops the rules forbid"
+  },
+  "visual-editor/Inline rich text": {
+    "file": "test/editor/editor.test.ts",
+    "test": "edits rich text in place, with formatting, into the form and the saved entry"
+  },
+  "visual-editor/Empty teaser list": {
+    "file": "test/routing/editor.test.ts",
+    "test": "reports blocks, placeholders and clicks"
+  },
+  "visual-editor/Page title": {
+    "file": "test/editor/editor.test.ts",
+    "test": "own title in place, undoably"
+  },
+  "visual-editor/Undo move": {
+    "file": "test/editor/editor.test.ts",
+    "test": "moves a block with the keyboard, announces it, and undoes the move"
+  },
+  "visual-editor/Mobile preset": {
+    "file": "test/editor/editor.test.ts",
+    "test": "keeps its chrome and the preview apart from the host"
+  },
+  "visual-editor/Carousel items": {
+    "file": "test/editor/editor.test.ts",
+    "test": "shows a proxy-mode block with all its slides"
+  },
+  "visual-editor/Conflicting global CSS": {
+    "file": "test/editor/editor.test.ts",
+    "test": "keeps its chrome and the preview apart from the host"
+  },
+  "visual-editor/Command palette": {
+    "file": "test/editor/editor.test.ts",
+    "test": "inserts a block from the command palette"
+  },
+  "visual-editor/Keyboard move": {
+    "file": "test/editor/editor.test.ts",
+    "test": "moves a block with the keyboard, announces it"
+  },
+  "access-control/Editor without publish": {
+    "file": "test/admin/admin.test.ts",
+    "test": "without publish: she saves drafts"
+  },
+  "content-lifecycle/History list": {
+    "file": "test/admin/admin.test.ts",
+    "test": "lists an entry\\'s history with author, time and publication"
+  },
+  "localization/Single locale": {
+    "file": "test/editor/editor.test.ts",
+    "test": "shows no locale switcher or translation UI in an app with one locale"
+  },
+  "extensibility/Custom block action": {
+    "file": "test/editor/editor.test.ts",
+    "test": "a block action a plugin added"
+  },
+  "media-library/Drop upload": {
+    "file": "test/editor/editor.test.ts",
+    "test": "uploads an image file dropped on a block in the page"
+  },
+  "module-integration/Zero-config install": {
+    "file": "test/module/boot.test.ts",
+    "test": "serves the admin at /admin, which asks for the first administrator"
+  },
+  "module-integration/Type refresh": {
+    "file": "test/blocks/dev.test.ts",
+    "test": "types queries with a field added to a collection"
+  },
+  "runtime-performance/Login failure log": {
+    "file": "test/auth/builtin.test.ts",
+    "test": "logs a failed sign-in as a JSON line"
+  },
+  "documentation-site/Index available": {
+    "file": "docs/scripts/check-output.ts",
+    "test": "llms-full.txt"
+  },
+  "documentation-site/Breaking change release": {
+    "file": "test/docs/changesets.test.ts",
+    "test": "asks a breaking change for a link to its migration steps"
+  },
+  "content-storage/External backend": {
+    "file": "test/editor/editor.test.ts",
+    "test": "edits content an adapter serves: adds, moves, edits and saves blocks through it"
+  },
+  "content-storage/No revisions support": {
+    "file": "test/editor/editor.test.ts",
+    "test": "expect(revisionCalls).toEqual([])"
+  },
+  "documentation-site/Guide contents": {
+    "file": "test/docs/hosting.test.ts",
+    "test": "cover every example directory and file, with every section"
+  },
+  "documentation-site/Platform limitations": {
+    "file": "test/docs/hosting.test.ts",
+    "test": "catch a missing section, a section out of order, and a limitation without an alternative"
+  },
+  "documentation-site/New contributor setup": {
+    "file": ".github/workflows/ci.yml",
+    "test": "bun scripts/contributor-setup.ts"
+  },
+  "documentation-site/Examples stay correct": {
+    "file": "test/deploy/node.test.ts",
+    "test": "runs as the systemd unit says"
+  },
+  "module-integration/Install from registry": {
+    "file": "test/deploy/registry.test.ts",
+    "test": "loads every package in plain Node, without a TypeScript loader"
+  }
+}
