@@ -12,6 +12,7 @@ import { loadNuxt } from '@nuxt/kit'
 import { createJiti } from 'jiti'
 import { resolveOptions } from '../options'
 import { connect, dialectOf } from '../runtime/server/db/driver'
+import type { MigrationStatus } from '../runtime/server/db/migrations'
 import { applyMigrations, destructiveChanges, localMigrationNames, migrationsFolder, migrationStatus, rehearseMigrations } from '../runtime/server/db/migrations'
 import { buildTables, collectionTable, publishedTable } from '../runtime/server/db/tables'
 import { allDrivers } from '../runtime/server/db/loaders'
@@ -67,8 +68,12 @@ export async function loadProject(cwd: string): Promise<Project> {
 
 /** A schema change that would lose data unless the developer confirms it. */
 export class DataLossError extends Error {
+  /** Each change, with the `--drop` or `--rename` flag that confirms it. */
+  readonly suggestions: string[]
   constructor(readonly changes: string[]) {
-    super(`[nuxt-atelier] The schema change would lose data, so no migration was written:\n${[...new Set(changes.map(suggestion))].join('\n')}`)
+    const suggestions = [...new Set(changes.map(suggestion))]
+    super(`[nuxt-atelier] The schema change would lose data, so no migration was written:\n${suggestions.join('\n')}`)
+    this.suggestions = suggestions.map(s => s.trim())
   }
 }
 
@@ -264,7 +269,7 @@ export async function rehearseProjectMigrations(project: Project, dialect = dial
   }
 }
 
-export async function projectMigrationStatus(project: Project) {
+export async function projectMigrationStatus(project: Project): Promise<MigrationStatus> {
   const driver = await connect(project.databaseUrl, { loaders: allDrivers })
   try {
     return await migrationStatus(driver, localMigrationNames(migrationsFolder(project.rootDir, driver.dialect)))

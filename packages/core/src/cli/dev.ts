@@ -12,7 +12,10 @@ const DEFINITION = /(?:^|\/)atelier\/(?:(?:collections|singletons)\/|tables\.[mc
 // One run at a time across the process: a quick second edit, or a Nuxt restart mid-run, waits for the
 // current migration instead of generating the same one twice. On globalThis because a restart re-imports
 // this module, which would give the new Nuxt instance its own queue.
-const shared = globalThis as { atelierDevMigrations?: Promise<void> }
+const shared = globalThis as { atelierDevMigrations?: Promise<void>, atelierBlockedChanges?: string[] }
+
+/** The schema change `nuxt dev` couldn't apply because it would lose data, with the flags that confirm it. */
+export const blockedSchemaChanges = (): string[] => shared.atelierBlockedChanges ?? []
 
 export function setupDevMigrations(nuxt: Nuxt): void {
   const logger = useLogger('nuxt-atelier')
@@ -26,11 +29,13 @@ export function setupDevMigrations(nuxt: Nuxt): void {
   async function migrateProject(project: Awaited<ReturnType<typeof projectFromNuxt>>) {
     try {
       const folder = await generateMigration(project)
+      shared.atelierBlockedChanges = []
       if (folder)
         logger.info(`Schema changed: wrote ${relative(project.rootDir, folder)}/migration.sql (commit it with your schema change)`)
     }
     catch (error) {
       if (error instanceof DataLossError) {
+        shared.atelierBlockedChanges = error.suggestions
         logger.warn(`${error.message.replace('[nuxt-atelier] ', '')}\nThe dev database keeps the old shape until you run \`npx atelier migrate generate\` with one of those flags.`)
       }
       else if (error instanceof MissingKitError) {

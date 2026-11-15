@@ -56,7 +56,7 @@ export const unconfirmedChanges = (migration: string) => {
   return destructiveChanges(migration).filter(change => !confirmed.has(change))
 }
 
-interface MigrationStatus {
+export interface MigrationStatus {
   applied: string[]
   pending: string[]
 }
