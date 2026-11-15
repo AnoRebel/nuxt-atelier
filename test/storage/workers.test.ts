@@ -1,14 +1,19 @@
 // Workers smoke test: the workers fixture built with the cloudflare-module preset, run in Miniflare
-// (workerd) with a local D1 database. Migrations auto-apply as one batch; saves run as D1 batches.
+// (workerd) with a local D1 database. Migrations auto-apply as one batch; saves run as D1 batches. With
+// ATELIER_TEST_S3_URL (MinIO), media is stored on S3 and served by the Worker: originals, since a Worker has
+// no sharp to size images.
 import { execFile } from 'node:child_process'
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
+import { AwsClient } from 'aws4fetch'
 import { Miniflare } from 'miniflare'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const rootDir = fileURLToPath(new URL('../fixtures/workers', import.meta.url))
+const s3 = process.env.ATELIER_TEST_S3_URL ? new URL(process.env.ATELIER_TEST_S3_URL) : undefined
+const PNG = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='), c => c.charCodeAt(0))
 
 describe('Cloudflare Workers with D1', () => {
   let mf: Miniflare
@@ -36,7 +41,15 @@ describe('Cloudflare Workers with D1', () => {
       compatibilityDate: '2026-08-01',
       compatibilityFlags: ['nodejs_compat'],
       d1Databases: ['DB'],
+      bindings: s3
+        ? { NUXT_ATELIER_S3_ENDPOINT: s3.origin, NUXT_ATELIER_S3_BUCKET: s3.pathname.slice(1), NUXT_ATELIER_S3_REGION: 'us-east-1', NUXT_ATELIER_S3_ACCESS_KEY_ID: decodeURIComponent(s3.username), NUXT_ATELIER_S3_SECRET_ACCESS_KEY: decodeURIComponent(s3.password) }
+        : {},
     })
+    if (s3) { // the bucket, made when missing (a fresh MinIO has none)
+      const client = new AwsClient({ accessKeyId: decodeURIComponent(s3.username), secretAccessKey: decodeURIComponent(s3.password), region: 'us-east-1', service: 's3' })
+      for (let attempt = 0; attempt < 30 && !(await client.fetch(`${s3.origin}${s3.pathname}`, { method: 'PUT' }).then(r => r.ok || r.status === 409, () => false)); attempt++)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+    }
   }, 300_000)
   afterAll(() => mf?.dispose())
 
@@ -55,5 +68,18 @@ describe('Cloudflare Workers with D1', () => {
   it('reports validation errors from the Worker', async () => {
     expect(await request('POST', '/api/notes', { title: '' }))
       .toMatchObject({ status: 422, body: { data: { errors: [{ path: 'title', message: 'required' }] } } })
+  })
+
+  it.skipIf(!s3)('stores media on S3 and serves the original, sized or not, from the Worker', async () => {
+    const uploaded = await mf.dispatchFetch('http://localhost/api/media?filename=pixel.png', { method: 'POST', body: PNG })
+    expect(uploaded.status).toBe(200)
+    const item = await uploaded.json() as { key: string, mime: string }
+    expect(item.mime).toBe('image/png')
+    for (const query of ['', '?w=640']) {
+      const served = await mf.dispatchFetch(`http://localhost/_atelier/media/${item.key}${query}`)
+      expect(served.status).toBe(200)
+      expect(served.headers.get('content-type')).toBe('image/png')
+      expect(new Uint8Array(await served.arrayBuffer())).toEqual(PNG)
+    }
   })
 })
