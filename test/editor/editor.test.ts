@@ -2,13 +2,12 @@
 // the structure and the form, moving blocks by keyboard (announced) and undoing it, editing the entry's
 // own title in place, and an accessible chrome.
 import type { Locator, Page } from 'playwright-core'
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { $fetch, createPage, setup, startServer, url } from '@nuxt/test-utils/e2e'
-import sharp from 'sharp'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 const rootDir = fileURLToPath(new URL('../fixtures/editor', import.meta.url))
@@ -367,41 +366,27 @@ describe('visual editor', async () => {
     expect(style.cursor).toBe('pointer')
     expect(await page.locator('[data-tree-block="p1"]').evaluate(el => getComputedStyle(el).display)).toBe('block')
 
-    // the preview, at the mobile width, is the public page pixel for pixel (a window wide enough for the
-    // stage to show the whole frame; the frame may sit a fraction of a pixel off, so a 1px shift is allowed)
+    // the preview, at the mobile width, lays the page out and styles it exactly as the public page: every
+    // element's box and the styles the site's CSS decides. (Not pixels: an iframe's text may be anti-aliased
+    // differently, as on CI's Chromium, without any CSS leaking in.)
     await page.setViewportSize({ width: 1600, height: 800 })
     await page.getByLabel('Custom').fill('375')
     const frame = page.locator('iframe[title="Preview of the page"]')
     await expect.poll(async () => (await frame.boundingBox())?.width).toBe(375)
-    await page.mouse.move(0, 0) // no hover box over it
-    await page.waitForTimeout(300)
     const box = (await frame.boundingBox())!
     const visitor = await createPage(url('/plain'), { viewport: { width: 375, height: Math.floor(box.height) } })
     await visitor.getByText('Plain card').waitFor()
-    const raw = async (png: Buffer) => sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
-    const shots = await Promise.all([frame.screenshot(), visitor.screenshot()])
-    const [inEditor, onSite] = await Promise.all([raw(shots[0]), raw(shots[1])])
-    const width = Math.min(inEditor.info.width, onSite.info.width) - 2
-    const height = Math.min(inEditor.info.height, onSite.info.height) - 2
-    const differing = (dx: number, dy: number) => {
-      let count = 0
-      for (let y = 1; y < height; y++) {
-        for (let x = 1; x < width; x++) {
-          const a = (y * inEditor.info.width + x) * 4
-          const b = ((y + dy) * onSite.info.width + x + dx) * 4
-          if (Math.abs(inEditor.data[a]! - onSite.data[b]!) + Math.abs(inEditor.data[a + 1]! - onSite.data[b + 1]!) + Math.abs(inEditor.data[a + 2]! - onSite.data[b + 2]!) > 24)
-            count++
-        }
-      }
-      return count / (width * height)
-    }
-    const best = Math.min(...[-1, 0, 1].flatMap(dx => [-1, 0, 1].map(dy => differing(dx, dy))))
-    if (best >= 0.001) { // both screenshots, to see what differs (CI uploads test-results/)
-      mkdirSync('test-results/editor-isolation', { recursive: true })
-      writeFileSync('test-results/editor-isolation/in-editor.png', shots[0])
-      writeFileSync('test-results/editor-isolation/on-site.png', shots[1])
-    }
-    expect(best).toBeLessThan(0.001)
+    const layout = () => [...document.body.querySelectorAll('*')]
+      .filter(el => el.getClientRects().length && !['SCRIPT', 'STYLE', 'LINK', 'TEMPLATE'].includes(el.tagName))
+      .map((el) => {
+        const r = el.getBoundingClientRect()
+        const s = getComputedStyle(el)
+        return [el.tagName, ...[r.x, r.y, r.width, r.height].map(n => Math.round(n)), s.display, s.boxSizing, s.fontFamily, s.fontSize, s.fontWeight, s.lineHeight, s.color, s.backgroundColor, s.margin, s.padding, s.border].join(' ')
+      })
+    const preview = (await (await frame.elementHandle())!.contentFrame())!
+    const [inEditor, onSite] = await Promise.all([preview.evaluate(layout), visitor.evaluate(layout)])
+    expect(inEditor.length).toBeGreaterThan(3)
+    expect(inEditor).toEqual(onSite)
   })
 
   it('has no serious accessibility problems in its chrome', async () => {
