@@ -18,7 +18,7 @@ import { apiError, readValid, validated } from '../errors'
 import { audit, toHttpError, useAtelierEntries, useAtelierSchema, useAtelierSite } from '../index'
 import { scheduleRequest } from '../scheduling'
 import { shadowed } from '../shadowing'
-import { allow, assertMigrated, assertUnlocked, assertWritable, caller, countWrite, limits, mediaOf, present, restorable, segments, select, stageFor } from '../content-access'
+import { allow, assertMigrated, assertUnlocked, assertWritable, caller, countWrite, limits, mediaOf, present, historyList, restorable, segments, select, stageFor } from '../content-access'
 
 const PREFIX = '/api/_atelier/singletons'
 const Query = v.object({
@@ -112,7 +112,7 @@ export default defineEventHandler(async (event) => {
       allow(who, 'update', name) // history is part of editing: drafts are in it
       const history = await entries.revisions(name, id)
       if (version === undefined)
-        return history.map(({ version, createdAt, authorId, published }) => ({ version, createdAt, authorId, published }))
+        return historyList(history)
       const revision = history.find(r => String(r.version) === version)
       if (!revision)
         throw apiError(404, `No version ${version} of "${name}"`)

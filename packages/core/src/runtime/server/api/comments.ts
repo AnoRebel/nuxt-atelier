@@ -12,7 +12,7 @@ import * as v from 'valibot'
 import { notifyUser } from '../collab/notify'
 import { blockIds } from '../collab/store'
 import { publish } from '../collab/realtime'
-import { countWrite, segments } from '../content-access'
+import { countWrite, namesOf, segments } from '../content-access'
 import { apiError, readValid } from '../errors'
 import { assertMigrated, requireUser, useAtelierAuth, useAtelierCollab, useAtelierEntries, useAtelierPolicy, useAtelierSchema, useAtelierSite } from '../index'
 import { readableType } from './collab'
@@ -54,11 +54,7 @@ export default defineEventHandler(async (event) => {
 
   if (!commentId && method === 'GET') {
     const [comments, blocks] = await Promise.all([collab.comments(type, id), blocksNow()])
-    const users = (await useAtelierAuth()).users
-    const names = new Map(await Promise.all([...new Set(comments.map(c => c.author))].map(async (author) => {
-      const found = await users.get(author).catch(() => null)
-      return [author, found?.name || found?.email || author] as const
-    })))
+    const names = await namesOf(comments.map(c => c.author))
     return comments.map(c => ({ ...c, authorName: names.get(c.author), orphaned: !!c.block && !blocks.has(c.block) }))
   }
   if (!commentId && method === 'POST') {

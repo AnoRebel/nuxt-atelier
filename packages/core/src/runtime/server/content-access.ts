@@ -194,3 +194,18 @@ export function segments(event: RequestEvent, prefix: string): string[] {
 }
 
 export { assertMigrated }
+
+/** Users' display names (name, else email, else the id) by id: for authors of comments and revisions. */
+export async function namesOf(ids: (string | null | undefined)[]): Promise<Map<string, string>> {
+  const users = (await useAtelierAuth()).users
+  return new Map(await Promise.all([...new Set(ids.filter((id): id is string => !!id))].map(async (id) => {
+    const found = await users.get(id).catch(() => null)
+    return [id, found?.name || found?.email || id] as const
+  })))
+}
+
+/** An entry's history for the admin: newest first, each with its author's name. */
+export async function historyList(history: { version: number, createdAt: string, authorId: string | null, published: boolean }[]) {
+  const names = await namesOf(history.map(r => r.authorId))
+  return history.map(({ version, createdAt, authorId, published }) => ({ version, createdAt, authorId, authorName: authorId ? names.get(authorId) ?? null : null, published }))
+}
