@@ -402,6 +402,13 @@
         "nuxt": "catalog:",
       },
     },
+    "test/fixtures/journey": {
+      "name": "@nuxt-atelier/fixture-journey",
+      "dependencies": {
+        "@nuxtjs/i18n": "catalog:i18n",
+        "nuxt": "catalog:",
+      },
+    },
     "test/fixtures/layer": {
       "name": "@nuxt-atelier/fixture-layer",
       "dependencies": {
@@ -1181,6 +1188,8 @@
     "@nuxt-atelier/fixture-i18n-nuxtjs": ["@nuxt-atelier/fixture-i18n-nuxtjs@workspace:test/fixtures/i18n-nuxtjs"],
 
     "@nuxt-atelier/fixture-jobs-presets": ["@nuxt-atelier/fixture-jobs-presets@workspace:test/fixtures/jobs-presets"],
+
+    "@nuxt-atelier/fixture-journey": ["@nuxt-atelier/fixture-journey@workspace:test/fixtures/journey"],
 
     "@nuxt-atelier/fixture-layer": ["@nuxt-atelier/fixture-layer@workspace:test/fixtures/layer"],
 
