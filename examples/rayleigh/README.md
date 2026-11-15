@@ -28,6 +28,10 @@ The first request fills the empty database with the demo content (`server/middle
 | `app/components/`, `app/layouts/` | the header, menu, footer, dark mode switch and the two layouts |
 | `seed/` | the demo content and its images (resized for the web), for the seed |
 
+## The tutorial
+
+[The tutorial](https://nuxt-atelier.anorebel.net/tutorial/setup) builds this app chapter by chapter. Each file belongs to the chapter that adds it (`scripts/tutorial.ts`), and comments like `// #region blog` … `// #endregion` mark lines a later chapter adds. The repository's tests build every chapter's state and check the tutorial shows exactly this code.
+
 ## What changed from the original
 
 - **Content and schema:** Pruvious's collections became Nuxt Atelier's (`defineCollection`, `defineSingleton`), its fields became ours, and its HTML text became rich text. The home page is a singleton at `/`.

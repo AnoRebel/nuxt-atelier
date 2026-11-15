@@ -9,6 +9,6 @@ export default defineCollection({
     title: text({ required: true }),
     slug: slug({ from: 'title', required: true }),
     footerBorder: boolean({ label: 'Border above the footer' }),
-    content: blocks({ allow: ['PageIntro', 'Portfolio', 'Posts', 'Prose', 'Image'] }),
+    content: blocks(),
   },
 })

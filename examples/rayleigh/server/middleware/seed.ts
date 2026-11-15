@@ -7,6 +7,7 @@ import { assertMigrated, singleSite, useAtelierEntries, useAtelierMedia, useAtel
 interface Seed {
   media: Record<string, { file: string, width: number, height: number, alt: string }>
   home: Record<string, unknown>
+  forms: Record<string, Record<string, unknown>>
   pages: Record<string, unknown>[]
   posts: Record<string, unknown>[]
   settings: Record<string, unknown>
@@ -37,8 +38,14 @@ async function seed() {
     await library.update(item.id, { alt: { [locale]: alt } })
     ids[key] = item.id
   }
-  // `media:<key>` in the content: the uploaded item's id
-  const withMedia = <T>(value: T): T => JSON.parse(JSON.stringify(value), (_, v) => typeof v === 'string' && v.startsWith('media:') ? ids[v.slice(6)] ?? null : v)
+  // the forms pages place (`form:<key>` in the content)
+  const forms: Record<string, string> = {}
+  const savedForms = new Map((await entries.list('atelier-forms', { stage: 'draft', limit: 100 })).items.map(entry => [entry.data.title, entry.id]))
+  for (const [key, data] of Object.entries(content.forms))
+    forms[key] = savedForms.get(data.title as string) ?? (await entries.save('atelier-forms', { data, publish: true })).id
+  // `media:<key>` and `form:<key>` in the content: the uploaded item's and the saved form's ids
+  const withMedia = <T>(value: T): T => JSON.parse(JSON.stringify(value), (_, v) =>
+    typeof v === 'string' && v.startsWith('media:') ? ids[v.slice(6)] ?? null : typeof v === 'string' && v.startsWith('form:') ? forms[v.slice(5)] ?? null : v)
   for (const [type, list] of [['pages', content.pages], ['posts', content.posts]] as const) {
     const saved = new Set((await entries.list(type, { stage: 'draft', limit: 100 })).items.map(entry => entry.data.slug))
     for (const data of list.filter(d => !saved.has(d.slug)))

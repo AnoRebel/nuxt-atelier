@@ -1,8 +1,12 @@
+// #region seed
 import { fileURLToPath } from 'node:url'
+// #endregion
 import tailwindcss from '@tailwindcss/vite'
 
-// Rayleigh: a portfolio with a blog, built on Nuxt Atelier. Content lives in server/atelier/, the look in
-// app/; on first start, server/plugins/seed.ts fills an empty database with the demo content in seed/.
+// Rayleigh: a portfolio with a blog, built on Nuxt Atelier. Content lives in server/atelier/, the look in app/.
+// #region seed
+// On first start, server/middleware/seed.ts fills an empty database with the demo content in seed/.
+// #endregion
 export default defineNuxtConfig({
   modules: ['nuxt-atelier', '@nuxt-atelier/admin', '@nuxt-atelier/editor'],
   // every page is an entry, served by Nuxt Atelier's catch-all page: the router without an app/pages/
@@ -20,8 +24,10 @@ export default defineNuxtConfig({
   },
   css: ['~/assets/css/main.css'],
   compatibilityDate: '2026-10-01',
-  // the demo content and its images, read by the seed plugin in any deployment
+  // #region seed
+  // the demo content and its images, read by the seed middleware in any deployment
   nitro: { serverAssets: [{ baseName: 'seed', dir: fileURLToPath(new URL('./seed', import.meta.url)) }] },
+  // #endregion
   vite: { plugins: [tailwindcss()] },
   atelier: {
     database: { url: 'file:.data/rayleigh.sqlite' }, // NUXT_ATELIER_DATABASE_URL in production

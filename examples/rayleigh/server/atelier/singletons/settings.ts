@@ -18,6 +18,8 @@ export default defineSingleton({
         title: text({ help: 'Shown on hover' }),
       },
     }),
+    // #region blog
     blogPath: text({ required: true, label: 'Blog page', help: 'The page listing the posts: the back link on each post goes there' }),
+    // #endregion
   },
 })

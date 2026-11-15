@@ -12,6 +12,7 @@ function moveDot(index = active.value) {
 }
 onMounted(() => {
   moveDot()
+  document.fonts.ready.then(() => moveDot()) // the menu's width changes once its font has loaded
   addEventListener('resize', () => moveDot())
 })
 watch(active, () => moveDot())
