@@ -32,5 +32,13 @@ export default defineNuxtConfig({
   atelier: {
     database: { url: 'file:.data/rayleigh.sqlite' }, // NUXT_ATELIER_DATABASE_URL in production
     seo: { titleTemplate: '%s | Rayleigh' },
+    // #region seed
+    // Nuxt Atelier's live demo (built with ATELIER_DEMO=true): every visitor edits a copy of their own
+    demo: { enabled: process.env.ATELIER_DEMO === 'true', frameAncestors: ['https://nuxt-atelier.anorebel.net'] },
+    // #endregion
   },
+  // #region blog
+  // the admin bundles the icons it shows: the posts' (`admin.icon`) joins them
+  atelierAdmin: { icons: ['pin'] },
+  // #endregion
 })

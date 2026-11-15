@@ -10,6 +10,7 @@ export type ErrorCode
   = | 'bad_request' | 'invalid_query' | 'unauthenticated' | 'forbidden' | 'csrf' | 'not_found' | 'method_not_allowed'
     | 'conflict' | 'referenced' | 'last_admin' | 'setup_done' | 'already_exists' | 'validation_failed'
     | 'locked' | 'rate_limited' | 'unsupported' | 'migrations_pending' | 'preview_expired' | 'too_large' | 'unsupported_type'
+    | 'demo'
 
 const DEFAULT_CODES: Record<number, ErrorCode> = {
   400: 'bad_request',

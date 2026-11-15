@@ -68,6 +68,7 @@
         "src/runtime/builtin/*/server/atelier/collections/*.ts",
         "src/runtime/builtin/blocks/app/blocks/*.ts",
         "src/runtime/server/middleware/*.ts",
+        "src/runtime/server/demo/{plugin,middleware}.ts",
         "src/runtime/app/components/*.{ts,vue}",
         "src/runtime/app/plugins/*.ts",
         "src/runtime/app/editor/bridge.ts",
@@ -77,6 +78,9 @@
         "src/storage.ts",
         "src/runtime/app/composables/*.ts",
         "src/runtime/server/routes/*.ts"
+      ],
+      "ignoreDependencies": [
+        "nitropack"
       ]
     },
     "packages/storage-s3": {
@@ -286,6 +290,12 @@
     "test/fixtures/seo-modules": {
       "entry": [
         "server/**/*.ts"
+      ]
+    },
+    "test/fixtures/demo": {
+      "entry": [
+        "server/api/**/*.ts",
+        "server/atelier/**/*.ts"
       ]
     }
   },
