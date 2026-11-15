@@ -143,7 +143,8 @@ const pageAllowed = computed(() => !!page.value && !!schema.value && allowed(pag
     <component
       :is="views.EntryEdit"
       v-else-if="segments[0] === 'singletons' && segments.length === 2"
-      :key="segments[1]"
+      :key="`${segments[1]}:${route.query.locale ?? ''}`"
+      :locale="typeof route.query.locale === 'string' ? route.query.locale : undefined"
       kind="singleton"
       :name="segments[1]!"
     />

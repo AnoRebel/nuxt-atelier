@@ -15,7 +15,7 @@ export interface EntryFormTarget {
   name: string
   /** A collection entry's id; none for a new entry. */
   id?: string
-  /** Localized collections: a new entry's locale (the default locale when unset). */
+  /** Localized collections: a new entry's locale (the default locale when unset). Localized singletons: the version's. */
   locale?: string
 }
 
@@ -34,10 +34,13 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
   const base = computed(() => t.value.kind === 'collection' ? `/collections/${encodeURIComponent(t.value.name)}` : `/singletons/${encodeURIComponent(t.value.name)}`)
   const url = computed(() => t.value.kind === 'collection' && t.value.id ? `${base.value}/${encodeURIComponent(t.value.id)}` : base.value)
   const isNew = computed(() => t.value.kind === 'collection' && !t.value.id)
+  // a localized singleton: every request is for one locale's version
+  const singletonLocale = computed(() => t.value.kind === 'singleton' && type.value?.localized ? t.value.locale ?? schema.value?.locales.default : undefined)
+  const localeQuery = computed(() => singletonLocale.value ? { locale: singletonLocale.value } : {})
 
   const entry = useQuery({
-    queryKey: ['atelier', computed(() => `${t.value.kind}s`), computed(() => t.value.name), 'entry', computed(() => t.value.id ?? '')],
-    queryFn: () => atelierFetch<Saved>(url.value, { query: { draft: 'true' } }),
+    queryKey: ['atelier', computed(() => `${t.value.kind}s`), computed(() => t.value.name), 'entry', computed(() => t.value.id ?? singletonLocale.value ?? '')],
+    queryFn: () => atelierFetch<Saved>(url.value, { query: { draft: 'true', ...localeQuery.value } }),
     enabled: computed(() => !!type.value && !isNew.value),
   })
   const version = computed<number | null>(() => entry.data.value?.version ?? null)
@@ -150,7 +153,7 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
   const save = useMutation({
     mutationFn: (data: Record<string, unknown>) => isNew.value
       ? atelierFetch<Saved>(base.value, { method: 'POST', body: { data, ...t.value.locale ? { locale: t.value.locale } : {} } })
-      : atelierFetch<Saved>(url.value, { method: 'PATCH', body: { version: version.value, data } }),
+      : atelierFetch<Saved>(url.value, { method: 'PATCH', query: localeQuery.value, body: { version: version.value, data } }),
     onSuccess: async (saved) => {
       forgetRecovery()
       client.setQueryData(['atelier', `${t.value.kind}s`, t.value.name, 'entry', saved.id && t.value.kind === 'collection' ? saved.id : ''], saved)
@@ -160,10 +163,10 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
     onError: serverErrors,
   })
   const publish = useMutation({
-    mutationFn: () => atelierFetch<Saved>(`${url.value}/publish`, { method: 'POST', body: { version: version.value } }),
+    mutationFn: () => atelierFetch<Saved>(`${url.value}/publish`, { method: 'POST', query: localeQuery.value, body: { version: version.value } }),
     onSuccess: invalidate,
   })
-  const unpublish = useMutation({ mutationFn: () => atelierFetch<Saved>(`${url.value}/unpublish`, { method: 'POST' }), onSuccess: invalidate })
+  const unpublish = useMutation({ mutationFn: () => atelierFetch<Saved>(`${url.value}/unpublish`, { method: 'POST', query: localeQuery.value }), onSuccess: invalidate })
   /** Localized collections: a new version of this entry in `locale`, prefilled with this one's data. */
   const translate = useMutation({
     mutationFn: (locale: string) => atelierFetch<Saved>(`${url.value}/translations`, { method: 'POST', body: { locale } }),
@@ -204,7 +207,7 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
     save,
     translate,
     /** Localized collections: this version's locale, and the ids of its translations by locale. */
-    locale: computed(() => entry.data.value?.locale ?? t.value.locale),
+    locale: computed(() => singletonLocale.value ?? entry.data.value?.locale ?? t.value.locale),
     translations: computed(() => entry.data.value?.translations ?? {}),
     publish,
     unpublish,

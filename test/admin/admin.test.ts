@@ -263,6 +263,32 @@ describe('admin', async () => {
     expect(await page.getByRole('link', { name: 'About us' }).count()).toBe(0)
   })
 
+  it('edits a localized singleton per locale, a shared field kept the same in all', async () => {
+    const page = await signIn()
+    // each save, waited for by its own response: a toast from the one before may still be showing
+    const save = () => Promise.all([page.waitForResponse(r => r.request().method() === 'PATCH' && r.url().includes('/singletons/banner')), page.getByRole('button', { name: 'Save' }).click()])
+    await page.goto(url('/admin/singletons/banner'))
+    await page.getByText('In EN').waitFor()
+    await page.getByLabel('Message').fill('Summer sale')
+    await page.getByLabel('Link').fill('/sale')
+    await save()
+
+    await page.getByRole('link', { name: 'DE', exact: true }).click()
+    await page.getByText('In DE').waitFor()
+    expect(await page.getByLabel('Message').inputValue()).toBe('') // its own, not English's
+    await page.getByLabel('Message').fill('Sommerschlussverkauf')
+    await page.getByLabel('Link').fill('/angebote')
+    await save()
+
+    const read = (locale: string) => page.evaluate(async l => (await (await window.fetch(`/api/_atelier/singletons/banner?locale=${l}`)).json()) as { locale: string, data: Record<string, string>, fallbacks?: Record<string, string> }, locale)
+    expect(await read('de')).toMatchObject({ locale: 'de', data: { message: 'Sommerschlussverkauf', link: '/angebote' } })
+    expect(await read('en')).toMatchObject({ locale: 'en', data: { message: 'Summer sale', link: '/angebote' } }) // the shared link follows
+    // emptied in German: the site shows the English message, and says so
+    await page.getByLabel('Message').fill('')
+    await save()
+    expect(await read('de')).toMatchObject({ locale: 'de', data: { message: 'Summer sale' }, fallbacks: { message: 'en' } })
+  })
+
   it('edits the robots.txt rules, which override the configuration until reset', async () => {
     const page = await signIn()
     await page.getByRole('link', { name: 'Search engines' }).first().click()
