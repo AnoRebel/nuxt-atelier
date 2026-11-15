@@ -13,11 +13,15 @@ Requirements:
 git clone https://github.com/AnoRebel/nuxt-atelier.git
 cd nuxt-atelier
 bun install          # also installs the git hooks
+bun run build        # the packages: the playground, the fixtures and the docs load their dist/
 bun run lint
 bun run typecheck
 bun run test
-bun run build
+bun run dev          # the playground, at http://localhost:3000
+bun run docs:build   # the docs site
 ```
+
+CI follows these commands on a clean machine (`scripts/contributor-setup.ts`), so they stay right.
 
 ## Workspace layout
 

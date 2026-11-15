@@ -11,6 +11,8 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 const rootDir = fileURLToPath(new URL('../fixtures/journey', import.meta.url))
 const JOBS_SECRET = 'a-jobs-secret-for-the-journey'
+// the German page's address: prefixed by the i18n module, which the Nuxt 5 behaviour run goes without
+const GERMAN = process.env.ATELIER_NUXT5 === '1' ? '/fruhjahrsverkauf' : '/de/fruhjahrsverkauf'
 
 /** `date` as a datetime-local input takes it: the user's local time, to the minute. */
 const local = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
@@ -20,7 +22,8 @@ describe('the journey', async () => {
 
   beforeAll(async () => {
     await startServer({ env: {
-      NUXT_ATELIER_DATABASE_URL: `file:${join(mkdtempSync(join(tmpdir(), 'atelier-journey-')), 'db.sqlite')}`,
+      // SQLite, or the engine CI's matrix cell names (an empty database)
+      NUXT_ATELIER_DATABASE_URL: process.env.ATELIER_JOURNEY_DATABASE_URL || `file:${join(mkdtempSync(join(tmpdir(), 'atelier-journey-')), 'db.sqlite')}`,
       NUXT_APP_SECRET: 'a-test-secret-that-is-long-enough-123456',
       NUXT_ATELIER_JOBS_SECRET: JOBS_SECRET,
     } })
@@ -75,10 +78,10 @@ describe('the journey', async () => {
     await schedule.locator('[data-scheduled="publish"]').waitFor()
 
     // the German page isn't out before its time; the scheduler publishes it then
-    expect((await fetch('/de/fruhjahrsverkauf')).status).toBe(404)
+    expect((await fetch(GERMAN)).status).toBe(404)
     await expect.poll(async () => {
       await fetch('/api/_atelier/jobs/run', { method: 'POST', headers: { authorization: `Bearer ${JOBS_SECRET}` } })
-      return (await fetch('/de/fruhjahrsverkauf')).status
+      return (await fetch(GERMAN)).status
     }, { timeout: 120_000, interval: 5_000 }).toBe(200)
 
     // what visitors get: rendered on the server, with metadata and the translation linked
@@ -86,13 +89,13 @@ describe('the journey', async () => {
     expect(html).toContain('<title>Spring sale | Journey</title>')
     expect(html).toContain('Everything half price')
     expect(html).toContain('Until the end of the month.')
-    expect(html).toMatch(/<link[^>]+rel="alternate"[^>]+hreflang="de"[^>]+href="[^"]*\/de\/fruhjahrsverkauf"/)
-    expect(await $fetch<string>('/de/fruhjahrsverkauf')).toContain('<title>Frühjahrsverkauf | Journey</title>')
+    expect(html).toMatch(new RegExp(`<link[^>]+rel="alternate"[^>]+hreflang="de"[^>]+href="[^"]*${GERMAN}"`))
+    expect(await $fetch<string>(GERMAN)).toContain('<title>Frühjahrsverkauf | Journey</title>')
 
     // what search engines get, and what site search finds
     const sitemap = await $fetch<string>('/sitemap.xml')
     expect(sitemap).toMatch(/<loc>[^<]*\/spring-sale<\/loc>/)
-    expect(sitemap).toContain('/de/fruhjahrsverkauf')
+    expect(sitemap).toContain(GERMAN)
     const found = await $fetch<{ items: { title: string, path: string }[] }>('/api/_atelier/search', { query: { q: 'half price', locale: 'en' } })
     expect(found.items.map(i => i.title)).toEqual(['Spring sale'])
     const german = await $fetch<{ items: { title: string }[] }>('/api/_atelier/search', { query: { q: 'frühjahr', locale: 'de' } })

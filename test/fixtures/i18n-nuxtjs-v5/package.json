@@ -1,0 +1,12 @@
+{
+  "name": "@nuxt-atelier/fixture-i18n-nuxtjs-v5",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev"
+  },
+  "dependencies": {
+    "@nuxtjs/i18n": "catalog:i18n",
+    "nuxt": "catalog:"
+  }
+}
