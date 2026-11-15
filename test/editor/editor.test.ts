@@ -140,14 +140,14 @@ describe('visual editor', async () => {
 
   it('inserts a block from the command palette, undoably, and keeps Ctrl+K for itself', async () => {
     const page = await openEditor()
-    await page.locator('[data-tree-block="h1"]').click()
+    // selected in the page: the focus is in the frame, which passes the editor's shortcuts on
+    await preview(page).getByText('Original headline').click()
+    await page.locator('[data-tree-block="h1"][aria-pressed="true"]').waitFor()
     const field = page.getByRole('combobox', { name: 'Type a command' })
-    // Ctrl+K toggles it: press it until it's open (a press while the last one closes can be lost under load)
-    const openPalette = () => expect.poll(async () => {
-      if (!await field.isVisible())
-        await page.keyboard.press('Control+k')
-      return field.isVisible()
-    }, { intervals: [500] }).toBe(true)
+    const openPalette = async () => {
+      await page.keyboard.press('Control+k')
+      await field.waitFor()
+    }
     await openPalette()
     expect(await page.getByRole('dialog', { name: 'Search' }).count()).toBe(0) // not the admin's search
     await field.fill('insert card')

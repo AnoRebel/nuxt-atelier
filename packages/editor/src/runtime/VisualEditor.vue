@@ -89,6 +89,8 @@ function onMessage(event: MessageEvent) {
     hovered.value = message.id
   else if (message.type === 'atelier:inline')
     applyInline(message.path, message.value)
+  else if (message.type === 'atelier:key')
+    shortcut(message.key, message.shift)
 }
 onMounted(() => addEventListener('message', onMessage))
 onBeforeUnmount(() => removeEventListener('message', onMessage))
@@ -260,26 +262,27 @@ watch(dropAt, (at) => {
 })
 // --- keys: undo, redo, the command palette (Ctrl+K here: the editor's, not the admin's search)
 const commandsOpen = ref(false)
-function onKey(event: KeyboardEvent) {
-  if (!(event.ctrlKey || event.metaKey) || event.altKey)
-    return
-  const key = event.key.toLowerCase()
+/** Ctrl/⌘ + `key`, here or passed on by the page when it has focus: whether it was the editor's. */
+function shortcut(key: string, shift: boolean): boolean {
   if (key === 'k') {
-    event.preventDefault()
-    event.stopImmediatePropagation()
     commandsOpen.value = !commandsOpen.value
-    return
+    return true
   }
   // in the palette's field, undo is the text's
   if (commandsOpen.value)
-    return
-  if (key === 'z' && !event.shiftKey) {
-    event.preventDefault()
+    return false
+  if (key === 'z' && !shift)
     undo()
-  }
-  else if ((key === 'z' && event.shiftKey) || key === 'y') {
-    event.preventDefault()
+  else if ((key === 'z' && shift) || key === 'y')
     redo()
+  else
+    return false
+  return true
+}
+function onKey(event: KeyboardEvent) {
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && shortcut(event.key.toLowerCase(), event.shiftKey)) {
+    event.preventDefault()
+    event.stopImmediatePropagation() // Ctrl+K: not the admin's search
   }
 }
 onMounted(() => addEventListener('keydown', onKey, { capture: true }))

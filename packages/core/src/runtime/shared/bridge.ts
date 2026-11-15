@@ -35,6 +35,8 @@ export const ChildMessage = v.variant('type', [
   }),
   /** A block was clicked. */
   v.object({ type: v.literal('atelier:select'), version, id }),
+  /** An editor shortcut (Ctrl/⌘ + `key`: k, z, y) pressed while the page has focus. */
+  v.object({ type: v.literal('atelier:key'), version, key: v.picklist(['k', 'z', 'y']), shift: v.boolean() }),
   /** The pointer is over a block (null: none). */
   v.object({ type: v.literal('atelier:hover'), version, id: v.nullable(id) }),
   /**

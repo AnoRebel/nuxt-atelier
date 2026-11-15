@@ -171,6 +171,16 @@ export function startBridge(nuxtApp: ReturnType<typeof useNuxtApp>): void {
     field.addEventListener('blur', done)
   }, { capture: true })
 
+  // --- the editor's shortcuts, when the page has the focus (a block was clicked): passed on, except while
+  // editing in place, where undo is the text's
+  addEventListener('keydown', (event) => {
+    const key = event.key.toLowerCase()
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || editing || (key !== 'k' && key !== 'z' && key !== 'y'))
+      return
+    event.preventDefault()
+    send({ type: 'atelier:key', key, shift: event.shiftKey })
+  }, { capture: true })
+
   // --- from the editor
   addEventListener('message', (event) => {
     const message = readMessage(ParentMessage, event, { origin: location.origin, source: parent })
