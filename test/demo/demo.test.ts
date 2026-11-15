@@ -48,6 +48,22 @@ describe('demo mode', async () => {
     expect(await (await fetch('/api/_atelier/demo', { headers: { cookie: b.cookie } })).json()).toMatchObject({ active: false })
   })
 
+  it('never lets a demo\'s copy into what other visitors are served from cache', async () => {
+    const a = await startDemo()
+    const current = await (await fetch(`/api/_atelier/collections/pages/${pageId}`, { headers: { cookie: a.cookie } })).json() as { version: number }
+    expect((await fetch(`/api/_atelier/collections/pages/${pageId}`, { method: 'PATCH', headers: a.write, body: JSON.stringify({ version: current.version, data: { title: 'Defaced' } }) })).status).toBe(200)
+    // the visitor reads the page as the public would (only the demo cookie): from their copy, not cached
+    const demoOnly = a.cookie.split('; ').filter(c => c.startsWith('atelier-demo=')).join('; ')
+    const theirs = await (await fetch('/api/_atelier/routes?path=/welcome', { headers: { cookie: demoOnly } })).json() as { entry: { data: { title: string } } }
+    expect(theirs.entry.data.title).toBe('Defaced')
+    // everyone else: the site's own content
+    for (let i = 0; i < 2; i++) {
+      const site = await (await fetch('/api/_atelier/routes?path=/welcome')).json() as { entry: { data: { title: string } } }
+      expect(site.entry.data.title).toBe('Template title')
+    }
+    expect((await fetch('/api/_atelier/demo', { method: 'DELETE', headers: a.write })).status).toBe(200)
+  })
+
   it('takes no changes outside a demo, and no files in one', async () => {
     const login = await fetch('/api/_atelier/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'demo@nuxt-atelier.dev', password: 'anything' }) })
     expect(login.status).toBe(403)
