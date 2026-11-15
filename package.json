@@ -28,7 +28,7 @@
     },
     "catalogs": {
       "i18n": {
-        "nuxt-i18n-micro": "3.30.1",
+        "nuxt-i18n-micro": "3.30.3",
         "@nuxtjs/i18n": "10.6.0"
       },
       "build": {
@@ -41,7 +41,7 @@
         "eslint": "10.14.0",
         "@nuxt/eslint-config": "1.17.0",
         "oxlint": "1.90.0",
-        "knip": "6.44.0",
+        "knip": "6.44.1",
         "publint": "0.3.25",
         "@arethetypeswrong/cli": "0.18.5",
         "lint-staged": "17.6.0",
@@ -74,7 +74,7 @@
         "tailwind-merge": "3.7.0"
       },
       "auth": {
-        "better-auth": "1.7.14",
+        "better-auth": "1.7.15",
         "@simplewebauthn/server": "14.0.3",
         "@simplewebauthn/browser": "14.0.0"
       },
@@ -93,19 +93,19 @@
         "drizzle-kit": "1.0.0-rc.5"
       },
       "admin": {
-        "@tanstack/vue-query": "5.105.0",
+        "@tanstack/vue-query": "5.105.1",
         "@tanstack/vue-form": "1.33.5",
-        "@iconify-json/lucide": "1.2.148"
+        "@iconify-json/lucide": "1.2.150"
       },
       "seo": {
         "@nuxtjs/robots": "7.0.2",
         "@nuxtjs/sitemap": "9.1.0"
       },
       "editor": {
-        "@tiptap/core": "3.32.1",
-        "@tiptap/pm": "3.32.1",
-        "@tiptap/vue-3": "3.32.1",
-        "@tiptap/starter-kit": "3.32.1"
+        "@tiptap/core": "3.32.2",
+        "@tiptap/pm": "3.32.2",
+        "@tiptap/vue-3": "3.32.2",
+        "@tiptap/starter-kit": "3.32.2"
       },
       "devtools": {
         "@nuxt/devtools-kit": "4.1.0"
