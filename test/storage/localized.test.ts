@@ -27,7 +27,14 @@ const schema = {
     pages: { localized: { blocks: 'shared' as const }, fields: { title: f.text(), content: f.blocks() } },
     posts: { localized: true, fields: { content: f.blocks() } },
   },
-  singletons: {},
+  singletons: {
+    home: {
+      localized: true,
+      versioned: true,
+      route: { pattern: { 'en': '/', 'de': '/de', 'de-at': '/de-at', 'fr': '/fr' } },
+      fields: { title: f.text(), tagline: f.text(), code: f.text({ shared: true }) },
+    },
+  },
   blocks: {
     text: { name: 'text', fields: { body: f.text(), anchor: f.text({ shared: true }) }, options: { tone: f.select({ options: ['plain', 'loud'] }) }, areas: {} },
     columns: { name: 'columns', fields: {}, options: {}, areas: { items: {} } },
@@ -136,5 +143,41 @@ describe.each(engines)('%s localized entries', (_, url) => {
     const fr = await store.save('products', { data: { slug: 'lit', title: 'Lit' }, locale: 'fr', translationOf: en.id })
     await store.delete('products', en.id)
     expect((await store.get('products', fr.id))!.translations).toEqual({ de: de.id, fr: fr.id })
+  })
+
+  it('keeps a localized singleton\'s version per locale, with fallbacks, shared fields, URLs and history', async () => {
+    const en = await store.saveSingleton('home', { data: { title: 'Home', tagline: 'Welcome', code: 'H1' }, publish: true })
+    expect(en).toMatchObject({ locale: 'en', version: 1, path: '/' })
+    const de = await store.saveSingleton('home', { data: { title: 'Start', code: 'H1' }, locale: 'de', publish: true })
+    expect(de).toMatchObject({ locale: 'de', version: 1, path: '/de' })
+
+    // read in a locale: its own, empty translated fields from the fallback chain, saying from where
+    expect(await store.getSingleton('home', { locale: 'de' })).toMatchObject({ locale: 'de', data: { title: 'Start', tagline: 'Welcome' }, fallbacks: { tagline: 'en' } })
+    expect(await store.getSingleton('home', { locale: 'de-at' })).toMatchObject({ locale: 'de', data: { title: 'Start' } }) // de-at → de
+    expect(await store.getSingleton('home', { locale: 'de-at', fallback: false })).toBeUndefined()
+    expect((await store.getSingleton('home'))!.data.title).toBe('Home') // the default locale
+    await expect(store.getSingleton('home', { locale: 'xx' })).rejects.toBeInstanceOf(ValidationError)
+
+    // each locale at its own URL
+    expect(await store.resolve('/de', 'de')).toMatchObject({ kind: 'singleton', name: 'home' })
+    expect(await store.resolve('/', 'en')).toMatchObject({ kind: 'singleton', name: 'home' })
+
+    // a shared field goes to the other locales' drafts; what's published stays until they're published
+    await store.saveSingleton('home', { data: { title: 'Home', tagline: 'Welcome', code: 'H2' }, version: 1, publish: true })
+    expect(await store.getSingleton('home', { locale: 'de', stage: 'draft' })).toMatchObject({ version: 2, data: { title: 'Start', code: 'H2' } })
+    expect((await store.getSingleton('home', { locale: 'de' }))!.data.code).toBe('H1')
+
+    // history per locale
+    expect((await store.revisions('home')).map(r => r.version)).toEqual([2, 1])
+    expect((await store.revisions('home', 'de')).map(r => r.version)).toEqual([2, 1])
+    expect((await store.revisions('home', 'de'))[1]!.data.title).toBe('Start')
+
+    // published per locale; taken off one, that locale falls back again
+    await store.publishSingleton('home', { version: 2, locale: 'de' })
+    expect((await store.getSingleton('home', { locale: 'de' }))!.data.code).toBe('H2')
+    await store.unpublishSingleton('home', null, 'de')
+    expect(await store.getSingleton('home', { locale: 'de' })).toMatchObject({ locale: 'en', data: { title: 'Home' } })
+    expect(await store.resolve('/de', 'de')).toBeUndefined()
+    expect((await store.getSingleton('home', { locale: 'de', stage: 'draft' }))!.data.title).toBe('Start') // the draft stays
   })
 })

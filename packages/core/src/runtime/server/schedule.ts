@@ -44,6 +44,6 @@ export async function runScheduled(store: EntryStore, audit: AuditLog, job: Sche
     await audit.record({ action: 'entry.published', actorId: job.by, target: { type: job.type, id: job.id }, details: { version: job.version, scheduled: true } })
     return
   }
-  await (job.singleton ? store.unpublishSingleton(job.type, job.by) : store.unpublish(job.type, job.id, job.by))
+  await (job.singleton ? store.unpublishSingleton(job.type, job.by, job.id === job.type ? undefined : job.id) : store.unpublish(job.type, job.id, job.by))
   await audit.record({ action: 'entry.unpublished', actorId: job.by, target: { type: job.type, id: job.id }, details: { scheduled: true } })
 }

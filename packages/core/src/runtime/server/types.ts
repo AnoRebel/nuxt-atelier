@@ -66,7 +66,7 @@ export interface SingletonDefinition {
   label?: string
   /** The singleton gets a URL and is served by the site's catch-all page. */
   route?: RouteDefinition
-  /** Not supported yet: refused when the schema loads. Use a localized collection holding one entry. */
+  /** A version per locale, as for collections: read and saved with a `locale`, shared fields kept the same in all. */
   localized?: boolean
   /** Drafts and publishing, as for collections. */
   versioned?: boolean

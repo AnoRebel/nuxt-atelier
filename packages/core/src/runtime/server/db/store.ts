@@ -72,6 +72,8 @@ export interface GetOptions {
    * has one; translated fields left empty are filled from the next ones (see `Entry.fallbacks`).
    */
   locale?: string
+  /** Localized singletons: false reads only `locale`'s own version, without fallbacks (what editing needs). */
+  fallback?: boolean
 }
 
 export interface Entry {
@@ -139,6 +141,10 @@ export interface SingletonEntry {
   paths?: Record<string, string>
   /** As for entries. */
   publishedVersion: number | null
+  /** Localized singletons: this version's locale. */
+  locale?: string
+  /** Read in a locale: the fields filled from another locale's version, with that locale (as for entries). */
+  fallbacks?: Record<string, string>
   data: Record<string, unknown>
 }
 
@@ -412,13 +418,26 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
   const visibleSites = (table: Db) => schema.sites ? inArray(table.site, [site.name, '']) : undefined
   /** The condition picking a singleton's row for this site (its own, or the shared one). */
   const singletonSite = (table: Db, name: string) => schema.sites ? eq(table.site, siteOfType(name)) : undefined
+  /** A localized singleton keeps a row per locale. */
+  const localizedSingleton = (name: string) => !!schema.singletons[name]?.localized
+  /** A singleton's row name: its name, with a localized one's locale (`home#de`; the default when none). */
+  function rowName(name: string, locale?: string): string {
+    if (!localizedSingleton(name))
+      return name
+    const code = locale ?? locales.default
+    if (!locales.codes.includes(code))
+      throw new ValidationError([{ path: 'locale', message: `expected one of: ${locales.codes.join(', ')}` }])
+    return `${name}#${code}`
+  }
+  /** The locale a localized singleton's key or row name carries. */
+  const keyLocale = (key: string) => /#([^@]+)/.exec(key)?.[1]
   /**
-   * The id a singleton's relation rows, revisions and route rows carry: its name, qualified by its site when
-   * each site has its own (`settings@shop`), so sites' copies never mix.
+   * The id a singleton's relation rows, revisions and route rows carry: its row name, qualified by its site
+   * when each site has its own (`settings@shop`, `home#de@shop`), so sites' and locales' copies never mix.
    */
-  const singletonKey = (name: string) => scopedType(name) ? `${name}@${site.name}` : name
-  /** The id revisions and links are kept under: an entry's own, a singleton's key. */
-  const recordId = (name: string, id: string) => name in schema.singletons ? singletonKey(name) : id
+  const singletonKey = (name: string, locale?: string) => scopedType(name) ? `${rowName(name, locale)}@${site.name}` : rowName(name, locale)
+  /** The id revisions and links are kept under: an entry's own, a singleton's key (`id`: a localized one's locale). */
+  const recordId = (name: string, id: string) => name in schema.singletons ? singletonKey(name, localizedSingleton(name) && id !== name ? id : undefined) : id
   /** A route row's site column for a type, and the condition finding that type's route rows. */
   const routeSiteColumn = (source: string) => schema.sites ? { site: siteOfType(source) } : {}
   const routesOf = (table: Db, source: string) => schema.sites ? eq(table.site, siteOfType(source)) : undefined
@@ -453,7 +472,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
   }
   /** A localized entry's locale: undefined when the collection isn't localized, or there's no such entry. */
   const entryLocale = async (q: Db, source: string, id: string): Promise<string | undefined> =>
-    localized(source) ? (await placeOf(q, source, id))?._locale : undefined
+    localized(source) ? (await placeOf(q, source, id))?._locale : localizedSingleton(source) ? keyLocale(id) : undefined
   /** The translations of the entries in `groups` (a group is its first entry's id): ids by locale, per group. */
   const translationsOf = async (q: Db, table: Db, groups: string[]): Promise<Map<string, Record<string, string>>> => {
     const byGroup = new Map<string, Record<string, string>>()
@@ -576,17 +595,21 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       return byId
     }
 
-    async function readSingleton(q: Db, name: string): Promise<SingletonEntry | undefined> {
-      const [row] = await q.select().from(singletons).where(and(eq(singletons.name, name), singletonSite(singletons, name))).limit(1)
+    async function readSingleton(q: Db, name: string, locale?: string): Promise<SingletonEntry | undefined> {
+      const row_ = rowName(name, locale)
+      const [row] = await q.select().from(singletons).where(and(eq(singletons.name, row_), singletonSite(singletons, name))).limit(1)
       if (!row)
         return undefined
       const { route, fields } = singleton(name)
-      const urls = route ? (await storedPaths(q, name, route, [singletonKey(name)])).get(singletonKey(name)) ?? [] : []
+      const key = singletonKey(name, locale)
+      const urls = route ? (await storedPaths(q, name, route, [key])).get(key) ?? [] : []
       const live = tables.atelier_p_singletons
       const publishedVersion = stage === 'published'
         ? row.version
-        : (await q.select({ version: live.version }).from(live).where(and(eq(live.name, name), singletonSite(live, name))).limit(1))[0]?.version ?? null
-      return { name, version: row.version, updatedAt: row.updatedAt, ...route && presentPaths(route, urls), publishedVersion, data: renamed(fields, row.data) }
+        : (await q.select({ version: live.version }).from(live).where(and(eq(live.name, row_), singletonSite(live, name))).limit(1))[0]?.version ?? null
+      // a localized singleton's version is at its own locale's URL, as a translation is
+      const paths = route && (localizedSingleton(name) ? { path: urls[0]?.path ?? null } : presentPaths(route, urls))
+      return { name, version: row.version, updatedAt: row.updatedAt, ...paths, publishedVersion, ...localizedSingleton(name) && { locale: keyLocale(row_) }, data: renamed(fields, row.data) }
     }
 
     /**
@@ -917,23 +940,25 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       return target
     }
 
-    function singletonTarget(name: string, expected: number | undefined, authorId?: string): Target<SingletonEntry> {
+    function singletonTarget(name: string, expected: number | undefined, authorId?: string, locale?: string): Target<SingletonEntry> {
+      const row = rowName(name, locale)
       return {
-        what: `singleton "${name}"`,
+        what: `singleton "${name}"${row === name ? '' : ` (${keyLocale(row)})`}`,
         fields: singleton(name).fields,
         source: name,
-        sourceId: singletonKey(name),
+        sourceId: singletonKey(name, locale),
+        ...localizedSingleton(name) && { locale: keyLocale(row) },
         expected,
         authorId,
-        currentVersion: async q => (await readSingleton(q, name))?.version,
+        currentVersion: async q => (await readSingleton(q, name, locale))?.version,
         write: (q, data, version, now) => expected === undefined
-          ? q.insert(singletons).values({ ...schema.sites ? { site: siteOfType(name) } : {}, name, data, version, updatedAt: now })
-          : q.update(singletons).set({ data, version, updatedAt: now }).where(and(eq(singletons.name, name), eq(singletons.version, expected), singletonSite(singletons, name))),
+          ? q.insert(singletons).values({ ...schema.sites ? { site: siteOfType(name) } : {}, name: row, data, version, updatedAt: now })
+          : q.update(singletons).set({ data, version, updatedAt: now }).where(and(eq(singletons.name, row), eq(singletons.version, expected), singletonSite(singletons, name))),
         publish: (q, remove) => {
           const live = tables.atelier_p_singletons
-          return [q.delete(live).where(and(eq(live.name, name), singletonSite(live, name))), ...remove ? [] : [q.insert(live).select(q.select().from(singletons).where(and(eq(singletons.name, name), singletonSite(singletons, name))))]]
+          return [q.delete(live).where(and(eq(live.name, row), singletonSite(live, name))), ...remove ? [] : [q.insert(live).select(q.select().from(singletons).where(and(eq(singletons.name, row), singletonSite(singletons, name))))]]
         },
-        read: async q => (await readSingleton(q, name))!,
+        read: async q => (await readSingleton(q, name, locale))!,
       }
     }
 
@@ -1015,8 +1040,8 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       else {
         const liveSingletons = tables.atelier_p_singletons
         row = [
-          q.delete(liveSingletons).where(and(eq(liveSingletons.name, source), singletonSite(liveSingletons, source))),
-          q.insert(liveSingletons).values({ ...schema.sites ? { site: siteOfType(source) } : {}, name: source, data: result.value, version, updatedAt: now }),
+          q.delete(liveSingletons).where(and(eq(liveSingletons.name, rowName(source, locale)), singletonSite(liveSingletons, source))),
+          q.insert(liveSingletons).values({ ...schema.sites ? { site: siteOfType(source) } : {}, name: rowName(source, locale), data: result.value, version, updatedAt: now }),
         ]
       }
       return [
@@ -1313,8 +1338,8 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       for (const { source, sourceId, removed } of nullified.values()) {
         if (deleted.has(entryKey(source, sourceId)))
           continue
-        const current = source in schema.singletons ? await readSingleton(q, source) : await read(q, source, sourceId)
-        const target = source in schema.singletons ? singletonTarget(source, current!.version) : entryTarget(source, sourceId, current!.version)
+        const current = source in schema.singletons ? await readSingleton(q, source, keyLocale(sourceId)) : await read(q, source, sourceId)
+        const target = source in schema.singletons ? singletonTarget(source, current!.version, undefined, keyLocale(sourceId)) : entryTarget(source, sourceId, current!.version)
         // not validated: removing a required reference leaves an entry that must be fixed on its next save
         const data = withoutRefs(target.fields, current!.data, removed)
         result.push(...await sideSave(q, target, data, now))
@@ -1577,7 +1602,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
           const holders = new Map(usage.map(u => [`${u.collection}:${u.id}`, u]))
           for (const { collection: source, id: sourceId } of holders.values()) {
             const singletonHolder = !!schema.singletons[source]
-            const entry = singletonHolder ? await stage.readSingleton(q, source) : await stage.read(q, source, sourceId)
+            const entry = singletonHolder ? await stage.readSingleton(q, source, keyLocale(sourceId)) : await stage.read(q, source, sourceId)
             if (!entry)
               continue
             const data = replaceShared(entry.data, id, ref => mode === 'detach' && block ? { ...copyBlocks(block), id: ref.id } : undefined)
@@ -1586,7 +1611,7 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
             if (!changed.length)
               continue
             if (singletonHolder)
-              writes.push(q.update(stage.singletons).set({ data }).where(eq(stage.singletons.name, source)))
+              writes.push(q.update(stage.singletons).set({ data }).where(eq(stage.singletons.name, rowName(source, keyLocale(sourceId)))))
             else
               writes.push(q.update(stage.collection(source).table).set(toRow(Object.fromEntries(changed.map(key => [key, fields[key]!])), data)).where(eq(stage.collection(source).table._id, sourceId)))
             // its links again: the copy may use media
@@ -1614,41 +1639,85 @@ export function createEntryStore(driver: AtelierDriver, schema: ContentSchema, o
       return changed
     },
 
-    /** A singleton (relations as ids, or entries up to `depth` levels), or undefined before its first save or publish. */
+    /**
+     * A singleton (relations as ids, or entries up to `depth` levels), or undefined before its first save or
+     * publish. A localized one in `locale` (the default locale when none), as for entries: missing, the first
+     * of its fallback locales that has it; translated fields left empty filled from the next ones (`fallbacks`).
+     */
     async getSingleton(name: string, options: GetOptions = {}): Promise<SingletonEntry | undefined> {
       const stageName = options.stage ?? 'published'
       const stage = stages[stageName]
       const [found] = await reading<SingletonEntry>({ type: name, id: name, stage: stageName }, async () => {
-        const entry = await stage.readSingleton(db, name)
+        let entry: SingletonEntry | undefined
+        if (!localizedSingleton(name)) {
+          entry = await stage.readSingleton(db, name)
+        }
+        else {
+          const requested = options.locale ?? locales.default
+          const chain = options.fallback === false ? [requested] : fallbackChain(locales, requested)
+          const versions = await Promise.all(chain.map(l => stage.readSingleton(db, name, l)))
+          const first = versions.findIndex(Boolean)
+          if (first >= 0) {
+            entry = versions[first]!
+            const data = { ...entry.data }
+            const fallbacks: Record<string, string> = {}
+            for (const [key, field] of Object.entries(singleton(name).fields)) {
+              if (field.shared || !isEmpty(data[key]))
+                continue
+              const later = versions.slice(first + 1).findIndex(v => v && !isEmpty(v.data[key]))
+              if (later >= 0) {
+                data[key] = versions[first + 1 + later]!.data[key]
+                fallbacks[key] = chain[first + 1 + later]!
+              }
+            }
+            entry = { ...entry, data, fallbacks }
+          }
+        }
         return entry ? [{ ...entry, data: (await stage.linked(await stage.populate(db, singleton(name).fields, [entry.data], options.depth ?? 0)))[0]! }] : []
       })
       return found
     },
 
-    /** Saves a singleton's draft atomically, as `save`. `version` is the one read, or undefined/null for the first save. */
-    saveSingleton(name: string, input: { data: Record<string, unknown>, version?: number | null, authorId?: string, publish?: boolean }): Promise<SingletonEntry> {
+    /**
+     * Saves a singleton's draft atomically, as `save`. `version` is the one read, or undefined/null for the
+     * first save; a localized one's in `locale`, its shared fields copied to its other locales' drafts as new versions.
+     */
+    async saveSingleton(name: string, input: { data: Record<string, unknown>, version?: number | null, authorId?: string, publish?: boolean, locale?: string }): Promise<SingletonEntry> {
       const live = !!input.publish || !versioned(name)
-      const target = singletonTarget(name, input.version ?? undefined, input.authorId)
-      return hooked(target, input.data, input.publish, data => persist(target, data, input.publish).finally(forgetRedirects)
+      const target = singletonTarget(name, input.version ?? undefined, input.authorId, input.locale)
+      const entry = await hooked(target, input.data, input.publish, data => persist(target, data, input.publish).finally(forgetRedirects)
         .then(committed({ type: name, id: name, action: live ? 'published' : 'saved', live })))
+      const shared = Object.entries(singleton(name).fields).filter(([, f]) => f.shared).map(([key]) => key)
+      if (localizedSingleton(name) && shared.length) {
+        for (const code of locales.codes.filter(c => c !== entry.locale)) {
+          const other = await stages.draft.readSingleton(db, name, code)
+          if (!other || shared.every(key => JSON.stringify(other.data[key]) === JSON.stringify(entry.data[key])))
+            continue
+          const data = { ...other.data, ...Object.fromEntries(shared.map(key => [key, entry.data[key]])) }
+          // into drafts, as for entries: each locale's version is published on its own
+          await persist(singletonTarget(name, other.version, input.authorId, code), data).finally(forgetRedirects)
+            .then(committed({ type: name, id: name, action: versioned(name) ? 'saved' : 'published', live: !versioned(name) }))
+        }
+      }
+      return entry
     },
 
-    /** Publishes a singleton's draft, as `publish`. */
-    async publishSingleton(name: string, input: { version: number, authorId?: string }): Promise<SingletonEntry> {
+    /** Publishes a singleton's draft (a localized one's in `locale`), as `publish`. */
+    async publishSingleton(name: string, input: { version: number, authorId?: string, locale?: string }): Promise<SingletonEntry> {
       assertVersioned(name)
-      const draft = await stages.draft.readSingleton(db, name)
+      const draft = await stages.draft.readSingleton(db, name, input.locale)
       if (!draft)
-        throw new NotFoundError(`Singleton "${name}" has no saved draft`)
+        throw new NotFoundError(`Singleton "${name}" has no saved draft${input.locale ? ` in ${input.locale}` : ''}`)
       const acting = { type: name, id: name, actorId: input.authorId ?? null }
       await before('beforePublish', { ...acting, version: input.version + 1 })
-      const entry = await persist(singletonTarget(name, input.version, input.authorId), draft.data, true).finally(forgetRedirects)
+      const entry = await persist(singletonTarget(name, input.version, input.authorId, input.locale), draft.data, true).finally(forgetRedirects)
         .then(committed({ type: name, id: name, action: 'published', live: true }))
       await after('afterPublish', { ...acting, version: entry.version })
       return entry
     },
 
-    /** Takes a singleton off the site, as `unpublish`. */
-    unpublishSingleton: (name: string, actorId: string | null = null) => unpublish(singletonTarget(name, undefined), actorId),
+    /** Takes a singleton (a localized one in `locale`) off the site, as `unpublish`. */
+    unpublishSingleton: (name: string, actorId: string | null = null, locale?: string) => unpublish(singletonTarget(name, undefined, undefined, locale), actorId),
 
     /**
      * The entry a site path belongs to: a canonical path (see canonicalPath), in `locale` when given, among
