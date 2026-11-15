@@ -135,6 +135,9 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerPlugin(resolve('./runtime/server/plugins/secret'))
     addServerPlugin(resolve('./runtime/server/plugins/migrations'))
     addServerPlugin(resolve('./runtime/server/plugins/shutdown'))
+    // the admin's full CSP, with its inline scripts' hashes (dev serves Vite's own scripts: not there)
+    if (!nuxt.options.dev)
+      addServerPlugin(resolve('./runtime/server/plugins/admin-csp'))
 
     // robots.txt and the sitemap: through @nuxtjs/robots and @nuxtjs/sitemap when the app has them (standalone
     // or in @nuxtjs/seo, their runtime hooks), else our own /robots.txt and /sitemap.xml. A file in public/ is

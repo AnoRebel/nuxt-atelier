@@ -4,6 +4,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createHash } from 'node:crypto'
 import { createPage, fetch, setup, startServer, url } from '@nuxt/test-utils/e2e'
 import { beforeAll, describe, expect, it } from 'vitest'
 
@@ -54,6 +55,37 @@ describe('admin', async () => {
     await page.getByRole('heading', { name: 'Dashboard' }).waitFor()
     return page
   }
+
+  it('sends a strict content security policy that its own scripts satisfy', async () => {
+    const response = await fetch('/admin')
+    const policy = response.headers.get('content-security-policy') ?? ''
+    const html = await response.text()
+    const scriptSrc = policy.split('; ').find(d => d.startsWith('script-src '))!
+    expect(scriptSrc).not.toContain('unsafe-inline')
+    expect(scriptSrc).not.toContain('unsafe-eval')
+    expect(policy).toContain('frame-ancestors \'self\'')
+    expect(policy).toContain('object-src \'none\'')
+    // every inline script the page runs is allowed by hash, and nothing else
+    const inline = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].filter(([, attributes]) => !/\ssrc=|application\/json/.test(attributes!)).map(([, , content]) => `'sha256-${createHash('sha256').update(content!).digest('base64')}'`)
+    expect(inline.length).toBeGreaterThan(0)
+    expect(scriptSrc.split(' ').filter(s => s.startsWith('\'sha256-')).toSorted()).toEqual([...new Set(inline)].toSorted())
+
+    // and the admin works under it: no violation while signing in and opening an entry list
+    const page = await createPage()
+    const violations: string[] = []
+    page.on('console', (message) => {
+      if (/content security policy/i.test(message.text()))
+        violations.push(message.text())
+    })
+    await page.goto(url('/admin'))
+    await page.getByLabel('Email').fill('ada@example.com')
+    await page.getByLabel('Password').fill('password 123')
+    await page.getByRole('button', { name: 'Sign in' }).click()
+    await page.getByRole('heading', { name: 'Dashboard' }).waitFor()
+    await page.goto(url('/admin/collections/posts'))
+    await page.getByRole('link', { name: 'Hello world' }).waitFor()
+    expect(violations).toEqual([])
+  })
 
   it('renders a custom field type\'s own input, and saves its value', async () => {
     const page = await signIn()
