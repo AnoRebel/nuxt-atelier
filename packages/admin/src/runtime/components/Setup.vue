@@ -10,14 +10,14 @@ import { useAdminI18n } from '../i18n'
 
 const { t } = useAdminI18n()
 
-const { createAdmin } = useAtelierSession()
-const form = reactive({ name: '', email: '', password: '' })
+const { createAdmin, setupToken } = useAtelierSession()
+const form = reactive({ name: '', email: '', password: '', token: '' })
 const error = ref('')
 
 async function submit() {
   error.value = ''
   try {
-    await createAdmin.mutateAsync({ ...form, name: form.name || undefined })
+    await createAdmin.mutateAsync({ ...form, name: form.name || undefined, token: form.token || undefined })
   }
   catch (e) {
     error.value = (e as AdminApiError).errors?.map(x => x.message).join('. ') || (e as AdminApiError).message
@@ -56,6 +56,15 @@ async function submit() {
       autocomplete="new-password"
       required
       minlength="8"
+    />
+    <CnInput
+      v-if="setupToken"
+      v-model="form.token"
+      :label="t('setup.token')"
+      type="password"
+      :hint="t('setup.tokenHint')"
+      autocomplete="off"
+      required
     />
     <CnAlert
       v-if="error"

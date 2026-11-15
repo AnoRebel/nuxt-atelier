@@ -9,7 +9,7 @@ import { createError, useRuntimeConfig } from 'nuxt/server'
 export type ErrorCode
   = | 'bad_request' | 'invalid_query' | 'unauthenticated' | 'forbidden' | 'csrf' | 'not_found' | 'method_not_allowed'
     | 'conflict' | 'referenced' | 'last_admin' | 'setup_done' | 'already_exists' | 'validation_failed'
-    | 'locked' | 'rate_limited' | 'unsupported' | 'migrations_pending' | 'preview_expired' | 'too_large' | 'unsupported_type'
+    | 'locked' | 'rate_limited' | 'unsupported' | 'migrations_pending' | 'preview_expired' | 'too_large' | 'unsupported_type' | 'setup_token'
     | 'demo'
 
 const DEFAULT_CODES: Record<number, ErrorCode> = {
