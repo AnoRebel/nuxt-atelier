@@ -137,6 +137,34 @@ describe('visual editor', async () => {
     await expect.poll(() => treeOrder(page)).toEqual(['s1', 't1', 'h1'])
   })
 
+  it('inserts a block from the command palette, undoably, and keeps Ctrl+K for itself', async () => {
+    const page = await openEditor()
+    await page.locator('[data-tree-block="h1"]').click()
+    await page.keyboard.press('Control+k')
+    const field = page.getByRole('combobox', { name: 'Type a command' })
+    await field.waitFor()
+    expect(await page.getByRole('dialog', { name: 'Search' }).count()).toBe(0) // not the admin's search
+    await field.fill('insert card')
+    await page.getByRole('option', { name: /Insert Card/ }).waitFor()
+    await page.keyboard.press('Enter')
+    // after the selected block, and selected
+    await expect.poll(async () => (await treeOrder(page)).length).toBe(4)
+    const [first, inserted] = await treeOrder(page)
+    expect(first).toBe('h1')
+    await page.locator(`[data-tree-block="${inserted}"][aria-pressed="true"]`).waitFor()
+    expect(await page.locator(`[data-tree-block="${inserted}"]`).textContent()).toContain('Card')
+    // undone from the palette too
+    await page.keyboard.press('Control+k')
+    await field.fill('undo')
+    await page.keyboard.press('Enter')
+    await expect.poll(() => treeOrder(page)).toEqual(['h1', 's1', 't1'])
+    // a command a plugin added (test/fixtures/editor/app/plugins/commands.client.ts)
+    await page.keyboard.press('Control+k')
+    await field.fill('shout')
+    await page.keyboard.press('Enter')
+    await expect.poll(() => preview(page).locator('[data-at-field="title"]').textContent()).toMatch(/!\s*$/)
+  })
+
   it('has no serious accessibility problems in its chrome', async () => {
     const page = await openEditor()
     await page.addScriptTag({ content: axeSource })

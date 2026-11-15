@@ -178,6 +178,12 @@ export default {
   'editor.moved': '{block} moved to position {position} of {list}',
   'editor.empty': 'Empty',
   'editor.preview': 'Preview of the page',
+  'editor.commands': 'Commands',
+  'editor.commandsLabel': 'Type a command',
+  'editor.noCommands': 'No command matches.',
+  'editor.insert': 'Insert {block}',
+  'editor.groupBlocks': 'Blocks',
+  'editor.groupEdit': 'Edit',
   'editor.cantPlace': '{block} can\'t go there',
   // forms
   'forms.submissions': 'Submissions',

@@ -25,6 +25,8 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       if (!hasNuxtModule('@nuxt-atelier/admin', nuxt))
         useLogger('@nuxt-atelier/editor').warn('The visual editor is part of the admin: add @nuxt-atelier/admin to your modules.')
     })
+    // plugins add commands to the editor's palette with `addEditorCommands` from here
+    nuxt.options.alias['#atelier-editor'] = resolve('./runtime/commands')
     // the admin shows its "Visual editor" button when this is set
     nuxt.options.runtimeConfig.public.atelierEditor = { presets: options.presets ?? [] }
     ;(nuxt.hook as Hook)('atelier:admin:pages', (pages) => {

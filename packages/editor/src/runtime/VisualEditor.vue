@@ -2,6 +2,7 @@
      selection and hover drawn over it from the positions the page reports; the structure of its blocks; the
      selected block's form. Edits are the entry form's, saved with Save like any other. -->
 <script setup lang="ts">
+import type { EditorCommand, EditorContext } from './commands'
 import type { Dnd, Dragged, DropAt } from './dnd'
 import type { BlockList } from './tree'
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
@@ -13,6 +14,8 @@ import CnSelect from '#atelier-admin-runtime/crystal-neuo/components/Select.vue'
 import { useAdminToast } from '#atelier-admin-runtime/toast'
 import { BRIDGE_VERSION, ChildMessage, readMessage } from '#atelier/shared/bridge'
 import styles from './editor.css?raw'
+import CommandPalette from './CommandPalette.vue'
+import { addedCommands } from './commands'
 import { dndKey } from './dnd'
 import { createHistory } from './history'
 import StructureList from './StructureList.vue'
@@ -253,11 +256,21 @@ watch(dropAt, (at) => {
   if (!at)
     previewLine.value = null
 })
-// --- keys: undo, redo
+// --- keys: undo, redo, the command palette (Ctrl+K here: the editor's, not the admin's search)
+const commandsOpen = ref(false)
 function onKey(event: KeyboardEvent) {
   if (!(event.ctrlKey || event.metaKey) || event.altKey)
     return
   const key = event.key.toLowerCase()
+  if (key === 'k') {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    commandsOpen.value = !commandsOpen.value
+    return
+  }
+  // in the palette's field, undo is the text's
+  if (commandsOpen.value)
+    return
   if (key === 'z' && !event.shiftKey) {
     event.preventDefault()
     undo()
@@ -267,8 +280,56 @@ function onKey(event: KeyboardEvent) {
     redo()
   }
 }
-onMounted(() => addEventListener('keydown', onKey))
-onBeforeUnmount(() => removeEventListener('keydown', onKey))
+onMounted(() => addEventListener('keydown', onKey, { capture: true }))
+onBeforeUnmount(() => removeEventListener('keydown', onKey, { capture: true }))
+
+const context: EditorContext = {
+  get selected() {
+    return selected.value
+  },
+  select: (blockId) => {
+    selected.value = blockId
+  },
+  insert: (blockType) => {
+    if (!target.value || !canPlace({ kind: 'new', type: blockType }, target.value))
+      return false
+    place({ kind: 'new', type: blockType }, target.value)
+    return true
+  },
+  data: () => clone(values.value),
+  setData: data => setData(data, 'operation'),
+  undo,
+  redo,
+  save: () => save(),
+}
+const commands = computed<EditorCommand[]>(() => {
+  const blocks = t('editor.groupBlocks')
+  const editing = t('editor.groupEdit')
+  const at = selectedAt.value
+  return [
+    ...target.value ? palette.value.filter(b => canPlace({ kind: 'new', type: b.name }, target.value!)).map(b => ({ id: `insert:${b.name}`, label: t('editor.insert', { block: b.label }), group: blocks, run: () => void context.insert(b.name) })) : [],
+    ...at
+      ? [
+          { id: 'move-up', label: t('editor.moveUp'), group: editing, run: () => moveBy(at.block.id, -1) },
+          { id: 'move-down', label: t('editor.moveDown'), group: editing, run: () => moveBy(at.block.id, 1) },
+          { id: 'duplicate', label: t('editor.duplicate'), group: editing, run: () => duplicateBlock(at.block.id) },
+          { id: 'delete', label: t('editor.delete'), group: editing, run: () => removeBlock(at.block.id) },
+        ]
+      : [],
+    { id: 'undo', label: t('editor.undo'), group: editing, run: undo },
+    { id: 'redo', label: t('editor.redo'), group: editing, run: redo },
+    ...canSave.value ? [{ id: 'save', label: type.value?.versioned ? t('entry.saveDraft') : t('common.save'), group: editing, run: save }] : [],
+    ...commandsOpen.value ? addedCommands(context) : [],
+  ]
+})
+async function runCommand(command: EditorCommand) {
+  try {
+    await command.run(context)
+  }
+  catch (e) {
+    toast.add({ color: 'error', title: (e as { message?: string }).message ?? '' })
+  }
+}
 
 async function save() {
   try {
@@ -515,6 +576,11 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
         </p>
       </aside>
     </div>
+    <CommandPalette
+      v-model:open="commandsOpen"
+      :commands="commands"
+      @run="runCommand"
+    />
     <p
       class="sr-only"
       aria-live="polite"
