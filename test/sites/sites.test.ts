@@ -118,6 +118,10 @@ describe('sites', async () => {
     expect((await on(B, null, 'GET', `/_atelier/media/${image.id}/a.png`)).status).toBe(404)
     expect((await on(B, 'admin', 'GET', `/media/${image.id}`)).status).toBe(404)
     expect((await on(B, 'admin', 'GET', '/media')).body.items).toEqual([])
+    // a private file on site B is for B's users: the editor, signed in but with no role there, gets a 404
+    const contract = (await on(B, 'admin', 'POST', '/media?filename=contract.png&private=true', png, { 'content-type': 'image/png' })).body
+    expect((await on(B, 'admin', 'GET', `/_atelier/media/${contract.id}/contract.png`)).status).toBe(200)
+    expect((await on(B, 'editor', 'GET', `/_atelier/media/${contract.id}/contract.png`)).status).toBe(404)
 
     const form = (await on(A, 'admin', 'POST', '/collections/atelier-forms', { publish: true, data: { title: 'Contact', fields: [{ name: 'email', type: 'email', label: 'Email', required: true }] } })).body
     expect((await on(B, null, 'GET', `/forms/${form.id}`)).status).toBe(404)

@@ -3,13 +3,18 @@
 // Image variants with `?w=640&ar=1:1&format=webp` (a width
 // from `media.widths`, an aspect ratio cropped around the focal point, a format). A URL never changes what
 // it serves (a new file gets a new id), so public files are cached for a year; private ones only reach
-// signed-in users, are never cached, and are a 404 for anyone else, as if they didn't exist.
+// signed-in users with access to the site, are never cached, and are a 404 for anyone else, as if they
+// didn't exist. Uploads are the uploader's content, not the app's: they're sandboxed (an SVG's scripts don't
+// run on the site's origin), and what a browser wouldn't display as media is downloaded, not opened.
 import type { Variant } from '../media/images'
 import { defineEventHandler, getQuery } from 'nuxt/server'
 import { apiError } from '../errors'
 import { segments } from '../content-access'
-import { useAtelierAuth, useAtelierMedia, useAtelierServerConfig, useAtelierSite } from '../index'
+import { onSite, useAtelierAuth, useAtelierMedia, useAtelierServerConfig, useAtelierSite } from '../index'
 import { ASPECTS, FORMATS, resizable, variantFile, variantMime } from '../media/images'
+
+/** What a browser shows as media; anything else is downloaded. */
+const INLINE = /^(?:image|video|audio)\/|^application\/pdf$/
 
 export default defineEventHandler(async (event) => {
   if (event.req.method !== 'GET' && event.req.method !== 'HEAD')
@@ -20,8 +25,11 @@ export default defineEventHandler(async (event) => {
   const item = id && name && !rest.length ? await library.get(id) : undefined
   if (!item || item.filename !== name)
     throw notFound()
-  if (item.private && !await (await useAtelierAuth()).getUser(event))
-    throw notFound()
+  if (item.private) {
+    const user = await (await useAtelierAuth()).getUser(event)
+    if (!user || !await onSite(event, user))
+      throw notFound()
+  }
 
   const query = getQuery(event)
   let file: { stream: ReadableStream<Uint8Array>, size: number } | undefined
@@ -50,7 +58,9 @@ export default defineEventHandler(async (event) => {
       'content-length': String(file.size),
       'cache-control': item.private ? 'private, no-store' : 'public, max-age=31536000, immutable',
       'x-content-type-options': 'nosniff',
-      'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(item.filename)}`,
+      // a PDF viewer doesn't open in a sandbox; it runs no script on the site's origin anyway
+      ...mime === 'application/pdf' ? {} : { 'content-security-policy': 'sandbox' },
+      'content-disposition': `${INLINE.test(mime) ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(item.filename)}`,
     },
   })
 })
