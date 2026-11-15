@@ -6,7 +6,7 @@ import type { AdminApiError, Entry } from '../types'
 import { useForm } from '@tanstack/vue-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, onScopeDispose, ref, toValue, watch } from 'vue'
-import { defaultsFactory, validateEntry } from '#atelier/shared/fields'
+import { defaultsFactory, slugify, validateEntry } from '#atelier/shared/fields'
 import { atelierFetch } from './useAtelierAdmin'
 import { useAtelierAdminSchema } from './useAtelierAdminSchema'
 
@@ -105,6 +105,21 @@ export function useAtelierEntryForm(target: MaybeRefOrGetter<EntryFormTarget>) {
     if (copyOf && JSON.stringify(copyOf.values) !== JSON.stringify(loaded?.data ?? defaultsFactory(fieldsOf.fields)()))
       recovery.value = copyOf
   }, { immediate: true })
+  // slugs made from another field (`slug({ from: 'title' })`) follow it as it's typed, until the user writes
+  // their own: while the slug is empty, or still the one made from the field's previous value. Only before
+  // the entry is first published: after that, the slug is its address, which a retitling shouldn't move.
+  watch(() => Object.entries(type.value?.fields ?? {})
+    .filter(([, f]) => (f as { type: string }).type === 'slug' && (f as { from?: string }).from)
+    .map(([key, f]) => [key, values.value[(f as { from: string }).from]] as const), (now, before) => {
+    for (const [key, source] of now) {
+      const previous = before?.find(([k]) => k === key)?.[1]
+      const current = values.value[key]
+      if (entry.data.value?.publishedVersion)
+        return
+      if (typeof source === 'string' && source !== previous && (!current || current === slugify(String(previous ?? ''))))
+        form.setFieldValue(key as never, slugify(source) as never)
+    }
+  })
   let timer: ReturnType<typeof setTimeout> | undefined
   watch(values, (current) => {
     if (!dirty.value)

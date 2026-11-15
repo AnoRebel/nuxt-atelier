@@ -22,6 +22,7 @@ import CnSelect from '../crystal-neuo/components/Select.vue'
 import { useAdminToast } from '../toast'
 import CommentsPanel from './CommentsPanel.vue'
 import RevisionHistory from './RevisionHistory.vue'
+import ScheduleSection from './ScheduleSection.vue'
 import FieldInput from './FieldInput.vue'
 import NotFound from './NotFound.vue'
 import Page from './Page.vue'
@@ -414,6 +415,13 @@ async function remove() {
       v-if="kind === 'collection' && name === 'atelier-shared-blocks' && id && !edit.isNew.value"
       :id="id"
       :can-delete="!!type.can.delete"
+    />
+    <ScheduleSection
+      v-if="type.versioned && type.can.publish && !edit.isNew.value && !edit.loading.value"
+      :url="edit.url.value"
+      :query="edit.localeQuery.value"
+      :version="edit.entry.value?.version ?? null"
+      :dirty="dirty"
     />
     <RevisionHistory
       v-if="!edit.isNew.value && !edit.loading.value && type.can.update && type.revisions !== false"
