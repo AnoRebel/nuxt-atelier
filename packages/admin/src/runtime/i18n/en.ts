@@ -195,6 +195,9 @@ export default {
   'editor.savedShared': 'Saved "{title}" as a shared block',
   'editor.savedPattern': 'Saved "{title}" as a pattern',
   'editor.copied': '{block} copied',
+  'editor.comments': 'Comments',
+  'editor.panel': 'Side panel',
+  'editor.commentsOn': '{count} open comment threads on {block}',
   'editor.cantPlace': '{block} can\'t go there',
   // forms
   'forms.submissions': 'Submissions',
