@@ -66,6 +66,8 @@ jobs:
       # before typecheck and test: the layer and its fixtures load the module's dist/
       - run: bun run build
       - run: bun run typecheck
+      # the e2e tests drive Chromium
+      - run: bunx playwright-core install --with-deps chromium
       - run: bun run test
       - run: bun run check:pkg
       - run: bun run pack
@@ -101,11 +103,11 @@ jobs:
           path: .bench/history.json
           key: bench-history-${{ github.run_id }}
 
-  # Third-party compatibility, reported without gating merges: nuxt-i18n-micro under compatibilityVersion: 5
-  # (as of 3.30.1 its server code imports useRuntimeConfig from #imports, which Nuxt 5 behaviour doesn't
-  # provide, so the build fails). The job shows red until it works; the check job above decides merges.
+  # Third-party compatibility, reported without gating merges: nuxt-i18n-micro and @nuxtjs/i18n under
+  # compatibilityVersion: 5 (as of 3.30.1 and 10.6.0 their server code imports useRuntimeConfig from #imports,
+  # which Nuxt 5 behaviour doesn't provide, so the build fails). Red until they work; `check` decides merges.
   compat:
-    name: Compat (nuxt-i18n-micro, Nuxt 5 behaviour)
+    name: Compat (i18n modules, Nuxt 5 behaviour)
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -142,3 +144,116 @@ jobs:
       - run: bun run build
       # fails on broken internal links (prerender) and unknown MDC components or unreached pages (scripts/check-output.ts)
       - run: bun run docs:build
+
+  # The whole journey (test/e2e/journey.test.ts) in the matrix's other cells: `check` runs it on SQLite with
+  # Node 22, 24 and 26; here on each database server, and with Nuxt 5 behaviour (no i18n module there yet).
+  journey:
+    name: Journey (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: PostgreSQL, database: 'postgres://atelier:atelier@127.0.0.1:5432/atelier' }
+          - { name: MySQL, database: 'mysql://atelier:atelier@127.0.0.1:3306/atelier' }
+          - { name: MariaDB, database: 'mariadb://atelier:atelier@127.0.0.1:3307/atelier' }
+          - { name: Nuxt 5 behaviour, nuxt5: '1' }
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env: { POSTGRES_USER: atelier, POSTGRES_PASSWORD: atelier, POSTGRES_DB: atelier }
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U atelier" --health-interval 2s --health-retries 30
+      mysql:
+        image: mysql:9.7
+        env: { MYSQL_USER: atelier, MYSQL_PASSWORD: atelier, MYSQL_DATABASE: atelier, MYSQL_ROOT_PASSWORD: root }
+        ports: ['3306:3306']
+        options: --health-cmd "mysqladmin ping -h 127.0.0.1" --health-interval 2s --health-retries 60
+      mariadb:
+        image: mariadb:12.3
+        env: { MARIADB_USER: atelier, MARIADB_PASSWORD: atelier, MARIADB_DATABASE: atelier, MARIADB_ROOT_PASSWORD: root }
+        ports: ['3307:3306']
+        options: --health-cmd "healthcheck.sh --connect --innodb_initialized" --health-interval 2s --health-retries 60
+    env:
+      ATELIER_JOURNEY_DATABASE_URL: ${{ matrix.database }}
+      ATELIER_NUXT5: ${{ matrix.nuxt5 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bunx playwright-core install --with-deps chromium
+      - run: bunx vitest run test/e2e
+
+  # The next Nuxt, reported without gating merges: nuxt-nightly@5x in place of the catalog's Nuxt, running the
+  # journey and the API and module suites.
+  nightly:
+    name: Nuxt 5 nightly
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: npm pkg set 'workspaces.catalog.nuxt=npm:nuxt-nightly@5x'
+      - run: bun install
+      - run: bun run build
+      - run: bunx playwright-core install --with-deps chromium
+      - run: bunx vitest run test/e2e test/api test/module
+        env:
+          ATELIER_NUXT5: '1'
+
+  # TypeScript 7 (the native compiler), reported without gating merges. Vue's language tools v4, which would
+  # type-check the .vue files with it, aren't released: until they are, vue-tsc 3 does that in `check`.
+  typescript-7:
+    name: TypeScript 7
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: npm install --global typescript@7.0.2
+      - run: tsc --version && tsc --noEmit
+      - name: Vue language tools v4
+        run: |
+          npm view vue-tsc@4 version || echo "::notice::Vue language tools v4 aren't released yet, so .vue files are checked with vue-tsc 3 in the check job"
+
+  # A new contributor's setup, from CONTRIBUTING.md's own commands on a clean runner
+  contributor:
+    name: Contributor setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bunx playwright-core install --with-deps chromium
+      # the tests run in `check` (with every database): here, everything else the guide says
+      - run: bun scripts/contributor-setup.ts --skip "bun run test"
