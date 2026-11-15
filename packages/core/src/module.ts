@@ -271,6 +271,12 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerHandler({ route: '/_atelier/media/**', handler: resolve('./runtime/server/api/media-files') })
     addServerHandler({ route: '/api/_atelier/webhooks/**', handler: resolve('./runtime/server/api/webhooks') })
     addServerHandler({ route: '/api/_atelier/jobs/**', handler: resolve('./runtime/server/api/jobs') })
+    // sharp is optional: without it installed, a build that bundles every import (Workers) can't resolve it
+    nuxt.hook('nitro:config', async (config) => {
+      const nitro = config as unknown as { alias?: Record<string, string> } // the fallback config type doesn't declare it
+      if (!await tryResolveModule('sharp', [nuxt.options.rootDir, import.meta.url]))
+        nitro.alias = { ...nitro.alias, sharp: resolve('./runtime/server/media/no-sharp') }
+    })
     // background jobs: one Nitro task drains the queue, on Nitro's scheduler where the platform has one
     nuxt.hook('nitro:config', (config) => {
       // the task options of Nitro 2 and 3 alike; the fallback config type doesn't declare them
