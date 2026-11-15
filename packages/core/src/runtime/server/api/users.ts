@@ -2,6 +2,7 @@
 //   GET     /api/_atelier/users  every user
 //   POST    /api/_atelier/users  { email, name?, role, password? }
 //   PATCH   /api/_atelier/users/<id>  { email?, name?, role?, password? }  a password change signs them out everywhere
+//           and removes their passkeys (built-in auth): a reset shuts whatever way in an intruder had
 //   DELETE  /api/_atelier/users/<id>
 //   GET     /api/_atelier/users/<id>/sites  with `sites`: their role on each site, { shop: 'editor' } (administrators reach every site)
 //   PUT     /api/_atelier/users/<id>/sites  { sites: { shop: 'editor' } }: replaces them; a site left out loses access

@@ -149,8 +149,10 @@ export function createBuiltinAuth(driver: AtelierDriver, options: BuiltinAuthOpt
           ...changes.password === undefined ? {} : { passwordHash: await hashPassword(changes.password) },
           updatedAt: new Date().toISOString(),
         }).where(eq(users.id, id))
-        if (changes.password !== undefined) // a reset signs out every session, including a stolen one
+        if (changes.password !== undefined) { // a reset shuts every other way in, an intruder's included
           await revokeSessions(id)
+          await db.delete(passkeys).where(eq(passkeys.userId, id))
+        }
         return toUser((await byId(id))!)
       },
 
