@@ -157,6 +157,8 @@ export const email = helper<EmailField>('email')
 export const url = helper<UrlField>('url')
 /** A URL-safe name, made from another field with `from` (`slug({ from: 'title' })`). */
 export const slug = helper<SlugField>('slug')
+/** `text` as a slug: lowercase ASCII letters and digits, words joined by single hyphens ("Frühjahr 2026!" → "fruhjahr-2026"). */
+export const slugify = (text: string): string => text.replace(/ß/g, 'ss').normalize('NFKD').replace(/[\u0300-\u036F]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 /** A colour, as a hex value. */
 export const color = helper<ColorField>('color')
 /** Any JSON value, edited as JSON. */
