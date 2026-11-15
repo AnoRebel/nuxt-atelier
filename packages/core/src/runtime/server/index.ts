@@ -405,6 +405,7 @@ export function useAtelierSettings(site: SiteContext): Promise<SettingsStore> {
   return store
 }
 
+/** The roles: built-in, from `server/atelier/roles.ts`, and those made in the admin. */
 export function useAtelierRoles(): Promise<RoleStore> {
   roleStore ??= (async () => createRoleStore(await useAtelierDatabase(), (await import('#atelier-schema')).roles))()
     .catch((error) => {

@@ -19,6 +19,7 @@ export function registerSearchAdapter(factory: () => SearchAdapter | Promise<Sea
   adapter = undefined
 }
 
+/** The site search adapter in use: the built-in one on your database, or one registered with `registerSearchAdapter()`. */
 export function useAtelierSearch(): Promise<SearchAdapter> {
   adapter ??= (async () => custom ? custom() : createDatabaseSearch(await useAtelierDatabase()))().catch((error) => {
     adapter = undefined

@@ -192,6 +192,17 @@ function cli(): string {
   return `## CLI\n\nThe \`atelier\` command, installed with \`nuxt-atelier\` (\`bunx atelier\`, \`npx atelier\`).\n\n\`\`\`text\n${usage}\n\`\`\``
 }
 
+/** Every public value with where it's exported from and its TSDoc, for the docs completeness check. */
+export function publicApi(): (Item & { from: string })[] {
+  const composables = join(core, 'runtime/app/composables')
+  return [
+    ...readdirSync(composables).flatMap(f => exportsOf(join(composables, f), n => n.startsWith('use')).values.map(v => ({ ...v, from: 'composables' }))),
+    ...exportsOf(join(core, 'runtime/app/index.ts'), n => !n.startsWith('use')).values.map(v => ({ ...v, from: '#atelier' })),
+    ...exportsOf(join(core, 'runtime/server/index.ts')).values.map(v => ({ ...v, from: '#atelier/server' })),
+    ...exportsOf(join(core, 'adapter.ts')).values.map(v => ({ ...v, from: 'nuxt-atelier/adapter' })),
+  ]
+}
+
 export function generateReference(): string {
   const composables = join(core, 'runtime/app/composables')
   const composableItems = readdirSync(composables).toSorted().flatMap(f => exportsOf(join(composables, f), n => n.startsWith('use')).values)

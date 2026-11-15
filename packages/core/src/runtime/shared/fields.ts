@@ -135,23 +135,41 @@ type Options<F extends Field> = FieldOptions<F>
 const helper = <F extends Field>(type: F['type']) =>
   <const O extends Options<F>>(options?: O): F & O & { type: F['type'] } => ({ type, ...options }) as F & O
 
+/** A single line of text: `text({ required: true, maxLength: 120 })`. */
 export const text = helper<TextField>('text')
+/** Plain text over several lines. */
 export const textarea = helper<TextareaField>('textarea')
+/** Formatted text, stored as a ProseMirror document and sanitized on save; render it with `<AtelierRichText>`. */
 export const richText = helper<RichTextField>('richText')
+/** A number; `integer`, `min` and `max` constrain it. */
 export const number = helper<NumberField>('number')
+/** True or false: a switch in the admin. */
 export const boolean = helper<BooleanField>('boolean')
+/** One value from a list of `options`. */
 export const select = <const O extends Options<SelectField>>(options: O): SelectField & O => ({ type: 'select', ...options })
+/** Several values from a list of `options`. */
 export const multiSelect = <const O extends Options<MultiSelectField>>(options: O): MultiSelectField & O => ({ type: 'multiSelect', ...options })
+/** A date (`YYYY-MM-DD`), a date and time (`mode: 'datetime'`, ISO 8601 UTC) or a time (`mode: 'time'`). */
 export const date = helper<DateField>('date')
+/** An email address, checked on save. */
 export const email = helper<EmailField>('email')
+/** A web address, or a path on the site. */
 export const url = helper<UrlField>('url')
+/** A URL-safe name, made from another field with `from` (`slug({ from: 'title' })`). */
 export const slug = helper<SlugField>('slug')
+/** A colour, as a hex value. */
 export const color = helper<ColorField>('color')
+/** Any JSON value, edited as JSON. */
 export const json = helper<JsonField>('json')
+/** A file from the media library (`many: true` for several). */
 export const media = helper<MediaField>('media')
+/** A link to entries of another collection: `relation({ to: 'authors' })`, `many: true` for several. */
 export const relation = <const O extends Options<RelationField>>(options: O): RelationField & O => ({ type: 'relation', ...options })
+/** A group of `fields`, stored together. */
 export const object = <const O extends Options<ObjectField>>(options: O): ObjectField & O => ({ type: 'object', ...options })
+/** A list of items, each with the same `fields`. */
 export const repeater = <const O extends Options<RepeaterField>>(options: O): RepeaterField & O => ({ type: 'repeater', ...options })
+/** A list of blocks, with `allow`, `minItems` and `maxItems` to constrain it. */
 export const blocks = helper<BlocksField>('blocks')
 
 /**

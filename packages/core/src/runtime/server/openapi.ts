@@ -69,6 +69,7 @@ const errors = (...statuses: number[]) => Object.fromEntries(statuses.map(s => [
 const param = (name: string, description: string, schema: JsonSchema = { type: 'string' }, where = 'query') =>
   ({ name, in: where, required: where === 'path', description, schema })
 
+/** The content API's OpenAPI 3.1 description for a content schema: its collections' and singletons' endpoints and data. */
 export function openApiDocument(schema: ContentSchema, info: { title?: string, version?: string } = {}): JsonSchema {
   const locales = resolveLocales(schema.locales)
   const schemas: Record<string, JsonSchema> = {

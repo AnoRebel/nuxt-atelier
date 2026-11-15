@@ -21,6 +21,7 @@ export class ForbiddenError extends Error {
   readonly statusCode = 403
 }
 
+/** The content adapter contract on your database, with revisions; `permissions` decides who may read and update what. */
 export function createDatabaseAdapter(options: DatabaseAdapterOptions): DefinedContentAdapter {
   const { store, schema } = options
 

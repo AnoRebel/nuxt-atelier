@@ -57,6 +57,7 @@ const canonical = (value: unknown) => JSON.stringify(value ?? null, (_, x) =>
 const NO_FIELDS: FieldAccess = { hidden: new Set(), readOnly: new Set() }
 const CAPABILITIES = new Set<string>(['users', 'roles', 'settings', 'media', 'redirects', 'forms', 'ai'] satisfies Capability[])
 
+/** The permission checks for a set of roles: `can(user, action, type)`, field access, capabilities. The API, the admin and the visual editor all ask it. */
 export function createPolicy(roles: Roles) {
   if (ADMIN_ROLE in roles)
     throw new Error(`[nuxt-atelier] The "${ADMIN_ROLE}" role is built in and can do everything; it can't be redefined`)
