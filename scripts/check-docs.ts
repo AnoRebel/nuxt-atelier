@@ -33,6 +33,7 @@ const GUIDES: Record<string, [file: string, mentions: string]> = {
   // entries
   list: [guide('2.the-admin'), '## Lists'],
   entry: [guide('2.the-admin'), '## Editing'],
+  history: [guide('5.drafts-and-publishing'), '## Earlier versions'],
   field: [guide('2.the-admin'), 'field'],
   action: [guide('2.the-admin'), 'Save draft'],
   status: [guide('5.drafts-and-publishing'), 'draft'],
