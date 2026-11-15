@@ -5,8 +5,9 @@
 import type { EditorCommand, EditorContext } from './commands'
 import type { Dnd, Dragged, DropAt } from './dnd'
 import type { Block, BlockList } from './tree'
-import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
-import { navigateTo, useAdminI18n, useAtelierAdmin, useAtelierAdminSchema, useAtelierEntryForm, useRoute, useRuntimeConfig } from '#imports'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
+import { navigateTo, useAdminI18n, useAtelierAdmin, useAtelierAdminSchema, useAtelierComments, useAtelierEntryForm, useRoute, useRuntimeConfig } from '#imports'
+import CommentsPanel from '#atelier-admin-runtime/components/CommentsPanel.vue'
 import FieldInput from '#atelier-admin-runtime/components/FieldInput.vue'
 import CnAlert from '#atelier-admin-runtime/crystal-neuo/components/Alert.vue'
 import CnButton from '#atelier-admin-runtime/crystal-neuo/components/Button.vue'
@@ -303,6 +304,33 @@ const context: EditorContext = {
   redo,
   save: () => save(),
 }
+// --- comments: a marker on each block with open threads, opening them in the side panel
+const commentsTarget = computed(() => type.value ? { type: name, id: kind.value === 'singleton' ? name : id ?? '' } : null)
+const comments = useAtelierComments(commentsTarget)
+const panel = ref<'block' | 'comments'>('block')
+const aside = ref<HTMLElement | null>(null)
+const markers = computed(() => {
+  const open = new Map<string, string[]>()
+  for (const thread of comments.threads.value) {
+    if (thread.block && !thread.resolvedAt && !thread.orphaned)
+      open.set(thread.block, [...open.get(thread.block) ?? [], thread.id])
+  }
+  return [...open].flatMap(([blockId, threads]) => {
+    const at = geometry.value?.blocks.find(b => b.id === blockId)
+    const label = locate(lists.value, blockId)?.block.label ?? ''
+    return at ? [{ blockId, threads, label, style: { left: `${at.rect.x + at.rect.width}px`, top: `${at.rect.y}px` } }] : []
+  })
+})
+async function openThread(blockId: string, thread: string) {
+  selected.value = blockId
+  panel.value = 'comments'
+  await nextTick()
+  const el = aside.value?.querySelector<HTMLElement>(`[data-comment="${thread}"]`)
+  el?.scrollIntoView({ block: 'nearest' })
+  el?.setAttribute('data-highlighted', '')
+  setTimeout(() => el?.removeAttribute('data-highlighted'), 2000)
+}
+
 // --- reuse: patterns and shared blocks to insert, a block saved as either, detached, copied and pasted
 interface Pattern { id: string, label: string, blocks: Block[] }
 interface Shared { id: string, label: string, block: Block }
@@ -660,13 +688,58 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
               >{{ selectedAt?.block.label }}</span>
             </div>
           </div>
+          <div class="ate-editor__markers">
+            <button
+              v-for="marker in markers"
+              :key="marker.blockId"
+              type="button"
+              class="ate-editor__marker"
+              :style="marker.style"
+              :data-comment-marker="marker.blockId"
+              :aria-label="t('editor.commentsOn', { count: marker.threads.length, block: marker.label })"
+              @click="openThread(marker.blockId, marker.threads[0]!)"
+            >
+              {{ marker.threads.length }}
+            </button>
+          </div>
         </div>
       </div>
       <aside
+        ref="aside"
         class="ate-editor__panel"
-        :aria-label="t('editor.block')"
+        :aria-label="panel === 'comments' ? t('editor.comments') : t('editor.block')"
       >
-        <template v-if="selectedAt && selectedSchema">
+        <div
+          class="app-row"
+          role="group"
+          :aria-label="t('editor.panel')"
+        >
+          <CnButton
+            :variant="panel === 'block' ? 'secondary' : 'ghost'"
+            size="sm"
+            :aria-pressed="panel === 'block'"
+            @click="panel = 'block'"
+          >
+            {{ t('editor.block') }}
+          </CnButton>
+          <CnButton
+            :variant="panel === 'comments' ? 'secondary' : 'ghost'"
+            size="sm"
+            :aria-pressed="panel === 'comments'"
+            data-comments-tab
+            @click="panel = 'comments'"
+          >
+            {{ t('editor.comments') }}
+          </CnButton>
+        </div>
+        <CommentsPanel
+          v-if="panel === 'comments' && commentsTarget"
+          :id="commentsTarget.id"
+          :type="commentsTarget.type"
+          :data="values"
+          :can-comment="!!type?.can.comment"
+        />
+        <template v-else-if="selectedAt && selectedSchema">
           <h2 class="app-section__title">
             {{ selectedAt.block.label }}
           </h2>

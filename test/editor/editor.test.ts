@@ -221,6 +221,25 @@ describe('visual editor', async () => {
     expect(await items(page)).toEqual(['Card'])
   })
 
+  it('marks blocks with open comment threads in the preview, opening the thread in the comments panel', async () => {
+    const page = await openEditor()
+    const thread = await page.evaluate(async (id) => {
+      const csrf = document.cookie.split('; ').find(c => c.startsWith('atelier-csrf='))!.slice('atelier-csrf='.length)
+      const post = (body: unknown) => window.fetch(`/api/_atelier/comments/pages/${id}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-atelier-csrf': csrf }, body: JSON.stringify(body) }).then(r => r.json())
+      await post({ body: 'About the whole page' })
+      return (await post({ body: 'This card needs a better heading', block: 'c1' })).id as string
+    }, pageId)
+    await page.reload()
+    await preview(page).locator('[data-at-block]').first().waitFor()
+    const marker = page.locator('[data-comment-marker="c1"]')
+    await marker.waitFor()
+    expect(await page.locator('[data-comment-marker]').count()).toBe(1) // the page's own comment has none
+    expect(await marker.getAttribute('aria-label')).toBe('1 open comment threads on Card')
+    await marker.click()
+    await page.locator(`[data-comment="${thread}"]`).getByText('This card needs a better heading').waitFor()
+    await page.locator('[data-tree-block="c1"][aria-pressed="true"]').waitFor()
+  })
+
   it('has no serious accessibility problems in its chrome', async () => {
     const page = await openEditor()
     await page.addScriptTag({ content: axeSource })
