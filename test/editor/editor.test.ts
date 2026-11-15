@@ -26,8 +26,8 @@ describe('visual editor', async () => {
   })
 
   /** Signed in, on the editor for the test page (created the first time). */
-  async function openEditor(): Promise<Page> {
-    const page = await createPage(url('/admin'))
+  async function openEditor(entryId?: string, page?: Page): Promise<Page> {
+    page ??= await createPage(url('/admin'))
     await page.getByLabel('Email').fill('ada@example.com')
     await page.getByLabel('Password').fill('password 123')
     await page.getByRole('button', { name: 'Sign in' }).click()
@@ -47,9 +47,9 @@ describe('visual editor', async () => {
         return (await response.json()).id as string
       })
     }
-    await page.goto(url(`/admin/collections/pages/${pageId}`))
+    await page.goto(url(`/admin/collections/pages/${entryId ?? pageId}`))
     await page.locator('[data-visual-editor]').first().click()
-    await page.frameLocator('iframe[title="Preview of the page"]').getByText('Original headline').waitFor()
+    await page.frameLocator('iframe[title="Preview of the page"]').locator('[data-at-block]').first().waitFor()
     return page
   }
   const preview = (page: Page) => page.frameLocator('iframe[title="Preview of the page"]')
@@ -163,6 +163,62 @@ describe('visual editor', async () => {
     await field.fill('shout')
     await page.keyboard.press('Enter')
     await expect.poll(() => preview(page).locator('[data-at-field="title"]').textContent()).toMatch(/!\s*$/)
+  })
+
+  it('inserts a pattern as copies, saves a block as a shared block and detaches it', async () => {
+    const page = await openEditor()
+    await page.locator('[data-tree-block="t1"]').click()
+    await page.locator('[data-pattern="code:intro"]').click()
+    await expect.poll(async () => (await treeOrder(page)).length).toBe(5)
+    const order = await treeOrder(page)
+    expect(order.slice(0, 3)).toEqual(['h1', 's1', 't1'])
+    expect(order.slice(3)).not.toContain('i1') // fresh ids
+    await preview(page).getByText('Pattern headline').waitFor()
+    await preview(page).getByText('Beta').waitFor()
+
+    // the page's headline, saved as a shared block: placed by reference from then on
+    await page.locator('[data-tree-block="h1"]').click()
+    await page.getByText('Reuse this block').click()
+    await page.getByLabel('Title').fill('Hero headline')
+    await page.getByRole('button', { name: 'Save as shared block' }).click()
+    await page.locator('[data-detach]').waitFor()
+    await page.locator('[data-shared-block]').getByText('Hero headline').waitFor()
+    await page.getByRole('button', { name: 'Save draft' }).click()
+    await page.getByText('Saved').first().waitFor()
+    const content = async () => page.evaluate(async id => (await (await window.fetch(`/api/_atelier/collections/pages/${id}?draft=true`)).json()).data.content as { id: string, type: string, shared?: string }[], pageId)
+    expect((await content())[0]).toMatchObject({ id: 'h1', type: 'Headline', shared: expect.any(String) })
+    // detached: the page's own again, looking the same
+    await page.locator('[data-detach]').click()
+    await expect.poll(async () => page.locator('[data-detach]').count()).toBe(0)
+    await preview(page).getByText('Original headline').waitFor()
+  })
+
+  it('copies a block in one entry and pastes it in another, within the placement rules', async () => {
+    const page = await openEditor()
+    const otherId = await page.evaluate(async () => {
+      const csrf = document.cookie.split('; ').find(c => c.startsWith('atelier-csrf='))!.slice('atelier-csrf='.length)
+      const response = await window.fetch('/api/_atelier/collections/pages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-atelier-csrf': csrf }, body: JSON.stringify({ data: { title: 'Other', slug: 'other', content: [{ id: 'o1', type: 'Section', props: { heading: 'Other section', items: [] } }] } }) })
+      return (await response.json()).id as string
+    })
+    await page.locator('[data-tree-block="h1"]').click()
+    await page.keyboard.press('Control+c')
+    await page.locator('[aria-live="polite"]').getByText('Headline copied').waitFor()
+
+    // in another entry (another tab): after the selected section, as a copy with a fresh id
+    const other = await openEditor(otherId, await createPage(url('/admin')))
+    await other.locator('[data-tree-block="o1"]').click()
+    await other.keyboard.press('Control+v')
+    await expect.poll(() => treeOrder(other)).toHaveLength(2)
+    const [, pasted] = await treeOrder(other)
+    expect(pasted).not.toBe('h1')
+    await preview(other).getByText('Original headline').waitFor()
+
+    // a headline doesn't go in the section's cards-only area: refused, and said so
+    await page.bringToFront()
+    await page.locator('[data-tree-block="c1"]').click()
+    await page.keyboard.press('Control+v')
+    await page.locator('[aria-live="polite"]').getByText('Headline can\'t go there').waitFor()
+    expect(await items(page)).toEqual(['Card'])
   })
 
   it('has no serious accessibility problems in its chrome', async () => {
