@@ -302,9 +302,6 @@ export function buildTables(dialect: Dialect, schema: ContentSchema): Record<str
       checkRoute(name, definition.route, definition.fields)
   }
   for (const [name, definition] of Object.entries(schema.singletons)) {
-    // ponytail: localized singletons need per-locale revisions, schedules and routes; until then, a collection
-    if (definition.localized)
-      throw new Error(`[nuxt-atelier] Singleton "${name}" is localized, which singletons can't be yet: use a localized collection holding one entry`)
     checkFields({ name, singleton: true, collections: schema.collections }, definition.fields)
     if (definition.route)
       checkRoute(name, definition.route, definition.fields, true)

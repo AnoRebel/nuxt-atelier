@@ -58,10 +58,11 @@ export default defineEventHandler(async (event) => {
     const stage = drafting ? 'draft' : 'published'
     const definition = route.kind === 'singleton' ? schema.singletons[route.name]! : schema.collections[route.name]!
     const depth = Math.min(query.depth ?? 0, limits().maxRelationDepth)
+    // a localized entry's (or singleton's) page fills its empty translated fields from the fallback locales
+    const localized = !!(definition as { localized?: unknown }).localized
     const entry = route.kind === 'singleton'
-      ? await entries.getSingleton(route.name, { depth, stage })
-      // a localized entry's page fills its empty translated fields from the fallback locales
-      : await entries.get(route.name, route.id, { depth, stage, locale: (definition as { localized?: unknown }).localized ? route.locale : undefined })
+      ? await entries.getSingleton(route.name, { depth, stage, locale: localized ? route.locale || query.locale : undefined })
+      : await entries.get(route.name, route.id, { depth, stage, locale: localized ? route.locale : undefined })
     if (!entry)
       throw notFound()
     if (!linked) // the link's signer could edit the entry, and shared it
