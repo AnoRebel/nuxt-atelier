@@ -2,6 +2,8 @@
 export default defineNuxtConfig({
   extends: ['../ui-shared'],
   modules: ['../../../packages/core/src/module'],
+  // maps beside the client chunks, unreferenced: test/budget attributes the page's JS to its sources
+  sourcemap: { client: 'hidden' },
   compatibilityDate: '2026-10-01',
   atelier: { migrations: { autoApply: true } },
 })
