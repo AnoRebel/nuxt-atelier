@@ -22,6 +22,10 @@
     "./storage": {
       "types": "./dist/storage.d.mts",
       "import": "./dist/storage.mjs"
+    },
+    "./project": {
+      "types": "./dist/project.d.mts",
+      "import": "./dist/project.mjs"
     }
   },
   "main": "./dist/module.mjs",
@@ -35,6 +39,9 @@
       ],
       "storage": [
         "./dist/storage.d.mts"
+      ],
+      "project": [
+        "./dist/project.d.mts"
       ]
     }
   },

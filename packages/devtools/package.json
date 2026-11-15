@@ -1,0 +1,47 @@
+{
+  "name": "@nuxt-atelier/devtools",
+  "version": "0.0.0",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AnoRebel/nuxt-atelier.git",
+    "directory": "packages/devtools"
+  },
+  "homepage": "https://nuxt-atelier.anorebel.net",
+  "description": "Nuxt DevTools panels for Nuxt Atelier: schema, migrations, jobs and the admin",
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    }
+  },
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "nuxt-module-build build",
+    "prepack": "nuxt-module-build build",
+    "check:pkg": "publint --pack bun && attw --pack . --profile esm-only"
+  },
+  "peerDependencies": {
+    "nuxt": ">=4.6.0",
+    "nuxt-atelier": "workspace:^"
+  },
+  "dependencies": {
+    "@nuxt/kit": "catalog:",
+    "h3": "^1.15.11"
+  },
+  "devDependencies": {
+    "@nuxt/devtools-kit": "catalog:devtools",
+    "@nuxt/schema": "catalog:"
+  }
+}

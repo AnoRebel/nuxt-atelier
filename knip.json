@@ -76,6 +76,7 @@
         "src/runtime/app/pages/*.ts",
         "src/adapter.ts",
         "src/storage.ts",
+        "src/project.ts",
         "src/runtime/app/composables/*.ts",
         "src/runtime/server/routes/*.ts"
       ],
@@ -295,6 +296,16 @@
     "test/fixtures/demo": {
       "entry": [
         "server/api/**/*.ts",
+        "server/atelier/**/*.ts"
+      ]
+    },
+    "packages/devtools": {
+      "entry": [
+        "src/module.ts"
+      ]
+    },
+    "test/fixtures/devtools": {
+      "entry": [
         "server/atelier/**/*.ts"
       ]
     }
