@@ -117,6 +117,8 @@ bunx changeset
 
 Pick the affected packages and the bump type, and write the summary for users (it ends up in the changelog). Docs-only and CI-only changes don't need one.
 
+A breaking change (a `major` bump, or before 1.0 a minor one whose summary says **Breaking**) gets a section in the [upgrading guide](./docs/content/1.getting-started/7.upgrading.md) with the migration steps, and its changeset links to that section (`/getting-started/upgrading#<section>`). CI checks it (`scripts/check-changesets.ts`).
+
 ## Releasing
 
 Maintainers release from GitHub: **Actions → Release → Run workflow**, on `main`. It applies the pending changesets (versions and changelogs), commits and tags `<package>@<version>`, then publishes the packages to npm and JSR and creates a GitHub release per tag. It starts as a dry run, which versions and packs without pushing or publishing; untick it to release. 0.x versions go out under the `next` dist-tag.
