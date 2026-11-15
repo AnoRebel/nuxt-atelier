@@ -1,6 +1,6 @@
 // Workers smoke test: the workers fixture built with the cloudflare-module preset, run in Miniflare
 // (workerd) with a local D1 database. Migrations auto-apply as one batch; saves run as D1 batches. With
-// ATELIER_TEST_S3_URL (MinIO), media is stored on S3 and served by the Worker: originals, since a Worker has
+// ATELIER_TEST_S3_URL (an S3 test server), media is stored on S3 and served by the Worker: originals, since a Worker has
 // no sharp to size images.
 import { execFile } from 'node:child_process'
 import { readdirSync } from 'node:fs'
@@ -45,7 +45,7 @@ describe('Cloudflare Workers with D1', () => {
         ? { NUXT_ATELIER_S3_ENDPOINT: s3.origin, NUXT_ATELIER_S3_BUCKET: s3.pathname.slice(1), NUXT_ATELIER_S3_REGION: 'us-east-1', NUXT_ATELIER_S3_ACCESS_KEY_ID: decodeURIComponent(s3.username), NUXT_ATELIER_S3_SECRET_ACCESS_KEY: decodeURIComponent(s3.password) }
         : {},
     })
-    if (s3) { // the bucket, made when missing (a fresh MinIO has none)
+    if (s3) { // the bucket, made when missing (a fresh server has none)
       const client = new AwsClient({ accessKeyId: decodeURIComponent(s3.username), secretAccessKey: decodeURIComponent(s3.password), region: 'us-east-1', service: 's3' })
       for (let attempt = 0; attempt < 30 && !(await client.fetch(`${s3.origin}${s3.pathname}`, { method: 'PUT' }).then(r => r.ok || r.status === 409, () => false)); attempt++)
         await new Promise(resolve => setTimeout(resolve, 1000))

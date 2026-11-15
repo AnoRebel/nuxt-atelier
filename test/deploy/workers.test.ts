@@ -1,6 +1,6 @@
 // Cloudflare Workers: the guide's app built with its nuxt.config.ts and run in Miniflare (workerd) with the
 // bindings its wrangler.json declares: the D1 database, the vars, and secrets as the guide puts them. With
-// ATELIER_TEST_S3_URL (MinIO, test/compose.yml), the S3 vars point at it and the storage check must pass;
+// ATELIER_TEST_S3_URL (the S3 test server, test/compose.yml), the S3 vars point at it and the storage check must pass;
 // without, only the database is checked. Its cron trigger runs the background jobs.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'

@@ -176,7 +176,7 @@ export async function dockerRemove(what: { containers?: string[], volumes?: stri
   }
 }
 
-/** The bucket of ATELIER_TEST_S3_URL (MinIO), made when missing: a fresh MinIO has none. */
+/** The bucket of ATELIER_TEST_S3_URL (an S3-compatible test server), made when missing: a fresh one has none. */
 export async function ensureBucket(s3: URL): Promise<void> {
   const { AwsClient } = await import('aws4fetch')
   const client = new AwsClient({ accessKeyId: decodeURIComponent(s3.username), secretAccessKey: decodeURIComponent(s3.password), region: 'us-east-1', service: 's3' })

@@ -1,4 +1,4 @@
-// The S3 driver against MinIO (test/compose.yml): ATELIER_TEST_S3_URL=http://atelier:atelier-secret@127.0.0.1:59000/atelier
+// The S3 driver against an S3-compatible server (test/compose.yml): ATELIER_TEST_S3_URL=http://atelier:atelier-secret@127.0.0.1:59000/atelier
 import { AwsClient } from 'aws4fetch'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createS3Driver } from '../../packages/storage-s3/src/runtime/driver'
@@ -14,7 +14,7 @@ const stream = (data: Uint8Array, chunk = 64 * 1024) => new ReadableStream<Uint8
   },
 })
 
-describe.skipIf(!url)('S3 storage driver (MinIO)', () => {
+describe.skipIf(!url)('S3 storage driver', () => {
   const parsed = new URL(url ?? 'http://x:y@localhost/b')
   const driver = createS3Driver({
     endpoint: parsed.origin,
@@ -23,7 +23,7 @@ describe.skipIf(!url)('S3 storage driver (MinIO)', () => {
     accessKeyId: decodeURIComponent(parsed.username),
     secretAccessKey: decodeURIComponent(parsed.password),
   })
-  // the bucket, made when missing (a fresh MinIO has none)
+  // the bucket, made when missing (a fresh server has none)
   beforeAll(async () => {
     const client = new AwsClient({ accessKeyId: decodeURIComponent(parsed.username), secretAccessKey: decodeURIComponent(parsed.password), region: 'us-east-1', service: 's3' })
     for (let attempt = 0; attempt < 30; attempt++) {
