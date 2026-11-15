@@ -322,7 +322,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
   export const patterns: Record<string, import(${JSON.stringify(types)}).PatternDefinition>
 }
 declare module '#atelier-blocks' {
-  export const blocks: Record<string, { component: () => Promise<import('vue').Component>, areas: string[] }>
+  export const blocks: Record<string, { component: () => Promise<import('vue').Component>, areas: string[], proxy?: { label: string, areas: Record<string, string> } }>
 }
 declare module '#atelier-host-pages' {
   export const pages: { path: string, name?: string, children?: unknown[] }[]

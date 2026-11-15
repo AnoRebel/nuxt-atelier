@@ -140,9 +140,14 @@ describe('visual editor', async () => {
   it('inserts a block from the command palette, undoably, and keeps Ctrl+K for itself', async () => {
     const page = await openEditor()
     await page.locator('[data-tree-block="h1"]').click()
-    await page.keyboard.press('Control+k')
     const field = page.getByRole('combobox', { name: 'Type a command' })
-    await field.waitFor()
+    // Ctrl+K toggles it: press it until it's open (a press while the last one closes can be lost under load)
+    const openPalette = () => expect.poll(async () => {
+      if (!await field.isVisible())
+        await page.keyboard.press('Control+k')
+      return field.isVisible()
+    }, { intervals: [500] }).toBe(true)
+    await openPalette()
     expect(await page.getByRole('dialog', { name: 'Search' }).count()).toBe(0) // not the admin's search
     await field.fill('insert card')
     await page.getByRole('option', { name: /Insert Card/ }).waitFor()
@@ -154,12 +159,12 @@ describe('visual editor', async () => {
     await page.locator(`[data-tree-block="${inserted}"][aria-pressed="true"]`).waitFor()
     expect(await page.locator(`[data-tree-block="${inserted}"]`).textContent()).toContain('Card')
     // undone from the palette too
-    await page.keyboard.press('Control+k')
+    await openPalette()
     await field.fill('undo')
     await page.keyboard.press('Enter')
     await expect.poll(() => treeOrder(page)).toEqual(['h1', 's1', 't1'])
     // a command a plugin added (test/fixtures/editor/app/plugins/commands.client.ts)
-    await page.keyboard.press('Control+k')
+    await openPalette()
     await field.fill('shout')
     await page.keyboard.press('Enter')
     await expect.poll(() => preview(page).locator('[data-at-field="title"]').textContent()).toMatch(/!\s*$/)
@@ -268,6 +273,33 @@ describe('visual editor', async () => {
     await editor.getByText('Saved').first().waitFor()
     const saved = await editor.evaluate(async id => (await (await window.fetch(`/api/_atelier/collections/pages/${id}?draft=true`)).json()).data.content[0].props.body, textId)
     expect(JSON.stringify(saved)).toContain('"type":"bold"')
+  })
+
+  it('shows a proxy-mode block with all its slides, reordered by dragging in the preview', async () => {
+    const page = await openEditor()
+    const carouselId = await page.evaluate(async () => {
+      const csrf = document.cookie.split('; ').find(c => c.startsWith('atelier-csrf='))!.slice('atelier-csrf='.length)
+      const slide = (id: string, heading: string) => ({ id, type: 'Card', props: { heading } })
+      const response = await window.fetch('/api/_atelier/collections/pages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-atelier-csrf': csrf }, body: JSON.stringify({ data: { title: 'Slides', slug: 'slides', content: [{ id: 'k1', type: 'Carousel', props: { slides: [slide('a', 'Slide A'), slide('b', 'Slide B'), slide('c', 'Slide C')] } }] }, publish: true }) })
+      return (await response.json()).id as string
+    })
+    // the public page shows one slide at a time
+    const visitor = await createPage(url('/slides'))
+    await visitor.getByText('Slide A').waitFor()
+    expect(await visitor.getByText('Slide C').isVisible()).toBe(false)
+
+    const editor = await openEditor(carouselId)
+    const frame = preview(editor)
+    await frame.locator('[data-at-proxy]').getByText('Slides', { exact: true }).waitFor()
+    const slides = () => frame.locator('[data-at-proxy] [data-at-block]').evaluateAll(els => els.map(el => el.getAttribute('data-at-block')))
+    expect(await slides()).toEqual(['a', 'b', 'c'])
+    await frame.getByText('Slide C').waitFor({ state: 'visible' }) // every slide, in the preview
+    // select slide C in the page, and drag it by its tag above slide A
+    await frame.getByText('Slide C').click()
+    await editor.locator('[data-tree-block="c"][aria-pressed="true"]').waitFor()
+    await drag(editor, editor.locator('[data-overlay-handle]'), frame.locator('[data-at-block="a"]'), { x: 0.05, y: 0.2 })
+    await expect.poll(slides).toEqual(['c', 'a', 'b'])
+    expect(await editor.locator('[data-list="content.0.props.slides"] > li > [data-tree-block]').evaluateAll(els => els.map(el => el.getAttribute('data-tree-block')))).toEqual(['c', 'a', 'b'])
   })
 
   it('has no serious accessibility problems in its chrome', async () => {
