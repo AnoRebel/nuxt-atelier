@@ -1,5 +1,6 @@
 // The Rayleigh example (examples/rayleigh) builds, seeds itself, and renders its pages with no hydration
-// warnings: the home page's galleries (opening full screen), the blog with its pages, a post, dark mode.
+// warnings: the home page's galleries (opening full screen), the blog with its pages, a post, dark mode,
+// and the contact form.
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -33,6 +34,17 @@ describe('the Rayleigh example', async () => {
     const post = await $fetch<string>('/blog/harmony-in-space')
     expect(post).toContain('The Concept of Minimalism')
     expect(post).toContain('Written on February 21, 2024')
+  })
+
+  it('has a contact form that takes a message', async () => {
+    const page = await createPage(url('/contact'))
+    const form = page.getByRole('form', { name: 'Contact' })
+    await form.getByLabel('Your name').fill('Ada')
+    await form.getByLabel('Email').fill('ada@example.com')
+    await form.getByLabel('Message').fill('I would like a new reading room.')
+    await page.waitForTimeout(3_200) // the form's minimum fill time: quicker is taken for a bot
+    await form.getByRole('button', { name: 'Send' }).click()
+    await page.getByText('Thank you! I’ll get back to you soon.').waitFor()
   })
 
   it('hydrates without warnings, opens a gallery image full screen, and switches to dark mode', async () => {

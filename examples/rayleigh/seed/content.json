@@ -1,7 +1,6 @@
 {
   "home": {
     "title": "Homepage",
-    "footerBorder": false,
     "content": [
       {
         "id": "home-1",
@@ -157,6 +156,28 @@
           "id": "blog-8",
           "type": "Posts",
           "props": {}
+        }
+      ]
+    },
+    {
+      "title": "Contact",
+      "slug": "contact",
+      "footerBorder": true,
+      "content": [
+        {
+          "id": "contact-1",
+          "type": "PageIntro",
+          "props": {
+            "title": "Contact",
+            "kicker": "Tell me about your space."
+          }
+        },
+        {
+          "id": "contact-2",
+          "type": "AtelierForm",
+          "props": {
+            "form": "form:contact"
+          }
         }
       ]
     }
@@ -532,6 +553,10 @@
       {
         "label": "About",
         "link": "/about"
+      },
+      {
+        "label": "Contact",
+        "link": "/contact"
       }
     ],
     "copyrightText": "© 2024 Muris Ceman. Rayleigh, ported to Nuxt Atelier.",
@@ -651,6 +676,42 @@
       "width": 1600,
       "height": 914,
       "alt": "An interior and exterior designer's studio"
+    }
+  },
+  "forms": {
+    "contact": {
+      "title": "Contact",
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "label": "Your name",
+          "required": true
+        },
+        {
+          "name": "email",
+          "type": "email",
+          "label": "Email",
+          "required": true
+        },
+        {
+          "name": "message",
+          "type": "textarea",
+          "label": "Message",
+          "required": true
+        }
+      ],
+      "submitLabel": "Send",
+      "success": {
+        "message": "Thank you! I’ll get back to you soon."
+      },
+      "notify": {
+        "to": "studio@example.com",
+        "subject": "A message from the website"
+      },
+      "confirmation": {
+        "enabled": false
+      }
     }
   }
 }

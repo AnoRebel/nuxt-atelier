@@ -18,5 +18,8 @@
     "nuxt-atelier": "workspace:*",
     "sharp": "catalog:media",
     "tailwindcss": "catalog:ui"
+  },
+  "devDependencies": {
+    "drizzle-kit": "catalog:db"
   }
 }

@@ -53,6 +53,7 @@
   }
 }
 
+/* #region about */
 .content-block + .content-block {
   @apply mt-8!;
 }
@@ -84,3 +85,42 @@
 .prose a:not([class]) {
   @apply text-heading underline underline-offset-2 transition hocus:text-accent dark:text-white dark:hocus:text-accent;
 }
+/* #endregion */
+
+/* #region contact */
+/* <AtelierForm> renders plain markup with atelier-form… classes: the site styles it */
+.atelier-form {
+  @apply mx-auto max-w-[73.75rem] space-y-6 px-12 tl:px-8 ph:px-6;
+}
+.atelier-form > * {
+  @apply max-w-content;
+}
+.atelier-form__field {
+  @apply grid gap-2;
+}
+.atelier-form__label {
+  @apply font-heading text-sm text-heading dark:text-white;
+}
+.atelier-form :is(input:not([type="checkbox"], [type="radio"]), textarea, select) {
+  @apply w-full rounded-md border border-border bg-transparent px-4 py-3 text-sm transition focus:border-accent focus:outline-none dark:border-white/20;
+}
+.atelier-form textarea {
+  @apply min-h-40;
+}
+.atelier-form__help {
+  @apply text-vs text-dim;
+}
+.atelier-form__error,
+.atelier-form__failure {
+  @apply text-vs text-red-700 dark:text-red-400;
+}
+.atelier-form__required {
+  @apply text-accent;
+}
+.atelier-form__submit {
+  @apply cursor-pointer rounded-full bg-heading px-6 py-3 font-heading text-sm text-white transition hocus:bg-accent dark:bg-white dark:text-heading;
+}
+.atelier-form__sent {
+  @apply max-w-content text-sm;
+}
+/* #endregion */

@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rayleigh",
+  "main": ".output/server/index.mjs",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": ".output/public", "binding": "ASSETS" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "rayleigh", "database_id": "<your D1 database id>" }
+  ],
+  "vars": {
+    "NUXT_ATELIER_DATABASE_URL": "d1:DB",
+    "NUXT_ATELIER_MIGRATIONS_AUTO_APPLY": "true"
+  }
+}
