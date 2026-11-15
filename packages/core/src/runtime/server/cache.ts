@@ -35,13 +35,13 @@ const cache = new Map<string, { generation: number, at: number, value: unknown }
 
 const capacity = () => (useAtelierServerConfig() as unknown as { limits: { cacheSize: number } }).limits.cacheSize
 
-/** A cached value, while nothing changed and it's fresh. */
-export function cached<T>(key: string): T | undefined {
+/** A cached value, while nothing changed and it's fresh (`maxAge` ms). */
+export function cached<T>(key: string, maxAge = MAX_AGE): T | undefined {
   const hit = cache.get(key)
   if (!hit)
     return undefined
   cache.delete(key)
-  if (hit.generation !== generation || Date.now() - hit.at > MAX_AGE)
+  if (hit.generation !== generation || Date.now() - hit.at > maxAge)
     return undefined
   cache.set(key, hit) // most recently used last
   return hit.value as T

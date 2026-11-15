@@ -159,6 +159,9 @@ export const optionsSchema = v.strictObject({
       v.description('Hosts webhooks may reach even though they\'re internal (private, loopback or link-local addresses), e.g. a service on your own network. Override at runtime with `NUXT_ATELIER_WEBHOOKS_ALLOW` (a JSON list).'),
     ), []),
   }), {}),
+  cache: v.optional(v.strictObject({
+    pages: int(0, 86_400, 0, 'Seconds a rendered page is kept in memory and served to visitors again (0: not at all). Only anonymous GET requests are cached, never signed-in, preview or draft ones, and any content change clears it. Override at runtime with `NUXT_ATELIER_CACHE_PAGES`.'),
+  }), {}),
   limits: v.optional(v.strictObject({
     maxBodySize: int(...LIMIT_RANGES.maxBodySize, MB, 'Largest accepted JSON request body, in bytes.'),
     maxUploadSize: int(...LIMIT_RANGES.maxUploadSize, 50 * MB, 'Largest accepted upload, in bytes.'),
