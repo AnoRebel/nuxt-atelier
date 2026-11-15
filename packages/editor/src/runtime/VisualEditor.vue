@@ -2,8 +2,9 @@
      selection and hover drawn over it from the positions the page reports; the structure of its blocks; the
      selected block's form. Edits are the entry form's, saved with Save like any other. -->
 <script setup lang="ts">
+import type { Dnd, Dragged, DropAt } from './dnd'
 import type { BlockList } from './tree'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { navigateTo, useAdminI18n, useAtelierAdmin, useAtelierAdminSchema, useAtelierEntryForm, useRoute, useRuntimeConfig } from '#imports'
 import FieldInput from '#atelier-admin-runtime/components/FieldInput.vue'
 import CnAlert from '#atelier-admin-runtime/crystal-neuo/components/Alert.vue'
@@ -12,9 +13,10 @@ import CnSelect from '#atelier-admin-runtime/crystal-neuo/components/Select.vue'
 import { useAdminToast } from '#atelier-admin-runtime/toast'
 import { BRIDGE_VERSION, ChildMessage, readMessage } from '#atelier/shared/bridge'
 import styles from './editor.css?raw'
+import { dndKey } from './dnd'
 import { createHistory } from './history'
 import StructureList from './StructureList.vue'
-import { accepts, blockTree, duplicate, get, insert, locate, move, newBlock, remove } from './tree'
+import { accepts, allLists, blockTree, duplicate, get, insert, locate, move, newBlock, remove } from './tree'
 
 type Geometry = Extract<ChildMessage, { type: 'atelier:geometry' }>
 type Data = Record<string, unknown>
@@ -167,21 +169,90 @@ function duplicateBlock(blockId: string) {
   }
 }
 
-// --- adding: into the selected block's list, after it, or at the end of the first list
-const target = computed(() => selectedAt.value ? { list: selectedAt.value.list, index: selectedAt.value.index + 1 } : lists.value[0] ? { list: lists.value[0], index: lists.value[0].blocks.length } : undefined)
-const addOptions = computed(() => target.value
-  ? Object.values(registry.value as Record<string, { name: string, label?: string }>).filter(b => accepts(target.value!.list, b.name, registry.value)).map(b => ({ value: b.name, label: b.label ?? b.name }))
-  : [])
-const adding = ref('')
-watch(adding, (blockType) => {
-  if (!blockType || !target.value)
+// --- adding: a palette block clicked goes after the selected block, or at the end of the first list
+const target = computed<DropAt | undefined>(() => selectedAt.value ? { list: selectedAt.value.list.path, index: selectedAt.value.index + 1 } : lists.value[0] ? { list: lists.value[0].path, index: lists.value[0].blocks.length } : undefined)
+const palette = computed(() => Object.values(registry.value as Record<string, { name: string, label?: string }>).map(b => ({ name: b.name, label: b.label ?? b.name })))
+const listAt = (path: string) => allLists(lists.value).find(l => l.path === path)
+/** Whether `dragged` may go at `at`: its rules, its size limit, and never inside itself. */
+function canPlace(dragged: Dragged, at: DropAt): boolean {
+  if (dragged.kind === 'block')
+    return !!move(values.value, lists.value, registry.value, dragged.id, at.list, at.index)
+  const list = listAt(at.list)
+  return !!list && accepts(list, dragged.type, registry.value)
+}
+function place(dragged: Dragged, at: DropAt) {
+  if (!canPlace(dragged, at))
     return
-  const block = newBlock(blockType, registry.value)
-  setData(insert(values.value, target.value.list.path, target.value.index, block), 'operation')
+  if (dragged.kind === 'block') {
+    setData(move(values.value, lists.value, registry.value, dragged.id, at.list, at.index)!, 'operation')
+    selected.value = dragged.id
+    return
+  }
+  const block = newBlock(dragged.type, registry.value)
+  setData(insert(values.value, at.list, at.index, block), 'operation')
   selected.value = block.id
-  adding.value = ''
-})
+}
 
+// --- dragging, in the tree, from the palette, and over the preview
+const dragging = ref<Dragged | null>(null)
+const dropAt = ref<DropAt | null>(null)
+const dnd: Dnd = {
+  dragging,
+  dropAt,
+  start(event, dragged) {
+    event.dataTransfer?.setData('text/plain', dragged.kind === 'block' ? dragged.id : dragged.type)
+    if (event.dataTransfer)
+      event.dataTransfer.effectAllowed = dragged.kind === 'block' ? 'move' : 'copy'
+    dragging.value = dragged
+  },
+  over(event, at) {
+    // a spot that doesn't take it: no line, and the drop isn't allowed (the browser shows it)
+    const ok = !!dragging.value && canPlace(dragging.value, at)
+    dropAt.value = ok ? at : null
+    if (ok)
+      event.preventDefault()
+  },
+  drop(event) {
+    event.preventDefault()
+    if (dragging.value && dropAt.value)
+      place(dragging.value, dropAt.value)
+    dragging.value = null
+    dropAt.value = null
+  },
+  end() {
+    dragging.value = null
+    dropAt.value = null
+  },
+}
+provide(dndKey, dnd)
+
+/** Over the preview while dragging: the innermost block under the pointer that takes it, before or after it by halves. */
+const overlay = ref<HTMLElement | null>(null)
+const previewLine = ref<{ left: string, top: string, width: string } | null>(null)
+function overPreview(event: DragEvent) {
+  const origin = overlay.value!.getBoundingClientRect()
+  const x = event.clientX - origin.left
+  const y = event.clientY - origin.top
+  const under = (geometry.value?.blocks ?? [])
+    .filter(b => x >= b.rect.x && x <= b.rect.x + b.rect.width && y >= b.rect.y && y <= b.rect.y + b.rect.height)
+    .sort((a, b) => a.rect.width * a.rect.height - b.rect.width * b.rect.height)
+  for (const hit of under) {
+    const at = locate(lists.value, hit.id)
+    const after = y > hit.rect.y + hit.rect.height / 2
+    const spot = at && { list: at.list.path, index: at.index + (after ? 1 : 0) }
+    if (spot && dragging.value && canPlace(dragging.value, spot)) {
+      dnd.over(event, spot)
+      previewLine.value = { left: `${hit.rect.x}px`, top: `${after ? hit.rect.y + hit.rect.height : hit.rect.y}px`, width: `${hit.rect.width}px` }
+      return
+    }
+  }
+  dropAt.value = null
+  previewLine.value = null
+}
+watch(dropAt, (at) => {
+  if (!at)
+    previewLine.value = null
+})
 // --- keys: undo, redo
 function onKey(event: KeyboardEvent) {
   if (!(event.ctrlKey || event.metaKey) || event.altKey)
@@ -212,7 +283,7 @@ async function save() {
 const back = () => navigateTo(kind.value === 'singleton' ? to('singletons', name) : to('collections', name, id ?? ''))
 const blockOf = (path: string) => get(values.value, path) as Data
 // the frame's lists, for the add picker's label
-const targetLabel = computed(() => target.value?.list.label ?? '')
+const targetLabel = computed(() => (target.value && listAt(target.value.list)?.label) ?? '')
 </script>
 
 <template>
@@ -295,19 +366,38 @@ const targetLabel = computed(() => target.value?.list.label ?? '')
             :selected="selected"
             :hovered="hovered"
             :depth="0"
+            :empty-label="t('editor.empty')"
             @select="selected = $event"
             @hover="hovered = $event"
             @move="moveBy"
             @remove="removeBlock"
           />
         </template>
-        <CnSelect
-          v-if="addOptions.length"
-          v-model="adding"
-          :label="t('editor.addTo', { list: targetLabel })"
-          :options="[{ value: '', label: '—' }, ...addOptions]"
-          data-add-block
-        />
+        <p class="ate-tree__area">
+          {{ t('editor.addTo', { list: targetLabel }) }}
+        </p>
+        <ul
+          class="ate-palette"
+          :aria-label="t('editor.add')"
+        >
+          <li
+            v-for="b in palette"
+            :key="b.name"
+          >
+            <button
+              type="button"
+              class="ate-palette__block"
+              draggable="true"
+              :disabled="!target || !canPlace({ kind: 'new', type: b.name }, target)"
+              :data-palette-block="b.name"
+              @click="target && place({ kind: 'new', type: b.name }, target)"
+              @dragstart="dnd.start($event, { kind: 'new', type: b.name })"
+              @dragend="dnd.end()"
+            >
+              {{ b.label }}
+            </button>
+          </li>
+        </ul>
       </nav>
       <div
         class="ate-editor__stage"
@@ -327,9 +417,20 @@ const targetLabel = computed(() => target.value?.list.label ?? '')
             class="ate-editor__frame"
           />
           <div
+            ref="overlay"
             class="ate-editor__overlay"
+            :class="{ 'ate-editor__overlay--dropping': dragging }"
             aria-hidden="true"
+            data-preview-drop
+            @dragover="overPreview"
+            @dragleave="previewLine = null"
+            @drop="dnd.drop"
           >
+            <div
+              v-if="previewLine"
+              class="ate-editor__drop"
+              :style="previewLine"
+            />
             <div
               v-if="hovered && hovered !== selected && boxOf(hovered)"
               class="ate-editor__box ate-editor__box--hover"
@@ -341,7 +442,13 @@ const targetLabel = computed(() => target.value?.list.label ?? '')
               :style="boxOf(selected)"
               data-overlay-selected
             >
-              <span class="ate-editor__tag">{{ selectedAt?.block.label }}</span>
+              <span
+                class="ate-editor__tag"
+                draggable="true"
+                data-overlay-handle
+                @dragstart="selected && dnd.start($event, { kind: 'block', id: selected })"
+                @dragend="dnd.end()"
+              >{{ selectedAt?.block.label }}</span>
             </div>
           </div>
         </div>

@@ -12,12 +12,23 @@
 .ate-editor__box { position: absolute; box-sizing: border-box; border-radius: 2px; }
 .ate-editor__box--hover { outline: 2px dashed var(--accent-primary-base); outline-offset: -2px; }
 .ate-editor__box--selected { outline: 2px solid var(--accent-primary-strong); outline-offset: -2px; }
-.ate-editor__tag { position: absolute; inset-block-start: 0; inset-inline-start: 0; padding: 0 0.4em; background: var(--accent-primary-strong); color: var(--content-on-accent); font-size: 0.75rem; line-height: 1.5; }
+.ate-editor__tag { position: absolute; inset-block-start: 0; inset-inline-start: 0; padding: 0 0.4em; background: var(--accent-primary-strong); color: var(--content-on-accent); font-size: 0.75rem; line-height: 1.5; pointer-events: auto; cursor: grab; }
+/* while dragging, the overlay catches the drag over the frame (which would swallow it) */
+.ate-editor__overlay--dropping { pointer-events: auto; }
+.ate-editor__drop { position: absolute; block-size: 3px; margin-block-start: -1px; background: var(--accent-primary-strong); border-radius: 2px; }
 .ate-tree { margin: 0; padding: 0; list-style: none; }
 .ate-tree__block { display: block; inline-size: 100%; padding-block: var(--space-1); padding-inline-end: var(--space-2); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--content-primary); font: inherit; text-align: start; cursor: pointer; }
 .ate-tree__block[aria-pressed="true"] { background: var(--accent-primary-soft); }
 .ate-tree__block[data-hovered], .ate-tree__block:hover { background: var(--accent-primary-subtle); }
 .ate-tree__block:focus-visible { outline: 2px solid var(--accent-primary-strong); outline-offset: -2px; }
+.ate-tree__item[data-drop-before] > .ate-tree__block { box-shadow: inset 0 2px 0 var(--accent-primary-strong); }
+.ate-tree__item[data-drop-after] > .ate-tree__block { box-shadow: inset 0 -2px 0 var(--accent-primary-strong); }
+.ate-tree__empty { padding-block: var(--space-1); font-size: 0.85em; color: var(--content-secondary); border: 1px dashed var(--border-default, currentColor); border-radius: var(--radius-sm); }
+.ate-tree__empty[data-drop-before] { border-color: var(--accent-primary-strong); }
+.ate-palette { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: var(--space-1) 0 0; padding: 0; list-style: none; }
+.ate-palette__block { padding: var(--space-1) var(--space-2); border: 1px solid var(--border-default, currentColor); border-radius: var(--radius-sm); background: var(--surface-raised, transparent); color: var(--content-primary); font: inherit; font-size: 0.85em; cursor: grab; }
+.ate-palette__block:disabled { opacity: 0.5; cursor: not-allowed; }
+.ate-palette__block:focus-visible { outline: 2px solid var(--accent-primary-strong); outline-offset: 1px; }
 .ate-tree__area { margin: var(--space-1) 0 0; font-size: 0.75rem; color: var(--content-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
 @media (max-width: 64rem) {
   .ate-editor__body { grid-template-columns: 1fr; }

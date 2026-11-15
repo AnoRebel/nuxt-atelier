@@ -1,7 +1,7 @@
 // The visual editor (test/fixtures/editor): the real page in a frame, selection in sync between the page,
 // the structure and the form, moving blocks by keyboard (announced) and undoing it, editing the entry's
 // own title in place, and an accessible chrome.
-import type { Page } from 'playwright-core'
+import type { Locator, Page } from 'playwright-core'
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
@@ -98,6 +98,43 @@ describe('visual editor', async () => {
     await page.getByText('Saved').first().waitFor()
     const saved = await page.evaluate(async id => (await (await window.fetch(`/api/_atelier/collections/pages/${id}?draft=true`)).json()).data.title, pageId)
     expect(saved).toBe('Welcome home')
+  })
+
+  /** Drags `source` to a point of `target` (fractions of its box), with the pointer, as a person would. */
+  async function drag(page: Page, source: Locator, target: Locator, at = { x: 0.5, y: 0.75 }) {
+    await source.hover()
+    await page.mouse.down()
+    const from = (await source.boundingBox())!
+    await page.mouse.move(from.x + from.width / 2 + 10, from.y + from.height / 2 + 10, { steps: 3 })
+    const box = (await target.boundingBox())!
+    await page.mouse.move(box.x + box.width * at.x, box.y + box.height * at.y, { steps: 8 })
+    await page.mouse.up()
+  }
+  const items = (page: Page) => page.locator('[data-list="content.1.props.items"] > li > [data-tree-block]').evaluateAll(els => els.map(el => el.textContent?.trim()))
+
+  it('drags blocks in the structure, from the palette and over the preview, and rejects drops the rules forbid', async () => {
+    const page = await openEditor()
+    const card = page.locator('[data-tree-block="c1"]')
+    // the section's area takes cards only: a headline from the palette, or the page's headline, is refused
+    await drag(page, page.locator('[data-palette-block="Headline"]'), card)
+    await drag(page, page.locator('[data-tree-block="h1"]'), card)
+    await page.waitForTimeout(200)
+    expect(await items(page)).toEqual(['Card'])
+    expect(await treeOrder(page)).toEqual(['h1', 's1', 't1'])
+    // a card is taken
+    await drag(page, page.locator('[data-palette-block="Card"]'), card)
+    await expect.poll(() => items(page)).toEqual(['Card', 'Card'])
+    // a block dragged within its list
+    await drag(page, page.locator('[data-tree-block="h1"]'), page.locator('[data-tree-block="t1"]'))
+    await expect.poll(() => treeOrder(page)).toEqual(['s1', 't1', 'h1'])
+    // over the preview: dropped after the block under the pointer
+    await drag(page, page.locator('[data-palette-block="Headline"]'), page.locator('iframe[title="Preview of the page"]').contentFrame().locator('[data-at-placeholder]'), { x: 0.05, y: 0.75 }) // the frame is wider than the stage: its left end is in view
+    await expect.poll(async () => (await treeOrder(page)).length).toBe(4)
+    expect((await treeOrder(page))[2]).not.toMatch(/^(s1|t1|h1)$/)
+    await preview(page).getByText('Original headline').first().waitFor()
+    // and undone like any edit
+    await page.getByRole('button', { name: 'Undo' }).click()
+    await expect.poll(() => treeOrder(page)).toEqual(['s1', 't1', 'h1'])
   })
 
   it('has no serious accessibility problems in its chrome', async () => {
