@@ -1,5 +1,6 @@
 // GET /api/_atelier/health/ready: whether the server can do its work: 200, or 503 when the database is
-// unreachable or has pending migrations. Reports each check, never connection strings or errors' details
+// unreachable, has pending migrations, or lacks Nuxt Atelier's tables (the job queue can't be read: say, an
+// app that never generated its migrations). Reports each check, never connection strings or errors' details
 // (they can hold credentials): those go to the server log.
 import { defineEventHandler } from 'nuxt/server'
 import { pendingMigrations } from '../db/state'
@@ -45,6 +46,6 @@ export default defineEventHandler(async () => {
         return { failed: (await queue.list({ status: 'failed', limit: 1000 })).length }
       })
     : 'error'
-  const ready = database === 'ok' && migrations !== 'error' && migrations.pending === 0
+  const ready = database === 'ok' && migrations !== 'error' && migrations.pending === 0 && jobs !== 'error'
   return Response.json({ status: ready ? 'ready' : 'unavailable', checks: { database, migrations, storage, jobs } }, { status: ready ? 200 : 503, headers: { 'cache-control': 'no-store' } })
 })
