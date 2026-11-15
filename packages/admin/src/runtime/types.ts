@@ -16,6 +16,12 @@ interface ContentType {
   routable: boolean
   localized: boolean
   versioned: boolean
+  /** Whether it keeps a history (false: its content adapter has none). */
+  revisions?: boolean
+  /** The content adapter serving it, when it's not in the database (an external backend). */
+  adapter?: string
+  /** An adapter-served type's block types: the ones the editor offers. */
+  blockTypes?: string[]
   admin?: { icon?: string, group?: string, columns?: string[] }
 }
 export interface CollectionType extends ContentType { labels?: { singular?: string, plural?: string } }

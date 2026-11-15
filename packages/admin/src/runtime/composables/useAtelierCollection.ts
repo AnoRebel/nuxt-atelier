@@ -66,7 +66,8 @@ export function useAtelierCollection(name: MaybeRefOrGetter<string>, initial: Pa
     queryKey: ['atelier', 'collections', computed(() => toValue(name)), 'list', params],
     queryFn: () => atelierFetch<EntryList>(`/collections/${encodeURIComponent(toValue(name))}`, { query: params.value }),
     placeholderData: keepPreviousData,
-    enabled: computed(() => !!type.value),
+    // an adapter's content (an external backend) isn't listed here
+    enabled: computed(() => !!type.value && !type.value.adapter),
   })
 
   async function each(entries: Entry[], run: (entry: Entry) => Promise<unknown>): Promise<BulkResult> {
