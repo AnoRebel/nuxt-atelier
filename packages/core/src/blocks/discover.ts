@@ -90,7 +90,11 @@ export function blockComponentsTemplate(blocks: Map<string, DiscoveredBlock>, co
         ? `() => import(${JSON.stringify(from)}).then(m => m.default)`
         : `() => import(${JSON.stringify(from)}).then(({ ${component.export} }) => ${component.export})`
     }
-    return `  ${JSON.stringify(name)}: { component: ${loader}, areas: ${JSON.stringify(Object.keys(block.schema.areas))} },`
+    // proxy-mode blocks: what the editor's stand-in shows (its label, and its areas')
+    const proxy = block.schema.editor?.proxy
+      ? `, proxy: ${JSON.stringify({ label: block.schema.label ?? name, areas: Object.fromEntries(Object.entries(block.schema.areas).map(([area, rules]) => [area, rules.label ?? area])) })}`
+      : ''
+    return `  ${JSON.stringify(name)}: { component: ${loader}, areas: ${JSON.stringify(Object.keys(block.schema.areas))}${proxy} },`
   })
   return `export const blocks = {\n${entries.join('\n')}\n}\n`
 }

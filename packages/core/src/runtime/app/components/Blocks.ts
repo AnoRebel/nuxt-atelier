@@ -46,6 +46,9 @@ const BlockFrame = defineComponent({
 })
 const warned = new Set<string>()
 
+const PROXY = 'display:block;margin:.5rem 0;padding:.5rem;border:1px solid #94a3b8;border-radius:4px;background:#f8fafc;color:#0f172a;font:500 .875rem/1.5 system-ui,sans-serif'
+const PROXY_AREA = 'display:block;margin:.25rem 0 0;color:#64748b;font-size:.75rem;text-transform:uppercase;letter-spacing:.04em'
+
 function componentOf(type: string): Component {
   let component = components.get(type)
   if (!component) {
@@ -91,6 +94,14 @@ const AtelierBlocks = defineComponent({
       }
       if (!preview.value)
         return h(componentOf(block.type), { key: block.id, ...values }, slots)
+      // proxy mode (a carousel, tabs: blocks that show part of their content at a time): a plain stand-in
+      // in its place, every area's blocks shown in order, so each can be seen, selected and moved
+      if (entry.proxy) {
+        return h('div', { 'key': block.id, 'data-at-block': block.id, 'data-at-type': block.type, 'data-at-proxy': '', 'style': PROXY }, [
+          h('span', { style: 'display:block;font-weight:600' }, entry.proxy.label),
+          ...entry.areas.flatMap(area => [h('span', { style: PROXY_AREA }, entry.proxy!.areas[area] ?? area), slots[area]!()]),
+        ])
+      }
       // editing: the markers the editor maps the page by, and a stand-in when the block renders nothing
       const rendered = h(componentOf(block.type), { ...values, 'data-at-block': block.id, 'data-at-type': block.type }, slots)
       return h(BlockFrame, { key: block.id, id: block.id, type: block.type }, () => rendered)
