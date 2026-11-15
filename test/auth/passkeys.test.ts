@@ -77,6 +77,15 @@ describe('passkeys', async () => {
     finally {
       await driver.close()
     }
+
+    // an administrator resets the password (an account taken over, say): the passkeys go with the old one
+    await call(page, 'signOut')
+    await $fetch('/api/test/users', { method: 'POST', body: { email: 'root@example.com', role: 'admin', password: 'root password' } })
+    const admin = await fetch('/api/_atelier/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'root@example.com', password: 'root password' }) })
+    const cookies = admin.headers.getSetCookie().map(c => c.split(';')[0]!)
+    const reset = await fetch(`/api/_atelier/users/${user.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json', 'cookie': cookies.join('; '), 'x-atelier-csrf': cookies.find(c => c.startsWith('atelier-csrf='))!.split('=')[1]! }, body: JSON.stringify({ password: 'a new password' }) })
+    expect(reset.status).toBe(200)
+    await expect(call(page, 'signInWithPasskey')).rejects.toThrow()
     await page.close()
   })
 

@@ -17,7 +17,7 @@ describe('CSRF protection and sign-in rate limits', async () => {
   let csrf: string
 
   beforeAll(async () => {
-    await startServer({ env: { NUXT_ATELIER_DATABASE_URL: database, NUXT_APP_SECRET: 'a-test-secret-that-is-long-enough-123456' } })
+    await startServer({ env: { NUXT_ATELIER_DATABASE_URL: database, NUXT_APP_SECRET: 'a-test-secret-that-is-long-enough-123456', NUXT_ATELIER_AUTH_TRUST_PROXY: 'true' } })
     await $fetch('/api/test/users', { method: 'POST', body: { email: 'ada@example.com', role: 'admin', password: 'password 123' } })
     const signedIn = await post('/auth/login', {}, { email: 'ada@example.com', password: 'password 123' })
     const cookies = signedIn.headers.getSetCookie()
@@ -57,5 +57,21 @@ describe('CSRF protection and sign-in rate limits', async () => {
     expect(Number(limited.headers.get('retry-after'))).toBeGreaterThan(800)
     // another account from the same address isn't affected
     expect((await post('/auth/login', {}, { email: 'someone@example.com', password: 'x' })).status).toBe(401)
+  })
+  it('lets a browser that signed in before through an account others are guessing at, but not the guessers', async () => {
+    await $fetch('/api/test/users', { method: 'POST', body: { email: 'bob@example.com', role: 'admin', password: 'password 123' } })
+    const first = await post('/auth/login', { 'x-forwarded-for': '203.0.113.1' }, { email: 'bob@example.com', password: 'password 123' })
+    const device = first.headers.getSetCookie().find(c => c.startsWith('atelier-device='))!
+    expect(device).toMatch(/HttpOnly/i)
+    // wrong passwords from many addresses: the limit per email alone is reached
+    for (let ip = 2; ip <= 6; ip++) {
+      for (let i = 0; i < 10; i++)
+        await post('/auth/login', { 'x-forwarded-for': `203.0.113.${ip}` }, { email: 'bob@example.com', password: `wrong ${i}` })
+    }
+    expect((await post('/auth/login', { 'x-forwarded-for': '203.0.113.7' }, { email: 'bob@example.com', password: 'password 123' })).status).toBe(429)
+    // Bob's own browser still signs in, from wherever he is
+    expect((await post('/auth/login', { 'x-forwarded-for': '198.51.100.9', 'cookie': device.split(';')[0]! }, { email: 'bob@example.com', password: 'password 123' })).status).toBe(200)
+    // a forged cookie doesn't
+    expect((await post('/auth/login', { 'x-forwarded-for': '203.0.113.7', 'cookie': 'atelier-device=forged.token' }, { email: 'bob@example.com', password: 'password 123' })).status).toBe(429)
   })
 })
