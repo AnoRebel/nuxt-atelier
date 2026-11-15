@@ -1,0 +1,12 @@
+{
+  "name": "@nuxt-atelier/fixture-journey",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev"
+  },
+  "dependencies": {
+    "@nuxtjs/i18n": "catalog:i18n",
+    "nuxt": "catalog:"
+  }
+}
