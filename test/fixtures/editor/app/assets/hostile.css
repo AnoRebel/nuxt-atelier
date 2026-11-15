@@ -1,0 +1,4 @@
+/* A host app's careless global CSS: the admin (in its shadow root) and the editor must look the same with it. */
+* { box-sizing: content-box; }
+button { all: unset; }
+input { border: 0; padding: 0; }

@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { $fetch, createPage, setup, startServer, url } from '@nuxt/test-utils/e2e'
+import sharp from 'sharp'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 const rootDir = fileURLToPath(new URL('../fixtures/editor', import.meta.url))
@@ -300,6 +301,57 @@ describe('visual editor', async () => {
     await drag(editor, editor.locator('[data-overlay-handle]'), frame.locator('[data-at-block="a"]'), { x: 0.05, y: 0.2 })
     await expect.poll(slides).toEqual(['c', 'a', 'b'])
     expect(await editor.locator('[data-list="content.0.props.slides"] > li > [data-tree-block]').evaluateAll(els => els.map(el => el.getAttribute('data-tree-block')))).toEqual(['c', 'a', 'b'])
+  })
+
+  it('keeps its chrome and the preview apart from the host\'s global CSS', async () => {
+    // the fixture's app/assets/hostile.css: `* { box-sizing: content-box }`, `button { all: unset }`
+    const plainId = await (await openEditor()).evaluate(async () => {
+      const csrf = document.cookie.split('; ').find(c => c.startsWith('atelier-csrf='))!.slice('atelier-csrf='.length)
+      const content = [{ id: 'p1', type: 'Headline', props: { heading: 'Plain headline' } }, { id: 'p2', type: 'Section', props: { heading: 'Plain section', items: [{ id: 'p3', type: 'Card', props: { heading: 'Plain card' } }] } }]
+      const response = await window.fetch('/api/_atelier/collections/pages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-atelier-csrf': csrf }, body: JSON.stringify({ data: { title: 'Plain', slug: 'plain', content }, publish: true }) })
+      return (await response.json()).id as string
+    })
+    const page = await openEditor(plainId)
+    const undo = page.getByRole('button', { name: 'Undo' })
+    const style = await undo.evaluate((el) => {
+      const s = getComputedStyle(el)
+      return { boxSizing: s.boxSizing, display: s.display, paddingLeft: s.paddingLeft, cursor: s.cursor }
+    })
+    expect(style.boxSizing).toBe('border-box')
+    expect(style.display).not.toBe('inline')
+    expect(style.paddingLeft).not.toBe('0px')
+    expect(style.cursor).toBe('pointer')
+    expect(await page.locator('[data-tree-block="p1"]').evaluate(el => getComputedStyle(el).display)).toBe('block')
+
+    // the preview, at the mobile width, is the public page pixel for pixel (a window wide enough for the
+    // stage to show the whole frame; the frame may sit a fraction of a pixel off, so a 1px shift is allowed)
+    await page.setViewportSize({ width: 1600, height: 800 })
+    await page.getByLabel('Custom').fill('375')
+    const frame = page.locator('iframe[title="Preview of the page"]')
+    await expect.poll(async () => (await frame.boundingBox())?.width).toBe(375)
+    await page.mouse.move(0, 0) // no hover box over it
+    await page.waitForTimeout(300)
+    const box = (await frame.boundingBox())!
+    const visitor = await createPage(url('/plain'), { viewport: { width: 375, height: Math.floor(box.height) } })
+    await visitor.getByText('Plain card').waitFor()
+    const raw = async (png: Buffer) => sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+    const [inEditor, onSite] = await Promise.all([raw(await frame.screenshot()), raw(await visitor.screenshot())])
+    const width = Math.min(inEditor.info.width, onSite.info.width) - 2
+    const height = Math.min(inEditor.info.height, onSite.info.height) - 2
+    const differing = (dx: number, dy: number) => {
+      let count = 0
+      for (let y = 1; y < height; y++) {
+        for (let x = 1; x < width; x++) {
+          const a = (y * inEditor.info.width + x) * 4
+          const b = ((y + dy) * onSite.info.width + x + dx) * 4
+          if (Math.abs(inEditor.data[a]! - onSite.data[b]!) + Math.abs(inEditor.data[a + 1]! - onSite.data[b + 1]!) + Math.abs(inEditor.data[a + 2]! - onSite.data[b + 2]!) > 24)
+            count++
+        }
+      }
+      return count / (width * height)
+    }
+    const best = Math.min(...[-1, 0, 1].flatMap(dx => [-1, 0, 1].map(dy => differing(dx, dy))))
+    expect(best).toBeLessThan(0.001)
   })
 
   it('has no serious accessibility problems in its chrome', async () => {
