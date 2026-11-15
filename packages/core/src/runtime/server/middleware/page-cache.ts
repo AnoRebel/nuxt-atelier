@@ -6,15 +6,16 @@ import type { RequestEvent } from 'nuxt/server'
 import { defineEventHandler, getRequestHeader, getRequestURL, useRuntimeConfig } from 'nuxt/server'
 import { PUBLIC_ROLE } from '../../shared/policy'
 import { cached } from '../cache'
+import { inDemoSession } from '../demo/sessions'
 import { caller } from '../content-access'
 import { useAtelierSite } from '../index'
 
 export interface CachedPage { status: number, type: string, body: string }
-const PRIVATE_QUERY = /[?&](?:_atelier|draft|preview)=/
+const PRIVATE_QUERY = /[?&](?:_atelier|_atelier_preview|draft|preview)=/
 
 /** The page's cache key when its render may be shared; undefined when it's someone's own. */
 async function shareable(event: RequestEvent, url: URL): Promise<string | undefined> {
-  if (PRIVATE_QUERY.test(url.search))
+  if (PRIVATE_QUERY.test(url.search) || inDemoSession())
     return undefined
   // cookies may be anyone's (analytics, consent): whoever sends them, signed in or not, decides
   if (getRequestHeader(event, 'cookie') || getRequestHeader(event, 'authorization')) {

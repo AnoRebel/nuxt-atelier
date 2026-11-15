@@ -5,6 +5,7 @@
 import type { LifecycleHook, LifecycleHooks } from './db/store'
 import type { SiteContext } from './sites'
 import { useServerHooks } from 'nuxt/server'
+import { inDemoSession } from './demo/sessions'
 import { useAtelierServerConfig } from './index'
 import { logger } from './logger'
 
@@ -37,6 +38,8 @@ const capacity = () => (useAtelierServerConfig() as unknown as { limits: { cache
 
 /** A cached value, while nothing changed and it's fresh (`maxAge` ms). */
 export function cached<T>(key: string, maxAge = MAX_AGE): T | undefined {
+  if (inDemoSession()) // a demo visitor reads their own copy, never what others' requests cached
+    return undefined
   const hit = cache.get(key)
   if (!hit)
     return undefined
@@ -49,6 +52,8 @@ export function cached<T>(key: string, maxAge = MAX_AGE): T | undefined {
 
 /** Caches a value, dropping the least recently used beyond `limits.cacheSize` (0 caches nothing). */
 export function remember(key: string, value: unknown): void {
+  if (inDemoSession()) // ...nor fills it with their copy's content
+    return
   const size = capacity()
   if (size <= 0)
     return

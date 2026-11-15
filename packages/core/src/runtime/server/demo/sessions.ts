@@ -41,6 +41,11 @@ export function sessionOf(event: RequestEvent | undefined): Session | undefined 
   return session
 }
 const current = () => sessionOf(currentEvent())
+/**
+ * Whether this call runs in a demo session: then nothing it reads may go into a cache other visitors read
+ * (their content is the template's, not this visitor's copy).
+ */
+export const inDemoSession = (): boolean => !!current()
 
 /** The template's driver, with every query of a demo session's request running on that session's copy. */
 export function demoDriver(template: AtelierDriver): AtelierDriver {
