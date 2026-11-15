@@ -5,6 +5,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # releases at least two weeks old only (CONTRIBUTING: dependency versions)
+    cooldown:
+      default-days: 14
     commit-message:
       prefix: chore
       include: scope
@@ -21,6 +24,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
     commit-message:
       prefix: ci
     groups:
