@@ -1,6 +1,8 @@
+import { spawn } from 'node:child_process'
 import { pbkdf2Sync } from 'node:crypto'
 import { mkdtempSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { createServer } from 'node:net'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { $fetch, fetch, setup, startServer, useTestContext } from '@nuxt/test-utils/e2e'
@@ -93,5 +95,35 @@ describe('built-in auth', async () => {
     const files = readdirSync(output, { recursive: true, withFileTypes: true }).filter(f => f.isFile() && /\.m?js$/.test(f.name))
     expect(files.length).toBeGreaterThan(0)
     expect(files.filter(f => readFileSync(join(f.parentPath, f.name), 'utf8').includes('simplewebauthn'))).toEqual([])
+  })
+  it('logs a failed sign-in as a JSON line with its correlation id, and never the password', async () => {
+    const port = await new Promise<number>((resolve) => {
+      const probe = createServer().listen(0, () => {
+        const { port } = probe.address() as { port: number }
+        probe.close(() => resolve(port))
+      })
+    })
+    // the built app, run as in production, its output read
+    const server = spawn(process.execPath, [join(useTestContext().nuxt!.options.nitro.output!.dir!, 'server/index.mjs')], {
+      env: { ...process.env, NODE_ENV: 'production', PORT: String(port), NUXT_ATELIER_LOG_FORMAT: 'json', NUXT_APP_SECRET: 'a-test-secret-that-is-long-enough-123456', NUXT_ATELIER_DATABASE_URL: `file:${join(mkdtempSync(join(tmpdir(), 'atelier-log-')), 'db.sqlite')}` },
+    })
+    let output = ''
+    const read = (chunk: Buffer) => {
+      output += chunk
+    }
+    server.stdout.on('data', read)
+    server.stderr.on('data', read)
+    try {
+      await expect.poll(() => globalThis.fetch(`http://127.0.0.1:${port}/api/_atelier/health/live`).then(r => r.status, () => 0), { timeout: 30_000 }).toBe(200)
+      const response = await globalThis.fetch(`http://127.0.0.1:${port}/api/_atelier/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-request-id': 'req-login-1' }, body: JSON.stringify({ email: 'nobody@example.com', password: 'hunter2-secret-guess' }) })
+      expect(response.status).toBe(401)
+      await expect.poll(() => output.includes('Sign-in failed')).toBe(true)
+      const line = output.split('\n').find(l => l.includes('Sign-in failed'))!
+      expect(JSON.parse(line)).toMatchObject({ level: 'warn', message: 'Sign-in failed', event: 'auth.sign-in-failed', requestId: 'req-login-1' })
+      expect(output).not.toContain('hunter2-secret-guess')
+    }
+    finally {
+      server.kill()
+    }
   })
 })

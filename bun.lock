@@ -547,6 +547,12 @@
         "nuxt": "catalog:",
       },
     },
+    "test/fixtures/zero-config": {
+      "name": "@nuxt-atelier/fixture-zero-config",
+      "dependencies": {
+        "nuxt": "catalog:",
+      },
+    },
   },
   "overrides": {
     "@nuxtjs/robots": "7.0.2",
@@ -1211,6 +1217,8 @@
     "@nuxt-atelier/fixture-ui-tailwind": ["@nuxt-atelier/fixture-ui-tailwind@workspace:test/fixtures/ui-tailwind"],
 
     "@nuxt-atelier/fixture-workers": ["@nuxt-atelier/fixture-workers@workspace:test/fixtures/workers"],
+
+    "@nuxt-atelier/fixture-zero-config": ["@nuxt-atelier/fixture-zero-config@workspace:test/fixtures/zero-config"],
 
     "@nuxt-atelier/i18n-micro": ["@nuxt-atelier/i18n-micro@workspace:packages/i18n-micro"],
 
