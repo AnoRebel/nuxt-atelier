@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "my-site",
+  "main": ".output/server/index.mjs",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": ".output/public", "binding": "ASSETS" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "my-site", "database_id": "<your D1 database id>" }
+  ],
+  "triggers": { "crons": ["* * * * *"] },
+  "vars": {
+    "NUXT_PUBLIC_ATELIER_SITE_URL": "https://example.com",
+    "NUXT_ATELIER_S3_ENDPOINT": "https://<account id>.r2.cloudflarestorage.com",
+    "NUXT_ATELIER_S3_BUCKET": "media",
+    "NUXT_ATELIER_S3_REGION": "auto"
+  }
+}

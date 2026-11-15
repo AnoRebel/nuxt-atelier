@@ -1,0 +1,27 @@
+# Nuxt Atelier in a container. Build from your app's root: docker build -t my-site .
+# It installs with Bun, from bun.lock when there is one: with another package manager, swap the install line.
+FROM oven/bun:1.4.4 AS bun
+
+FROM node:24-slim AS build
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+WORKDIR /app
+COPY package.json bun.lock* ./
+RUN bun install --frozen-lockfile
+COPY . .
+RUN bun run build
+
+FROM node:24-slim
+# SQLite and uploads live in /app/.data: mount a volume there so they outlive the container.
+# NUXT_ATELIER_DATABASE_URL set at run time (compose.yml) points the server at PostgreSQL instead.
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 \
+    NUXT_ATELIER_DATABASE_URL=file:/app/.data/atelier.sqlite \
+    NUXT_ATELIER_STORAGE_DIR=/app/.data/uploads \
+    NUXT_ATELIER_MIGRATIONS_AUTO_APPLY=true
+WORKDIR /app
+COPY --from=build --chown=node:node /app/.output .output
+RUN mkdir -p /app/.data && chown node:node /app/.data
+USER node
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/_atelier/health/ready').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+CMD ["node", ".output/server/index.mjs"]

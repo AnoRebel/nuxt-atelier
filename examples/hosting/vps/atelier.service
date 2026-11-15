@@ -1,0 +1,22 @@
+# /etc/systemd/system/atelier.service: the site built in /srv/atelier, run as the user atelier.
+[Unit]
+Description=Nuxt Atelier
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=atelier
+Group=atelier
+WorkingDirectory=/srv/atelier
+EnvironmentFile=/srv/atelier/.env
+# apply pending migrations before the new version starts
+ExecStartPre=/srv/atelier/node_modules/.bin/atelier migrate apply
+ExecStart=/usr/bin/node .output/server/index.mjs
+Restart=on-failure
+# running jobs get 10 seconds to finish on SIGTERM
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

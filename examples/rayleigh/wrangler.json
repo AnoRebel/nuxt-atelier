@@ -5,6 +5,7 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "assets": { "directory": ".output/public", "binding": "ASSETS" },
+  "triggers": { "crons": ["* * * * *"] },
   "d1_databases": [
     { "binding": "DB", "database_name": "rayleigh", "database_id": "<your D1 database id>" }
   ],
