@@ -2,7 +2,7 @@
 # (for your own copy of the app, installed from npm; in this repository, the packages come from the workspace)
 FROM oven/bun:1.4.4 AS bun
 
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
 COPY package.json bun.lock* ./
@@ -10,7 +10,7 @@ RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run build
 
-FROM node:24-slim
+FROM node:26-slim
 # the database and uploads live in /app/.data: mount a volume there so they outlive the container
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 \
     NUXT_ATELIER_DATABASE_URL=file:/app/.data/rayleigh.sqlite \

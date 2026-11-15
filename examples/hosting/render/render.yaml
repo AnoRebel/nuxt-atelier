@@ -10,7 +10,7 @@ services:
       - key: SERVER_PRESET
         value: render_com
       - key: NODE_VERSION
-        value: "24"
+        value: "26"
       - key: NUXT_ATELIER_DATABASE_URL
         fromDatabase:
           name: my-site-db

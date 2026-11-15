@@ -4,6 +4,8 @@ import { defineConfig } from 'vitest/config'
 const storage = 'test/storage/**/*.test.ts'
 // third-party compatibility checks that may fail without it being ours to fix: a CI job of their own, not gating
 const compat = 'test/compat/**/*.test.ts'
+// the hosting guides' apps built and run (Docker, Bun, Deno, Miniflare): slow, a CI job of their own
+const deploy = 'test/deploy/**/*.test.ts'
 
 export default defineConfig({
   // the admin's composables import Nuxt's and the core's aliases: unit tests get stand-ins
@@ -23,7 +25,7 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        test: { name: 'unit', include: ['scripts/**/*.test.ts', 'test/**/*.test.ts'], exclude: [storage, compat, '**/node_modules/**'], sequence: { groupOrder: 0 } },
+        test: { name: 'unit', include: ['scripts/**/*.test.ts', 'test/**/*.test.ts'], exclude: [storage, compat, deploy, '**/node_modules/**'], sequence: { groupOrder: 0 } },
       },
       {
         // the storage files share the test databases (test/compose.yml) and reset them: one file at a time,
@@ -32,6 +34,7 @@ export default defineConfig({
         test: { name: 'storage', include: [storage], fileParallelism: false, sequence: { groupOrder: 1 } },
       },
       ...process.env.ATELIER_COMPAT ? [{ extends: true, test: { name: 'compat', include: [compat] } }] : [],
+      ...process.env.ATELIER_DEPLOY ? [{ extends: true, test: { name: 'deploy', include: [deploy] } }] : [],
     ],
   },
 })

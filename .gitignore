@@ -33,3 +33,4 @@ packages/*/jsr.json
 test/fixtures/i18n-micro*/locales/
 .bench/
 .steps/
+.standalone/

@@ -2,7 +2,7 @@
 FROM oven/bun:1.4.4 AS bun
 
 # Nuxt builds on Node; the server it builds runs on Deno
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
 COPY package.json bun.lock* ./
