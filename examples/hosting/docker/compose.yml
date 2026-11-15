@@ -1,0 +1,39 @@
+# Nuxt Atelier with PostgreSQL. Copy .env.example to .env, fill it in, then: docker compose up -d --build
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NUXT_ATELIER_DATABASE_URL: postgres://atelier:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/atelier
+      NUXT_APP_SECRET: ${NUXT_APP_SECRET:?set NUXT_APP_SECRET in .env}
+      NUXT_PUBLIC_ATELIER_SITE_URL: ${NUXT_PUBLIC_ATELIER_SITE_URL:?set NUXT_PUBLIC_ATELIER_SITE_URL in .env}
+      NUXT_ATELIER_AUTH_SETUP_TOKEN: ${NUXT_ATELIER_AUTH_SETUP_TOKEN:-}
+      NUXT_ATELIER_AUTH_TRUST_PROXY: ${NUXT_ATELIER_AUTH_TRUST_PROXY:-false}
+    volumes:
+      - uploads:/app/.data
+    depends_on:
+      db:
+        condition: service_healthy
+    # running jobs get 10 seconds to finish when the container stops
+    stop_grace_period: 15s
+
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: atelier
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: atelier
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atelier -d atelier"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  uploads:
+  postgres:
