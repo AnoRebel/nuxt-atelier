@@ -14,6 +14,7 @@ export interface SiteContext {
 export interface SiteDefinition { hosts: string[], label?: string, locales?: string[], defaultLocale?: string }
 export interface SitesConfig { list: Record<string, SiteDefinition> | null, fallback: string | null }
 
+/** The name of the one site an app without `sites` has. */
 export const DEFAULT_SITE = 'default'
 /** The one site of an install without `sites`. */
 export const singleSite: SiteContext = Object.freeze({ name: DEFAULT_SITE, scoped: false })

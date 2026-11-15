@@ -17,6 +17,7 @@ export interface MemoryAdapterOptions {
 const keyOf = (ref: ContentRef) => ref.kind === 'collection' ? `c:${ref.name}:${ref.id ?? ''}` : `s:${ref.name}`
 const notFound = (message: string) => Object.assign(new Error(message), { statusCode: 404 })
 
+/** A content adapter keeping content in memory, with only the required operations and no validation: a reference implementation, for demos and tests. */
 export function createMemoryAdapter(options: MemoryAdapterOptions = {}): DefinedContentAdapter {
   const saved = new Map<string, { version: number, data: Record<string, unknown> }>()
   const fieldsOf = (ref: ContentRef) => {

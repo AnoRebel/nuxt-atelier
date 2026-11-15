@@ -44,6 +44,7 @@ export class ValidationError extends Error {
   }
 }
 
+/** No entry (or singleton) with that id: the API answers 404. */
 export class NotFoundError extends Error {
   readonly statusCode = 404
 }
