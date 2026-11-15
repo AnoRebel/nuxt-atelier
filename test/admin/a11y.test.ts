@@ -14,7 +14,7 @@ interface Violation { id: string, impact: string, help: string, nodes: { target:
 
 async function violations(page: Page): Promise<string[]> {
   if (!await page.evaluate(() => 'axe' in window))
-    await page.addScriptTag({ content: axeSource })
+    await page.evaluate(axeSource) // through the devtools protocol: the admin's CSP refuses inline scripts
   const found = await page.evaluate(async () => {
     const axe = (window as unknown as { axe: { run: (context: unknown, options: unknown) => Promise<{ violations: Violation[] }> } }).axe
     const result = await axe.run({ include: [['atelier-admin']] }, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] } })
@@ -73,7 +73,7 @@ describe('admin accessibility', async () => {
     // axe looks inside the shadow root: the form's inputs are checked for labels
     await page.goto(url('/admin/collections/posts/new'))
     await page.getByLabel('Title *').waitFor()
-    await page.addScriptTag({ content: axeSource })
+    await page.evaluate(axeSource) // through the devtools protocol: the admin's CSP refuses inline scripts
     const labelled = await page.evaluate(async () => {
       const axe = (window as unknown as { axe: { run: (context: unknown, options: unknown) => Promise<{ passes: { nodes: unknown[] }[] }> } }).axe
       return (await axe.run({ include: [['atelier-admin']] }, { runOnly: ['label'] })).passes.flatMap(p => p.nodes).length
