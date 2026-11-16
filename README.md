@@ -42,7 +42,7 @@ No code from these projects is copied into the packages. The one exception is an
 
 ## How this project is built
 
-Nuxt Atelier is made with AI assistance. It is not an AI-generated project: a human maintainer owns the product direction, the architecture and the specifications, and writes and reviews the code. AI coding assistants help with parts of the work, and those parts are done under heavy human supervision and control: every AI-assisted change is reviewed, understood and approved by the maintainer before it lands, and anything that can't be explained is not merged. The planning artifacts in [`openspec/`](./openspec) are public, so you can see what was decided and why.
+Nuxt Atelier is made with AI assistance. It is not an AI-generated project: a human maintainer owns the product direction, the architecture and the specifications, and writes and reviews the code. AI coding assistants help with parts of the work, and those parts are done under heavy human supervision and control: every AI-assisted change is reviewed, understood and approved by the maintainer before it lands, and anything that can't be explained is not merged.
 
 ## License
 

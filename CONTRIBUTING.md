@@ -35,7 +35,6 @@ CI follows these commands on a clean machine (`scripts/contributor-setup.ts`), s
 | `playground/` | development app |
 | `docs/` | documentation site |
 | `test/fixtures/` | minimal apps used by tests |
-| `openspec/` | specifications and the implementation plan |
 
 ## Scripts
 
