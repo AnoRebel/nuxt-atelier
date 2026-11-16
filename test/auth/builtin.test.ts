@@ -46,7 +46,8 @@ describe('built-in auth', async () => {
     expect(cookie).toMatch(/; HttpOnly/i)
     expect(cookie).toMatch(/; Secure/i)
     expect(cookie).toMatch(/; SameSite=Lax/i)
-    expect(cookie).not.toContain('ada') // sealed: the user isn't readable from it
+    expect(cookie).not.toContain('ada@example.com') // sealed: the user isn't readable from it ('@' never occurs in a seal)
+    expect(cookie).not.toContain(ada.id)
     expect(await me(cookie)).toEqual({ id: ada.id, email: 'ada@example.com', name: 'Ada', role: 'editor' })
   })
 
