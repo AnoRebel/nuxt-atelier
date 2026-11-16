@@ -3,14 +3,16 @@
 #    pushes. A dry run stops before pushing and shows what it would release.
 # 2. npm: packs each package with `bun pm pack` (resolving `catalog:`) and publishes the tarballs with npm
 #    through trusted publishing: an OIDC token from this workflow, with provenance, no npm token stored here.
+#    Staged by default: nothing is live until a maintainer approves it on npmjs.com (Staged Packages, with 2FA).
 # 3. jsr: publishes the same builds to JSR, also through OIDC. It can't block npm.
 # 4. github: a GitHub release per tag, with that version's changelog.
 # The publish jobs are called from here, not triggered by the tags or releases: events raised with the
 # default GITHUB_TOKEN start no workflows.
 #
 # Once, before the first release: link each package to this repository and workflow (release.yml) as a
-# trusted publisher on npmjs.com and on jsr.io, and create the `release` environment in the repository's
-# settings, limited to the main branch (optionally with required reviewers).
+# trusted publisher on npmjs.com (allowing publish and stage publish) and on jsr.io, and create the `release`
+# environment in the repository's settings, limited to the main branch (optionally with required reviewers).
+# npm links only packages that exist: CONTRIBUTING.md's "Releasing" creates them, without a token.
 # And a deploy key with write access, its private half saved as the `release` environment's
 # RELEASE_DEPLOY_KEY secret: main's ruleset lets deploy keys (and admins) push, and the version job pushes.
 name: Release
@@ -19,10 +21,14 @@ on:
   workflow_dispatch:
     inputs:
       npm_tag:
-        description: npm dist-tag (`next` for 0.x pre-releases)
+        description: npm dist-tag (`latest` is what a plain `npm i` installs, as the docs do)
         type: choice
-        options: [next, latest]
-        default: next
+        options: [latest, next]
+        default: latest
+      stage:
+        description: Stage on npm (live only once approved on npmjs.com)
+        type: boolean
+        default: true
       dry_run:
         description: Dry run (version and pack, publish nothing)
         type: boolean
@@ -117,18 +123,19 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run build
       - run: bun run pack
-      # trusted publishing needs npm 11.5+
-      - run: npm install -g npm@11
+      # trusted publishing needs npm 11.5+, staging 11.15+, dist-tags over OIDC 11.21+
+      - run: npm install -g npm@12.2.2
       - name: Publish
         env:
           NPM_TAG: ${{ inputs.npm_tag }}
+          STAGE: ${{ inputs.stage && 'stage' || '' }}
         run: |
           for tarball in .packs/*.tgz; do
             id=$(tar -xOzf "$tarball" package/package.json | node -p 'const p = JSON.parse(require("fs").readFileSync(0)); p.name + "@" + p.version')
             if npm view "$id" version >/dev/null 2>&1; then
               echo "$id is already on npm"
             else
-              npm publish "$tarball" --tag "$NPM_TAG" --provenance --access public
+              npm ${STAGE:+"$STAGE"} publish "$tarball" --tag "$NPM_TAG" --provenance --access public
             fi
           done
 

@@ -124,9 +124,29 @@ A breaking change (a `major` bump, or before 1.0 a minor one whose summary says 
 
 ## Releasing
 
-Maintainers release from GitHub: **Actions → Release → Run workflow**, on `main`. It applies the pending changesets (versions and changelogs), commits and tags `<package>@<version>`, then publishes the packages to npm and JSR and creates a GitHub release per tag. It starts as a dry run, which versions and packs without pushing or publishing; untick it to release. 0.x versions go out under the `next` dist-tag.
+Maintainers release from GitHub: **Actions → Release → Run workflow**, on `main`. It applies the pending changesets (versions and changelogs), commits and tags `<package>@<version>`, then publishes the packages to npm and JSR and creates a GitHub release per tag. It starts as a dry run, which versions and packs without pushing or publishing; untick it to release. Versions go out under the `latest` dist-tag, which is what a plain `npm i` installs.
 
 Packages are packed with `bun pm pack`, which resolves `catalog:` and `workspace:` versions, and published with npm through [trusted publishing](https://docs.npmjs.com/trusted-publishers): an OIDC token from the workflow, with provenance, so no npm or JSR token is stored in the repository. `bun run pack` checks the tarballs locally and in CI: each one must resolve every version and include the LICENSE.
+
+npm releases are [staged](https://docs.npmjs.com/staged-publishing) by default: the workflow uploads them, and they go live once a maintainer approves them on npmjs.com (**Staged Packages**, all versions at once, with 2FA). Untick **stage** to publish directly.
+
+### Before the first release
+
+npm links a trusted publisher only to a package that exists. Staging a package that doesn't creates it, with a `0.0.0-stage` placeholder version, so no token is needed. Signed in to npm (`npm login`) as an owner of the `@nuxt-atelier` organization, with npm 11.15 or later:
+
+```bash
+bun run build && bun run pack
+# create each package on npm (the staged 0.0.0 itself is rejected below)
+for t in .packs/*.tgz; do npm stage publish "$t" --access public --tag bootstrap; done
+# link each to this repository's release workflow (npm 11.15+, 2FA: one confirmation covers the loop)
+for p in nuxt-atelier @nuxt-atelier/{admin,editor,ai,layer,devtools,i18n-micro,i18n-nuxtjs,storage-s3,storage-vercel-blob,auth-better-auth}; do
+  npm trust github "$p" --repo AnoRebel/nuxt-atelier --file release.yml --env release --allow-publish --allow-stage-publish --yes
+  sleep 2
+done
+npm trust list nuxt-atelier
+```
+
+Then reject the staged `0.0.0` versions on npmjs.com (**Staged Packages**). On jsr.io, create each package in the `@nuxt-atelier` scope (`nuxt-atelier` is `@nuxt-atelier/core` there) and link it to this repository in its settings.
 
 ## AI-assisted contributions
 
