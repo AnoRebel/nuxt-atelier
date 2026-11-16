@@ -11,6 +11,8 @@
 # Once, before the first release: link each package to this repository and workflow (release.yml) as a
 # trusted publisher on npmjs.com and on jsr.io, and create the `release` environment in the repository's
 # settings, limited to the main branch (optionally with required reviewers).
+# And a deploy key with write access, its private half saved as the `release` environment's
+# RELEASE_DEPLOY_KEY secret: main's ruleset lets deploy keys (and admins) push, and the version job pushes.
 name: Release
 
 on:
@@ -41,6 +43,7 @@ jobs:
   version:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    environment: release
     permissions:
       contents: write
     outputs:
@@ -50,6 +53,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          # main's ruleset lets only a deploy key push past it (a user-owned repository can't exempt
+          # GitHub Actions): the write deploy key's private half, as a secret of the `release` environment
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
