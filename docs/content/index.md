@@ -31,6 +31,18 @@ Get started
 
 :::u-button
 ---
+to: https://nuxt-atelier-demo.anorebel.net
+target: _blank
+size: xl
+color: neutral
+variant: outline
+icon: i-lucide-play
+---
+Live demo
+:::
+
+:::u-button
+---
 to: https://github.com/AnoRebel/nuxt-atelier
 target: _blank
 size: xl

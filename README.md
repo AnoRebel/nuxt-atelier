@@ -2,6 +2,8 @@
 
 A production-grade CMS for Nuxt with a visual page builder that renders your site's own components.
 
+**[Documentation](https://nuxt-atelier.anorebel.net)** · **[Live demo](https://nuxt-atelier-demo.anorebel.net)** (Rayleigh, a portfolio built on Nuxt Atelier; each visitor gets their own copy to edit)
+
 > **Status:** early development. Nothing is published yet; APIs will change until `1.0.0`.
 
 ## What it is

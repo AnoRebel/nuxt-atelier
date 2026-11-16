@@ -16,7 +16,7 @@ export function addDocs(cwd: string, pkg: { name: string, description?: string }
     if (pkg.name === 'nuxt-atelier')
       copyFileSync(join(root, 'README.md'), join(cwd, 'README.md'))
     else
-      writeFileSync(join(cwd, 'README.md'), `# ${pkg.name}\n\n${pkg.description ?? ''}\n\nPart of [Nuxt Atelier](https://nuxt-atelier.anorebel.net), a visual CMS for Nuxt. See the [documentation](https://nuxt-atelier.anorebel.net) to get started.\n\nMIT License\n`)
+      writeFileSync(join(cwd, 'README.md'), `# ${pkg.name}\n\n${pkg.description ?? ''}\n\nPart of [Nuxt Atelier](https://nuxt-atelier.anorebel.net), a visual CMS for Nuxt. See the [documentation](https://nuxt-atelier.anorebel.net) to get started, or try the [live demo](https://nuxt-atelier-demo.anorebel.net).\n\nMIT License\n`)
   }
   return added
 }
