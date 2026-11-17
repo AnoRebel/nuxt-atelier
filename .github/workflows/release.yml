@@ -97,9 +97,11 @@ jobs:
             for t in $tags; do echo "- \`$t\`"; done
             git show --stat --format= HEAD
           } >> "$GITHUB_STEP_SUMMARY"
+      # a dry run pushes with --dry-run: the deploy key's write access is checked, nothing changes
       - name: Push
-        if: ${{ !inputs.dry_run }}
-        run: git push --follow-tags origin HEAD:main
+        env:
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: git push ${DRY_RUN:+"$DRY_RUN"} --follow-tags origin HEAD:main
 
   npm:
     needs: version
