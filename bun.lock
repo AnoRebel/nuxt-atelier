@@ -65,7 +65,7 @@
     },
     "packages/admin": {
       "name": "@nuxt-atelier/admin",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@iconify-json/lucide": "catalog:admin",
         "@nuxt/kit": "catalog:",
@@ -93,7 +93,7 @@
     },
     "packages/ai": {
       "name": "@nuxt-atelier/ai",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@nuxt/kit": "catalog:",
         "ai": "catalog:ai",
@@ -113,7 +113,7 @@
     },
     "packages/auth-better-auth": {
       "name": "@nuxt-atelier/auth-better-auth",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@nuxt/kit": "catalog:",
         "better-auth": "catalog:auth",
@@ -129,7 +129,7 @@
     },
     "packages/core": {
       "name": "nuxt-atelier",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "bin": {
         "atelier": "./dist/cli/index.mjs",
       },
@@ -176,7 +176,7 @@
     },
     "packages/devtools": {
       "name": "@nuxt-atelier/devtools",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@nuxt/kit": "catalog:",
         "h3": "^1.15.11",
@@ -193,7 +193,7 @@
     },
     "packages/editor": {
       "name": "@nuxt-atelier/editor",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@nuxt/kit": "catalog:",
         "@tiptap/core": "catalog:editor",
@@ -209,7 +209,7 @@
     },
     "packages/i18n-micro": {
       "name": "@nuxt-atelier/i18n-micro",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@nuxt/kit": "catalog:",
       },
@@ -224,7 +224,7 @@
     },
     "packages/i18n-nuxtjs": {
       "name": "@nuxt-atelier/i18n-nuxtjs",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@nuxt/kit": "catalog:",
       },
@@ -239,7 +239,7 @@
     },
     "packages/layer": {
       "name": "@nuxt-atelier/layer",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "peerDependencies": {
         "@nuxt-atelier/admin": "workspace:*",
         "nuxt": ">=4.6.0",
@@ -248,7 +248,7 @@
     },
     "packages/storage-s3": {
       "name": "@nuxt-atelier/storage-s3",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@nuxt/kit": "catalog:",
         "aws4fetch": "catalog:media",
@@ -263,7 +263,7 @@
     },
     "packages/storage-vercel-blob": {
       "name": "@nuxt-atelier/storage-vercel-blob",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@nuxt/kit": "catalog:",
         "@vercel/blob": "catalog:media",
