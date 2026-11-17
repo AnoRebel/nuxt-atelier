@@ -146,7 +146,7 @@ done
 npm trust list nuxt-atelier
 ```
 
-Then reject the staged `0.0.0` versions on npmjs.com (**Staged Packages**). On jsr.io, create each package in the `@nuxt-atelier` scope (`nuxt-atelier` is `@nuxt-atelier/core` there) and link it to this repository in its settings.
+Leave the staged `0.0.0` versions until the first release is live, then reject them on npmjs.com (**Staged Packages**): rejecting a package's only version unpublishes it, and npm blocks publishing that name again for 24 hours. On jsr.io, create each package in the `@nuxt-atelier` scope (`nuxt-atelier` is `@nuxt-atelier/core` there) and link it to this repository in its settings.
 
 ## AI-assisted contributions
 
