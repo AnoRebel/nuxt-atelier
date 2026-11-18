@@ -1,6 +1,6 @@
 # Nuxt Atelier
 
-[![npm](https://img.shields.io/npm/v/nuxt-atelier/next?label=npm&color=cb3837)](https://www.npmjs.com/package/nuxt-atelier)
+[![npm](https://img.shields.io/npm/v/nuxt-atelier?label=npm&color=cb3837)](https://www.npmjs.com/package/nuxt-atelier)
 [![JSR](https://jsr.io/badges/@nuxt-atelier/core)](https://jsr.io/@nuxt-atelier/core)
 [![JSR score](https://jsr.io/badges/@nuxt-atelier/core/score)](https://jsr.io/@nuxt-atelier/core)
 [![CI](https://github.com/AnoRebel/nuxt-atelier/actions/workflows/ci.yml/badge.svg)](https://github.com/AnoRebel/nuxt-atelier/actions/workflows/ci.yml)
@@ -10,7 +10,7 @@ A production-grade CMS for Nuxt with a visual page builder that renders your sit
 
 **[Documentation](https://nuxt-atelier.anorebel.net)** · **[Live demo](https://nuxt-atelier-demo.anorebel.net)** (Rayleigh, a portfolio built on Nuxt Atelier; each visitor gets their own copy to edit)
 
-> **Status:** early development. Nothing is published yet; APIs will change until `1.0.0`.
+> **Status:** early development, released on npm and JSR. APIs will change until `1.0.0`.
 
 ## What it is
 

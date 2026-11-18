@@ -10,7 +10,7 @@ orientation: vertical
 ---
 #headline
 :::u-badge{color="warning" variant="subtle" icon="i-lucide-construction"}
-In early development, not released yet
+Early development: APIs may change until 1.0
 :::
 
 #title
