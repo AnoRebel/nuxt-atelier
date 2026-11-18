@@ -42,8 +42,8 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md). Please read the section on AI-assisted
 
 Nuxt Atelier would not exist without the projects that explored this space first. Their ideas, and the problems their users ran into, shaped much of this design:
 
-- **[blökkli](https://github.com/blokkli/editor)** ([blokk.li](https://blokk.li)): the interactive page editor for Nuxt that showed how good in-context block editing can feel. The adapter-driven editor, the capability-based adapter contract and many editing interactions are inspired by it.
-- **[Pruvious](https://github.com/pruvious/pruvious)** ([pruvious.com](https://pruvious.com)): a full CMS for Nuxt apps, which proved that the schema, admin, API and blocks can live inside the Nuxt app itself. The reactive preview edit state and the code-first collections are inspired by it.
+- **[blökkli](https://blokk.li)**: the interactive page editor for Nuxt that showed how good in-context block editing can feel. The adapter-driven editor, the capability-based adapter contract and many editing interactions are inspired by it.
+- **[Pruvious](https://pruvious.com)**: a full CMS for Nuxt apps, which proved that the schema, admin, API and blocks can live inside the Nuxt app itself. The reactive preview edit state and the code-first collections are inspired by it.
 - **[Nuxt](https://nuxt.com)**, **[Nitro](https://nitro.build)** and the wider UnJS and Vue ecosystems, which this project builds on entirely.
 
 No code from these projects is copied into the packages. The one exception is an example: [`examples/rayleigh`](./examples/rayleigh) ports Pruvious's [Rayleigh](https://github.com/pruvious/rayleigh) portfolio template by Muris Ceman (MIT), keeping its design, components and demo content under their original copyright. If you need a CMS today, check them out.
