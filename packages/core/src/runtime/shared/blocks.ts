@@ -100,3 +100,16 @@ export const copyBlocks = <T>(value: T, newId: () => string = () => crypto.rando
 /** Data with the references to `ref` replaced by `replace(reference)`'s blocks (none removes them). */
 export const replaceShared = <T>(value: T, ref: string, replace: (reference: AnyBlock) => AnyBlock | undefined): T => mapBlocks(value, block =>
   block.type === SHARED_BLOCK && block.props.ref === ref ? replace(block) : block) as T
+
+/** A new block of `type`: its fields' and options' defaults, and empty areas. */
+export function newBlock(type: string, registry: Record<string, BlockSchema>): { id: string, type: string, props: Record<string, unknown> } {
+  const schema = registry[type]
+  const props: Record<string, unknown> = {}
+  for (const [key, field] of Object.entries({ ...schema?.fields, ...schema?.options })) {
+    if (field.default !== undefined)
+      props[key] = structuredClone(field.default)
+  }
+  for (const area of Object.keys(schema?.areas ?? {}))
+    props[area] = []
+  return { id: crypto.randomUUID(), type, props }
+}

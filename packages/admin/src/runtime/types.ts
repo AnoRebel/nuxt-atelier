@@ -1,4 +1,5 @@
 // What the admin reads from the CMS API (see nuxt-atelier's api/schema.ts and the collection endpoints).
+import type { BlockSchema } from '#atelier/shared/blocks'
 import type { Field, Fields } from '#atelier/shared/fields'
 
 export type { Field, Fields }
@@ -35,7 +36,7 @@ export interface AdminSchema {
   locales: { codes: string[], default: string, fallback: Record<string, string[]> }
   collections: CollectionType[]
   singletons: SingletonType[]
-  blocks: Record<string, { name: string, label?: string, fields: Fields, options: Fields }>
+  blocks: Record<string, BlockSchema>
   /** With several sites: the one the admin works on, and the ones the user may switch to. */
   site?: string
   sites?: { name: string, label: string }[]

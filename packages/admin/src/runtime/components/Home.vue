@@ -1,14 +1,15 @@
 <!-- The admin home: pending migrations, failed jobs (with retry), the user's drafts, upcoming schedules,
      recent activity, and the content types. Replace it with app/atelier-admin/Home.vue. -->
 <script setup lang="ts">
-import type { AdminApiError } from '../types'
+import type { AdminApiError, AdminUser } from '../types'
+import { useQuery } from '@tanstack/vue-query'
 import { computed } from 'vue'
 import { NuxtLink } from '#components'
-import { useAtelierAdmin } from '../composables/useAtelierAdmin'
+import { atelierFetch, useAtelierAdmin } from '../composables/useAtelierAdmin'
 import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
 import { titleField } from '../composables/useAtelierCollection'
 import { useAtelierDashboard } from '../composables/useAtelierDashboard'
-import { humanize, useAtelierNavigation } from '../composables/useAtelierNavigation'
+import { humanize, singularLabel, useAtelierNavigation } from '../composables/useAtelierNavigation'
 import { useAtelierSession } from '../composables/useAtelierSession'
 import CnAlert from '../crystal-neuo/components/Alert.vue'
 import CnBadge from '../crystal-neuo/components/Badge.vue'
@@ -36,6 +37,25 @@ const entryTitle = (type: string, data: Record<string, unknown>) => {
 const when = (iso: string) => new Date(iso).toLocaleString()
 const link = (type: string, id: string, singleton = false) => singleton ? to('singletons', type) : to('collections', type, id)
 const failed = computed(() => dashboard.value?.failedJobs ?? [])
+
+// recent activity in words: what happened ("Post published"), and who did it, from the users list
+const people = useQuery({
+  queryKey: ['atelier', 'users'],
+  queryFn: () => atelierFetch<AdminUser[]>('/users'),
+  enabled: computed(() => !!dashboard.value?.activity?.length && !!schema.value?.capabilities.includes('users')),
+})
+const actor = (id: string | null) => {
+  const person = id ? people.data.value?.find(u => u.id === id) : undefined
+  return person ? person.name || person.email : undefined
+}
+function happened(a: { action: string, target?: { type: string } | null }) {
+  const collection = a.target && schema.value?.collections.find(c => c.name === a.target!.type)
+  const singleton = a.target && schema.value?.singletons.find(s => s.name === a.target!.type)
+  const type = collection ? singularLabel(collection) : singleton ? (singleton.label ?? humanize(singleton.name)) : t('home.entry')
+  const key = `home.action.${a.action}`
+  const text = t(key, { type })
+  return text === key ? a.action : text // an action this admin doesn't know (newer server): as it's named
+}
 
 async function retryJob(id: string) {
   try {
@@ -203,8 +223,11 @@ async function retryJob(id: string) {
             v-for="a in dashboard.activity"
             :key="a.id"
           >
-            <code>{{ a.action }}</code>
-            <span v-if="a.target"> · {{ a.target.type }}</span>
+            {{ happened(a) }}
+            <span
+              v-if="actor(a.actorId)"
+              class="app-muted"
+            > · {{ t('home.by', { name: actor(a.actorId) }) }}</span>
             <span class="app-muted"> · {{ when(a.at) }}</span>
           </li>
         </ul>

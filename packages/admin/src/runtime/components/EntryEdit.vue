@@ -1,7 +1,7 @@
 <!-- Editing an entry or a singleton: the form generated from its fields, save (a draft, in versioned types),
      publish and unpublish, delete. Fields the role can only read are shown disabled. -->
 <script setup lang="ts">
-import type { AdminApiError } from '../types'
+import type { AdminApiError, CollectionType } from '../types'
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { ai } from '#atelier-admin-ai'
 import { useQuery } from '@tanstack/vue-query'
@@ -11,6 +11,7 @@ import { atelierFetch, useAtelierAdmin } from '../composables/useAtelierAdmin'
 import { useAtelierAdminSchema } from '../composables/useAtelierAdminSchema'
 import { useAtelierEntryForm } from '../composables/useAtelierEntryForm'
 import { useAtelierPresence } from '../composables/useAtelierPresence'
+import { titleField } from '../composables/useAtelierCollection'
 import { humanize } from '../composables/useAtelierNavigation'
 import CnAlert from '../crystal-neuo/components/Alert.vue'
 import CnAvatar from '../crystal-neuo/components/Avatar.vue'
@@ -81,7 +82,13 @@ const confirmDelete = ref(false)
 const typeLabel = computed(() => props.kind === 'collection'
   ? (type.value as { labels?: { plural?: string } } | undefined)?.labels?.plural ?? humanize(props.name)
   : (type.value as { label?: string } | undefined)?.label ?? humanize(props.name))
-const title = computed(() => props.kind === 'singleton' ? typeLabel.value : edit.isNew.value ? t('entry.new') : t('entry.edit'))
+// an entry's own title (as saved) once it has one, as in the list
+const entryTitle = computed(() => {
+  const key = props.kind === 'collection' ? titleField(type.value as CollectionType | undefined) : undefined
+  const value = key && edit.entry.value?.data?.[key]
+  return typeof value === 'string' ? value.trim() : ''
+})
+const title = computed(() => props.kind === 'singleton' ? typeLabel.value : edit.isNew.value ? t('entry.new') : entryTitle.value || t('entry.edit'))
 const breadcrumb = computed(() => props.kind === 'collection' ? [{ label: typeLabel.value, to: to('collections', props.name) }, { label: title.value }] : undefined)
 const mayEdit = computed(() => !!type.value && (edit.isNew.value ? type.value.can.create : type.value.can.update))
 

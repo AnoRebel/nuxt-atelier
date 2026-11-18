@@ -4,6 +4,8 @@ import type { AreaRules, BlockSchema } from '#atelier/shared/blocks'
 import { copyBlocks } from '#atelier/shared/blocks'
 import { placeable } from '#atelier/shared/fields'
 
+export { newBlock } from '#atelier/shared/blocks'
+
 export interface Block { id: string, type: string, props: Record<string, unknown> }
 /** A list of blocks: an entry field (`content`) or a block's area (`content.0.props.items`), with its rules. */
 export interface BlockList { path: string, label: string, rules: AreaRules, blocks: TreeBlock[] }
@@ -108,16 +110,4 @@ export function duplicate<T>(data: T, lists: BlockList[], registry: Registry, id
     return undefined
   const [copy] = copyBlocks([get(data, at.block.path) as Block])
   return { data: insert(data, at.list.path, at.index + 1, copy!), id: copy!.id }
-}
-
-/** A new block of `type`: its fields' and options' defaults, and empty areas. */
-export function newBlock(type: string, registry: Registry): Block {
-  const schema = registry[type]
-  const props: Record<string, unknown> = {}
-  for (const [key, field] of Object.entries({ ...schema?.fields, ...schema?.options }))
-    if ((field as { default?: unknown }).default !== undefined)
-      props[key] = structuredClone((field as { default?: unknown }).default)
-  for (const area of Object.keys(schema?.areas ?? {}))
-    props[area] = []
-  return { id: crypto.randomUUID(), type, props }
 }

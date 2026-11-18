@@ -1,7 +1,7 @@
 <!-- One field's input, chosen by its type, bound to the entry form (TanStack Form) at `name` (a dot path).
      Objects and repeaters render their own fields; a field whose `when` doesn't hold is hidden. A custom
-     field type renders its `input` component (a global component name) with v-model. Rich text, media and
-     blocks get plain inputs until the editor and media library land (tasks 14.6, 12, 14). -->
+     field type renders its `input` component (a global component name) with v-model. Blocks are cards
+     with their fields (BlocksField); JSON fields are edited as JSON. -->
 <script setup lang="ts">
 import type { Field } from '../types'
 import { useQuery } from '@tanstack/vue-query'
@@ -20,6 +20,7 @@ import CnSelect from '../crystal-neuo/components/Select.vue'
 import CnTextarea from '../crystal-neuo/components/Textarea.vue'
 import CnToggle from '../crystal-neuo/components/Toggle.vue'
 import { pascal, useOverrides } from '../overrides'
+import BlocksField from './BlocksField.vue'
 import Icon from './Icon'
 import MediaField from './MediaField.vue'
 import RelatedCreate from './RelatedCreate.vue'
@@ -46,7 +47,12 @@ const entry = inject<ComputedRef<{ type: string, locale?: string, locales: strin
 const aiOn = ai ? ai.enabled() : ref(false)
 
 const label = computed(() => (props.field.label ?? humanize(props.name.split('.').pop()!)) + (props.field.required ? ' *' : ''))
-const visible = computed(() => applies(props.field, props.sibling ?? {}, props.root ?? {}))
+// locale-texts (a text per locale, like a form field's label in other languages): one input per locale but
+// the default, none on a site with one locale
+const { schema } = useAtelierAdminSchema()
+const otherLocales = computed(() => (schema.value?.locales.codes ?? []).filter(code => code !== schema.value?.locales.default))
+const localeTexts = computed(() => props.field.type === 'custom' && props.field.fieldType === 'locale-texts')
+const visible = computed(() => applies(props.field, props.sibling ?? {}, props.root ?? {}) && !(localeTexts.value && !otherLocales.value.length))
 const options = (list: readonly (string | { value: string, label?: string })[]) =>
   list.map(o => typeof o === 'string' ? { value: o, label: o } : { value: o.value, label: o.label ?? o.value })
 const errorOf = (field: { state: { meta: { errors: unknown[], errorMap?: Record<string, unknown> } } }) => {
@@ -75,7 +81,6 @@ function parseJson(text: string, set: (v: unknown) => void) {
 }
 
 // relations: the target collection's entries to choose from
-const { schema } = useAtelierAdminSchema()
 const target = computed(() => props.field.type === 'relation' ? schema.value?.collections.find(c => c.name === (props.field as { to: string }).to) : undefined)
 const related = useQuery({
   queryKey: ['atelier', 'collections', computed(() => target.value?.name ?? ''), 'choices'],
@@ -167,6 +172,17 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
         </fieldset>
       </template>
     </form.Field>
+
+    <!-- blocks: cards with their fields, unless the app replaces the input -->
+    <BlocksField
+      v-else-if="field.type === 'blocks' && !fieldOverride"
+      :form="form"
+      :name="name"
+      :label="label"
+      :rules="{ ...field.allow ? { allow: [...field.allow] } : {}, min: field.minItems, max: field.maxItems }"
+      :root="root"
+      :read-only="readOnly"
+    />
 
     <form.Field
       v-else
@@ -281,6 +297,23 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
             @update:model-value="f.handleChange"
           />
 
+          <fieldset
+            v-else-if="localeTexts"
+            class="app-fieldset"
+          >
+            <legend class="cn-label">
+              {{ label }}
+            </legend>
+            <CnInput
+              v-for="code in otherLocales"
+              :key="code"
+              :model-value="((f.state.value as Record<string, string> | null)?.[code]) ?? ''"
+              :label="code.toUpperCase()"
+              :disabled="readOnly"
+              @update:model-value="(v: string) => f.handleChange({ ...(f.state.value as Record<string, string> | null), [code]: v || undefined })"
+            />
+          </fieldset>
+
           <component
             :is="custom"
             v-else-if="custom"
@@ -292,7 +325,7 @@ const inputType = { text: 'text', slug: 'text', email: 'email', url: 'url', colo
           />
 
           <CnTextarea
-            v-else-if="field.type === 'json' || field.type === 'blocks' || field.type === 'custom'"
+            v-else-if="field.type === 'json' || field.type === 'custom'"
             :model-value="json(f.state.value)"
             :label="label"
             :rows="6"
