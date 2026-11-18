@@ -1,5 +1,13 @@
 # @nuxt-atelier/storage-s3
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [9bb03ca]
+- Updated dependencies [6e21e3a]
+  - nuxt-atelier@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes

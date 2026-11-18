@@ -1,5 +1,12 @@
 # nuxt-atelier
 
+## 0.1.1
+
+### Patch Changes
+
+- 9bb03ca: The form editor shows each field's settings only for the types that use them (options for select and radio, a pattern for text…), with help text, and the label in other languages as one input per locale (none on a single-language site) instead of JSON. `newBlock` (a new block with its defaults) moves to the shared blocks helpers.
+- 6e21e3a: `<AtelierForm>` sends the CSRF header a signed-in browser needs: people signed in to the admin could not send the site's forms (refused with "the x-atelier-csrf header is missing or wrong").
+
 ## 0.1.0
 
 ### Minor Changes

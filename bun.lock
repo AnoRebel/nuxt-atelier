@@ -65,7 +65,7 @@
     },
     "packages/admin": {
       "name": "@nuxt-atelier/admin",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@iconify-json/lucide": "catalog:admin",
         "@nuxt/kit": "catalog:",
@@ -129,7 +129,7 @@
     },
     "packages/core": {
       "name": "nuxt-atelier",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "bin": {
         "atelier": "./dist/cli/index.mjs",
       },
@@ -193,7 +193,7 @@
     },
     "packages/editor": {
       "name": "@nuxt-atelier/editor",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@nuxt/kit": "catalog:",
         "@tiptap/core": "catalog:editor",
@@ -239,7 +239,7 @@
     },
     "packages/layer": {
       "name": "@nuxt-atelier/layer",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "peerDependencies": {
         "@nuxt-atelier/admin": "workspace:*",
         "nuxt": ">=4.6.0",
@@ -248,7 +248,7 @@
     },
     "packages/storage-s3": {
       "name": "@nuxt-atelier/storage-s3",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@nuxt/kit": "catalog:",
         "aws4fetch": "catalog:media",
@@ -263,7 +263,7 @@
     },
     "packages/storage-vercel-blob": {
       "name": "@nuxt-atelier/storage-vercel-blob",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@nuxt/kit": "catalog:",
         "@vercel/blob": "catalog:media",
