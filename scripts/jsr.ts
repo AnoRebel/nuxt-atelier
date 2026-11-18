@@ -37,6 +37,11 @@ for (const dir of readdirSync(join(root, 'packages'))) {
   if (pkg.private)
     continue
   addDocs(cwd, pkg) // kept: the release job's checkout is thrown away
+  // JSR resolves imports from dependencies only: the packages of ours that a package imports as peers too
+  for (const [name, spec] of Object.entries((pkg.peerDependencies ?? {}) as Record<string, string>)) {
+    if (spec.startsWith('workspace:') && !pkg.peerDependenciesMeta?.[name]?.optional)
+      (pkg.dependencies ??= {})[name] = spec
+  }
   for (const key of ['dependencies', 'peerDependencies', 'optionalDependencies'] as const) {
     for (const [name, spec] of Object.entries((pkg[key] ?? {}) as Record<string, string>))
       pkg[key][name] = resolveVersion(name, spec)
