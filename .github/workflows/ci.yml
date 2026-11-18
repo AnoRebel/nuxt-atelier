@@ -60,7 +60,10 @@ jobs:
       # known vulnerabilities in what the published packages install (dev tooling isn't shipped)
       # GHSA-mrhx-c7xc-m3w5 (zod <4.6.6): published packages get 4.6.7 (root overrides); only @nuxt/content in
       # the private docs site and UI fixture still has zod 3, which has no fixed release. Drop when it moves to 4.
-      - run: bun audit --omit=dev --audit-level=high --ignore=GHSA-mrhx-c7xc-m3w5
+      # GHSA-fc5q-39xc-vjpf (picomatch <=4.0.7, ReDoS from a crafted extglob pattern): no fixed release yet.
+      # No published package uses picomatch; it comes in through build tooling (@nuxt/kit, Vite), which
+      # matches the developer's own globs, never a visitor's input. Drop once picomatch has a fixed release.
+      - run: bun audit --omit=dev --audit-level=high --ignore=GHSA-mrhx-c7xc-m3w5 --ignore=GHSA-fc5q-39xc-vjpf
       - run: bun run deps
       - run: bun run knip
       - run: bun run lint
