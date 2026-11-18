@@ -2,6 +2,7 @@
 // (exchanging the editor's token for its cookie the first time), and only then load the bridge. Visitors'
 // pages run just this check of the query, and never download the bridge.
 import { defineNuxtPlugin, useRoute } from '#imports'
+import { csrfHeaders } from '../csrf'
 
 export default defineNuxtPlugin({
   name: 'atelier:editor',
@@ -9,10 +10,9 @@ export default defineNuxtPlugin({
     const query = useRoute().query
     if (query._atelier !== 'edit' || window.parent === window)
       return
-    const csrf = document.cookie.split('; ').find(c => c.startsWith('atelier-csrf='))?.slice('atelier-csrf='.length)
     const token = typeof query._atelier_token === 'string' ? query._atelier_token : undefined
     const response = await fetch('/api/_atelier/editor/session', token
-      ? { method: 'POST', headers: { 'content-type': 'application/json', ...csrf ? { 'x-atelier-csrf': csrf } : {} }, body: JSON.stringify({ token }) }
+      ? { method: 'POST', headers: { 'content-type': 'application/json', ...csrfHeaders() }, body: JSON.stringify({ token }) }
       : {})
     if (!response.ok)
       return // no edit session: the page as anyone sees it

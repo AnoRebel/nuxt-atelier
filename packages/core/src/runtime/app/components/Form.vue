@@ -7,6 +7,7 @@ import { useForm } from '@tanstack/vue-form'
 import { computed, onMounted, ref, useId } from 'vue'
 import { navigateTo, useFetch } from '#imports'
 import { optionsOf, submissionSchema } from '../../shared/forms'
+import { csrfHeaders } from '../csrf'
 
 interface PublicForm { id: string, version: number, title: string, submitLabel: string | null, fields: FormField[], token: string, challenge: { name: string, siteKey: string } | null }
 
@@ -49,7 +50,7 @@ const form = useForm({
     else {
       body = JSON.stringify({ ...value, ...extra })
     }
-    const response = await fetch(`/api/_atelier/forms/${encodeURIComponent(props.form)}/submit`, { method: 'POST', body, headers: withFiles ? {} : { 'content-type': 'application/json' } })
+    const response = await fetch(`/api/_atelier/forms/${encodeURIComponent(props.form)}/submit`, { method: 'POST', body, headers: { ...withFiles ? {} : { 'content-type': 'application/json' }, ...csrfHeaders() } })
     const result = await response.json().catch(() => ({})) as { message?: string, redirect?: string, data?: { errors?: { path: string, message: string }[] } }
     if (response.status === 422 && result.data?.errors) {
       for (const { path, message } of result.data.errors)

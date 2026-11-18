@@ -17,6 +17,7 @@ describe('forms', async () => {
   let cookie = ''
   let csrf = ''
   let formId = ''
+  let contactPage = ''
 
   async function send(method: string, path: string, body?: unknown, signedIn = true) {
     const response = await fetch(`/api/_atelier${path}`, {
@@ -129,6 +130,7 @@ describe('forms', async () => {
 
   it('renders the form block on a page, accessibly, and sends it', async () => {
     const page = (await send('POST', '/collections/pages', { data: { title: 'Contact us', content: [{ id: 'f', type: 'AtelierForm', props: { form: formId } }] } })).body
+    contactPage = page.id
     const browser = await createPage(url(`/${page.id}`))
     await browser.getByLabel('Your name').waitFor()
     await browser.addScriptTag({ content: axeSource })
@@ -149,5 +151,21 @@ describe('forms', async () => {
     await browser.getByRole('button', { name: 'Send' }).click()
     await browser.getByRole('status').getByText('Thanks, we\'ll be in touch.').waitFor()
     expect((await send('GET', `/forms/${formId}/submissions`)).body.items[0].data).toMatchObject({ name: 'Grace', message: 'Hello from the page' })
+  })
+
+  it('sends the form from a browser signed in to the admin (with the CSRF header its session asks for)', async () => {
+    const browser = await createPage()
+    await browser.context().addCookies(cookie.split('; ').map((c) => {
+      const [name, value] = c.split('=') as [string, string]
+      return { name, value, url: url('/') }
+    }))
+    await browser.goto(url(`/${contactPage}`))
+    await browser.getByLabel('Your name').fill('Ada')
+    await browser.getByLabel('Email').fill('ada@example.com')
+    await browser.getByLabel(/^Message/).fill('Sent while signed in')
+    await browser.getByLabel('You may store my message').check()
+    await pause(1100)
+    await browser.getByRole('button', { name: 'Send' }).click()
+    await browser.getByRole('status').getByText('Thanks, we\'ll be in touch.').waitFor()
   })
 })
