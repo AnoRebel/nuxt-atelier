@@ -88,6 +88,13 @@ await page.locator('[data-history] summary').click()
 await settle()
 await shot('admin-history', page.locator('[data-history]'))
 
+// a page's blocks in the form, one unfolded
+await admin('/singletons/home')
+await heading('Home page')
+await page.locator('[data-blocks-field] summary').nth(1).click()
+await settle()
+await shot('admin-blocks')
+
 await admin('/users')
 await heading('Users')
 await page.getByRole('button', { name: 'New user' }).click()
