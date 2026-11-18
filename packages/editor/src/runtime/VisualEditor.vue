@@ -48,6 +48,16 @@ const src = ref('')
 const failure = ref('')
 const width = ref(presets[0]?.width ?? 1280)
 const presetOptions = computed(() => presets.map(p => ({ value: String(p.width), label: `${p.label} (${p.width}px)` })))
+// a page wider than the stage is shown scaled down to fit it, whole, as it lays out at its width
+const stage = ref<HTMLElement | null>(null)
+const stageWidth = ref(0)
+const scale = computed(() => stageWidth.value && width.value > stageWidth.value ? stageWidth.value / width.value : 1)
+let resizes: ResizeObserver | undefined
+onMounted(() => {
+  resizes = new ResizeObserver(([entry]) => stageWidth.value = entry!.contentRect.width)
+  resizes.observe(stage.value!)
+})
+onBeforeUnmount(() => resizes?.disconnect())
 onMounted(async () => {
   try {
     src.value = (await api<{ url: string }>('/editor/token', { method: 'POST', body: { type: name, ...id ? { id } : {} } })).url
@@ -242,8 +252,8 @@ const previewLine = ref<{ left: string, top: string, width: string } | null>(nul
 /** The blocks under the pointer, innermost first, and where the pointer is over the preview. */
 function blocksUnder(event: DragEvent) {
   const origin = overlay.value!.getBoundingClientRect()
-  const x = event.clientX - origin.left
-  const y = event.clientY - origin.top
+  const x = (event.clientX - origin.left) / scale.value
+  const y = (event.clientY - origin.top) / scale.value
   const under = (geometry.value?.blocks ?? [])
     .filter(b => x >= b.rect.x && x <= b.rect.x + b.rect.width && y >= b.rect.y && y <= b.rect.y + b.rect.height)
     .sort((a, b) => a.rect.width * a.rect.height - b.rect.width * b.rect.height)
@@ -395,7 +405,7 @@ const markers = computed(() => {
   return [...open].flatMap(([blockId, threads]) => {
     const at = geometry.value?.blocks.find(b => b.id === blockId)
     const label = locate(lists.value, blockId)?.block.label ?? ''
-    // at the block's start, which is in view even when the frame is wider than the stage
+    // at the block's start
     return at ? [{ blockId, threads, label, style: { left: `${at.rect.x}px`, top: `${at.rect.y}px` } }] : []
   })
 })
@@ -596,10 +606,11 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
         :model-value="String(width)"
         :label="t('editor.viewport')"
         :options="presetOptions"
+        size="sm"
         @update:model-value="(v: string) => width = Number(v)"
       />
-      <label class="ate-editor__width">
-        <span>{{ t('editor.custom') }}</span>
+      <label class="cn-field ate-editor__width">
+        <span class="cn-field__label">{{ t('editor.custom') }}</span>
         <input
           v-model.number="width"
           type="number"
@@ -718,6 +729,7 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
         </template>
       </nav>
       <div
+        ref="stage"
         class="ate-editor__stage"
         role="region"
         tabindex="0"
@@ -725,7 +737,7 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
       >
         <div
           class="ate-editor__viewport"
-          :style="{ width: `${width}px` }"
+          :style="{ 'width': `${width}px`, '--ate-scale': scale }"
         >
           <iframe
             v-if="src"
@@ -891,8 +903,8 @@ const targetLabel = computed(() => (target.value && listAt(target.value.list)?.l
             class="ate-editor__reuse"
           >
             <summary>{{ t('editor.reuse') }}</summary>
-            <label class="ate-editor__width">
-              <span>{{ t('editor.reuseTitle') }}</span>
+            <label class="cn-field">
+              <span class="cn-field__label">{{ t('editor.reuseTitle') }}</span>
               <input
                 v-model="reuseTitle"
                 class="cn-input cn-input--size-sm"

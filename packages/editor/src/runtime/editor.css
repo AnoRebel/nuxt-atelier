@@ -1,25 +1,26 @@
 /* The visual editor's chrome, inside the admin's shadow root (rendered by VisualEditor.vue). Uses the admin's tokens. */
-.ate-editor { display: grid; grid-template-rows: auto auto 1fr; gap: var(--space-3); min-block-size: 80vh; }
+.ate-editor { --ate-scale: 1; display: grid; grid-template-rows: auto auto 1fr; gap: var(--space-3); min-block-size: 80vh; }
 .ate-editor__bar { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); }
-.ate-editor__width { display: inline-grid; gap: var(--space-1); font-size: 0.85em; color: var(--content-secondary); }
 .ate-editor__width input { inline-size: 6rem; }
 .ate-editor__body { display: grid; grid-template-columns: minmax(12rem, 16rem) 1fr minmax(16rem, 22rem); gap: var(--space-3); min-block-size: 0; }
 .ate-editor__structure, .ate-editor__panel { overflow: auto; max-block-size: 80vh; }
-.ate-editor__stage { overflow: auto; background: var(--surface-sunken, transparent); border-radius: var(--radius-md); }
-.ate-editor__viewport { position: relative; margin-inline: auto; block-size: 80vh; max-inline-size: none; }
+.ate-editor__stage { overflow: hidden; background: var(--surface-sunken, transparent); border-radius: var(--radius-md); }
+/* scaled down (--ate-scale) when wider than the stage: 80vh tall on screen, the rest of its layout box clipped */
+.ate-editor__viewport { position: relative; margin-inline: auto; block-size: calc(80vh / var(--ate-scale)); margin-block-end: calc(80vh - 80vh / var(--ate-scale)); max-inline-size: none; transform: scale(var(--ate-scale)); transform-origin: 0 0; }
 .ate-editor__frame { display: block; inline-size: 100%; block-size: 100%; border: 0; background: #fff; }
 .ate-editor__overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .ate-editor__box { position: absolute; box-sizing: border-box; border-radius: 2px; }
-.ate-editor__box--hover { outline: 2px dashed var(--accent-primary-base); outline-offset: -2px; }
-.ate-editor__box--selected { outline: 2px solid var(--accent-primary-strong); outline-offset: -2px; }
-.ate-editor__tag { position: absolute; inset-block-end: 100%; inset-inline-start: -2px; padding: 0 0.4em; background: var(--accent-primary-strong); color: var(--content-on-accent); font-size: 0.75rem; line-height: 1.5; pointer-events: auto; cursor: grab; }
+/* the overlay is scaled with the page: its outlines, tags and markers are scaled back to their own size */
+.ate-editor__box--hover { --ate-line: calc(2px / var(--ate-scale)); outline: var(--ate-line) dashed var(--accent-primary-base); outline-offset: calc(-1 * var(--ate-line)); }
+.ate-editor__box--selected { --ate-line: calc(2px / var(--ate-scale)); outline: var(--ate-line) solid var(--accent-primary-strong); outline-offset: calc(-1 * var(--ate-line)); }
+.ate-editor__tag { position: absolute; inset-block-end: 100%; inset-inline-start: -2px; padding: 0 0.4em; background: var(--accent-primary-strong); color: var(--content-on-accent); font-size: 0.75rem; line-height: 1.5; pointer-events: auto; cursor: grab; transform: scale(calc(1 / var(--ate-scale))); transform-origin: 0 100%; }
 /* while dragging, the overlay catches the drag over the frame (which would swallow it) */
 .ate-editor__overlay--dropping { pointer-events: auto; }
-.ate-editor__drop { position: absolute; block-size: 3px; margin-block-start: -1px; background: var(--accent-primary-strong); border-radius: 2px; }
-.ate-editor__box--top .ate-editor__tag { inset-block: 0 auto; inset-inline-start: 0; }
+.ate-editor__drop { position: absolute; block-size: calc(3px / var(--ate-scale)); margin-block-start: calc(-1px / var(--ate-scale)); background: var(--accent-primary-strong); border-radius: 2px; }
+.ate-editor__box--top .ate-editor__tag { inset-block: 0 auto; inset-inline-start: 0; transform-origin: 0 0; }
 .ate-editor__tabs [aria-pressed="true"] { background: var(--accent-primary-soft); color: var(--content-primary); }
 .ate-editor__markers { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.ate-editor__marker { position: absolute; transform: translate(-0.25rem, -0.25rem); min-inline-size: 1.5rem; block-size: 1.5rem; margin: 2px; padding: 0 0.35em; border: 0; border-radius: 0.75rem 0.75rem 0.75rem 0.15rem; background: var(--accent-secondary-strong); color: var(--content-on-accent); font: inherit; font-size: 0.75rem; font-weight: 600; pointer-events: auto; cursor: pointer; }
+.ate-editor__marker { position: absolute; transform: scale(calc(1 / var(--ate-scale))) translate(-0.25rem, -0.25rem); transform-origin: 0 0; min-inline-size: 1.5rem; block-size: 1.5rem; margin: 2px; padding: 0 0.35em; border: 0; border-radius: 0.75rem 0.75rem 0.75rem 0.15rem; background: var(--accent-secondary-strong); color: var(--content-on-accent); font: inherit; font-size: 0.75rem; font-weight: 600; pointer-events: auto; cursor: pointer; }
 .ate-editor__marker:focus-visible { outline: 2px solid var(--accent-primary-strong); outline-offset: 2px; }
 .ate-editor__panel [data-highlighted] { outline: 2px solid var(--accent-primary-strong); }
 .ate-editor__reuse { display: grid; gap: var(--space-2); margin-block: var(--space-2); }
