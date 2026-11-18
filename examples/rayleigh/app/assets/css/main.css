@@ -89,7 +89,8 @@
 
 /* #region contact */
 /* <AtelierForm> renders plain markup with atelier-form… classes: the site styles it */
-.atelier-form {
+.atelier-form,
+.atelier-form__sent {
   @apply mx-auto max-w-[73.75rem] space-y-6 px-12 tl:px-8 ph:px-6;
 }
 .atelier-form > * {
@@ -121,6 +122,6 @@
   @apply cursor-pointer rounded-full bg-heading px-6 py-3 font-heading text-sm text-white transition hocus:bg-accent dark:bg-white dark:text-heading;
 }
 .atelier-form__sent {
-  @apply max-w-content text-sm;
+  @apply text-sm;
 }
 /* #endregion */
