@@ -33,7 +33,7 @@ function choose(chosen: MediaItem) {
     <div class="app-media-field">
       <img
         v-if="item.data.value?.mime.startsWith('image/')"
-        :src="`${item.data.value.url}?w=160`"
+        :src="`${item.data.value.url}?w=320`"
         :alt="item.data.value.alt?.[''] ?? ''"
         class="app-media-field__thumb"
       >

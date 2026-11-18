@@ -136,6 +136,10 @@ const account = computed(() => [
           class="app-account"
         >
           <template #trigger>
+            <span
+              class="app-account__initial"
+              aria-hidden="true"
+            >{{ (user?.name || user?.email || '?').trim().charAt(0).toUpperCase() }}</span>
             <span class="app-account__text"><span class="app-account__name">{{ user?.name || user?.email }}</span></span>
           </template>
         </CnMenu>
