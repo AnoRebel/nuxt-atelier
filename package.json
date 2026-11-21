@@ -28,7 +28,7 @@
     },
     "catalogs": {
       "i18n": {
-        "nuxt-i18n-micro": "3.30.1",
+        "nuxt-i18n-micro": "4.1.0",
         "@nuxtjs/i18n": "10.6.0"
       },
       "build": {
