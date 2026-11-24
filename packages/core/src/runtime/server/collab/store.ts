@@ -139,7 +139,7 @@ export function createCollabStore(driver: AtelierDriver, options: { lockTimeout:
     async comments(type: string, entry: string): Promise<Comment[]> {
       const rows = await db.select().from(comments).where(and(eq(comments.type, type), eq(comments.entry, entry))).orderBy(asc(comments.createdAt))
       // a reply saved in the same millisecond as its thread's first comment still comes after it (ids are random)
-      return rows.map(toComment).sort((a, b) => a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : Number(a.thread !== null) - Number(b.thread !== null))
+      return rows.map(toComment).sort((a: Comment, b: Comment) => a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : Number(a.thread !== null) - Number(b.thread !== null))
     },
     async comment(id: string): Promise<Comment | null> {
       const [row] = await db.select().from(comments).where(eq(comments._id, id))
