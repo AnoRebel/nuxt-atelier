@@ -220,8 +220,19 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     })
     for (const [route, method] of [['login', 'post'], ['logout', 'post'], ['me', 'get'], ['providers', 'get']] as const)
       addServerHandler({ route: `/api/_atelier/auth/${route}`, method, handler: resolve(`./runtime/server/api/auth/${route}.${method}`) })
-    if (resolved.auth.passkeys) // off: no passkey routes, so they 404 and nothing of @simplewebauthn is bundled
+    if (resolved.auth.passkeys) { // off: no passkey routes, so they 404 and nothing of @simplewebauthn is bundled
+      // optional peers: missing, the build would fail later with an unreadable bundler error
+      nuxt.hook('modules:done', async () => {
+        const missing = []
+        for (const name of ['@simplewebauthn/server', '@simplewebauthn/browser']) {
+          if (!await tryResolveModule(name, [nuxt.options.rootDir, import.meta.url]))
+            missing.push(name)
+        }
+        if (missing.length)
+          throw new Error(`[nuxt-atelier] auth.passkeys needs ${missing.join(' and ')}: install with \`npm i ${missing.join(' ')}\`, or turn passkeys off.`)
+      })
       addServerHandler({ route: '/api/_atelier/auth/passkeys/**', handler: resolve('./runtime/server/api/auth/passkeys') })
+    }
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/request-id') })
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/site') })
     addServerHandler({ middleware: true, handler: resolve('./runtime/server/middleware/csrf') })
