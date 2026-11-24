@@ -1,3 +1,4 @@
+import type { AsyncData, NuxtError } from 'nuxt/app'
 import type { CollectionName, MediaSummary, TypedEntry } from '../../shared/query'
 import type { I18nAdapter } from '../../shared/i18n'
 import { useAsyncData, useRequestFetch, useRoute, useRuntimeConfig } from '#imports'
@@ -31,7 +32,8 @@ export interface AtelierRoute<N extends CollectionName = CollectionName> {
  * Drafts show with `?_atelier=preview` for editors who can edit the type, and with a shared preview
  * link's `?_atelier_preview=<token>` for anyone, until it expires.
  */
-export function useAtelierRouteEntry<N extends CollectionName = CollectionName>() {
+// the return type spelled out: the package's declarations are built without the app's `#imports`
+export function useAtelierRouteEntry<N extends CollectionName = CollectionName>(): AsyncData<AtelierRoute<N> | undefined, NuxtError<unknown> | undefined> {
   const route = useRoute()
   const fetch = useRequestFetch() // forwards the visitor's cookies during SSR
   // with an i18n module, `/de/produkte/stuhl` is the German entry at `/produkte/stuhl`

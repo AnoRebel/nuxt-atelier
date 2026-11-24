@@ -1,6 +1,9 @@
+import type { AsyncData, NuxtError } from 'nuxt/app'
 import type { MaybeRefOrGetter } from 'vue'
 import { computed, toValue } from 'vue'
 import { useFetch } from '#imports'
+
+export interface SiteSearchResults { items: SiteSearchResult[], total: number, limit: number, offset: number }
 
 export interface SiteSearchResult {
   type: string
@@ -18,7 +21,7 @@ export interface SiteSearchResult {
  * Site search over published content, with SSR (`useFetch`), refetching as the query changes. Nothing is
  * fetched for an empty query.
  */
-export function useAtelierSiteSearch(query: MaybeRefOrGetter<string>, options: { types?: MaybeRefOrGetter<string[] | undefined>, locale?: MaybeRefOrGetter<string | undefined>, limit?: MaybeRefOrGetter<number | undefined>, offset?: MaybeRefOrGetter<number | undefined> } = {}) {
+export function useAtelierSiteSearch(query: MaybeRefOrGetter<string>, options: { types?: MaybeRefOrGetter<string[] | undefined>, locale?: MaybeRefOrGetter<string | undefined>, limit?: MaybeRefOrGetter<number | undefined>, offset?: MaybeRefOrGetter<number | undefined> } = {}): AsyncData<SiteSearchResults, NuxtError<unknown> | undefined> { // typed here: the declarations are built without `#imports`
   const params = computed(() => ({
     q: toValue(query).trim(),
     ...toValue(options.types)?.length ? { types: toValue(options.types)!.join(',') } : {},
@@ -26,7 +29,7 @@ export function useAtelierSiteSearch(query: MaybeRefOrGetter<string>, options: {
     ...toValue(options.limit) === undefined ? {} : { limit: String(toValue(options.limit)) },
     ...toValue(options.offset) === undefined ? {} : { offset: String(toValue(options.offset)) },
   }))
-  return useFetch<{ items: SiteSearchResult[], total: number, limit: number, offset: number }>('/api/_atelier/search', {
+  return useFetch<SiteSearchResults>('/api/_atelier/search', {
     query: params,
     immediate: !!params.value.q,
     watch: [params],
