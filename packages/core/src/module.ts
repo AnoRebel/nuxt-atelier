@@ -1,7 +1,7 @@
 import type { NuxtModule, NuxtPage } from '@nuxt/schema'
 import { resolve as resolvePath } from 'node:path'
 import type { ModuleOptions } from './options'
-import { addComponentsDir, addImports, addPlugin, extendPages, hasNuxtModule, addServerHandler, addServerPlugin, addServerTemplate, addTemplate, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, tryResolveModule, updateTemplates } from '@nuxt/kit'
+import { addComponentsDir, addImports, addPlugin, addRouteMiddleware, extendPages, hasNuxtModule, addServerHandler, addServerPlugin, addServerTemplate, addTemplate, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, tryResolveModule, updateTemplates } from '@nuxt/kit'
 import { blockComponentsTemplate, blockDirectories, discoverBlocks } from './blocks/discover'
 import { transformBlockSfc } from './blocks/transform'
 import { setupDevMigrations } from './cli/dev'
@@ -122,9 +122,11 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     addServerTemplate({ filename: '#atelier-host-pages', getContents: () => `export const pages = ${JSON.stringify(hostPages ?? [])}\n` })
     const pagesOption = nuxt.options.pages as boolean | { enabled?: boolean } | undefined
     const pagesForced = pagesOption === true || (typeof pagesOption === 'object' && pagesOption.enabled === true)
+    // the entry's layout, set on the route before it renders: the app's <NuxtLayout> renders it
+    addRouteMiddleware({ name: 'atelier-layout', path: resolve('./runtime/app/middleware/layout') })
     extendPages((pages) => {
       if (pages.length || pagesForced)
-        pages.push({ name: 'atelier-page', path: '/:path(.*)*', file: resolve('./runtime/app/pages/AtelierPage'), meta: { layout: false } })
+        pages.push({ name: 'atelier-page', path: '/:path(.*)*', file: resolve('./runtime/app/pages/AtelierPage'), meta: { layout: false, middleware: ['atelier-layout'] } })
     })
 
     // Collections and singletons: rescanned on every Nitro (re)build, so new files are picked up in dev

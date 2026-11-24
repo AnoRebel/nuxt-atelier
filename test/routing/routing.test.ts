@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { $fetch, fetch, setup, startServer } from '@nuxt/test-utils/e2e'
+import { $fetch, createPage, fetch, setup, startServer, url } from '@nuxt/test-utils/e2e'
 import { sql } from 'drizzle-orm'
 import sharp from 'sharp'
 import { beforeAll, describe, expect, it } from 'vitest'
@@ -123,6 +123,44 @@ describe('site routing', async () => {
     expect((await api('/api/_atelier/settings/robots', 'DELETE')).body).toMatchObject({ source: 'config' })
     expect(await robots()).not.toContain('GPTBot')
     expect((await fetch('/api/_atelier/settings/robots')).status).toBe(401)
+  })
+
+  it('renders the entry\'s layout once, through the app\'s <NuxtLayout>, with the props and name the app gives it', async () => {
+    const created = await api('/api/_atelier/collections/pages', 'POST', { data: {
+      title: 'Layouts',
+      slug: 'layouts',
+      content: [{ id: 'b1', type: 'Hero', props: { title: 'Laid out' } }],
+    } })
+    expect(created.status).toBe(200)
+    const count = (html: string, text: string) => html.split(text).length - 1
+    // a prop on app.vue's <NuxtLayout> reaches the type's layout, rendered once
+    const props = await page('/layouts?tagline=Hello')
+    expect(props.html).toMatch(/<div class="layout-default" data-tagline="Hello"><h1 class="hero">\s*Laid out\s*<\/h1><\/div>/)
+    expect(count(props.html, 'class="layout-default"')).toBe(1)
+    // an explicit name in app.vue wins over the type's layout, still once (a layout chosen at runtime)
+    const named = await page('/layouts?layout=wide')
+    expect(count(named.html, 'class="layout-wide"')).toBe(1)
+    expect(count(named.html, 'class="layout-default"')).toBe(0)
+
+    // in the browser: hydrating reads the server's answer, and navigating switches the layout with one request
+    const project = await api('/api/_atelier/collections/projects', 'POST', { data: { name: 'Lighthouse', slug: 'lighthouse' } })
+    expect(project.status).toBe(200)
+    const browser = await createPage()
+    const routes: string[] = []
+    browser.on('request', (request) => {
+      if (request.url().includes('/api/_atelier/routes'))
+        routes.push(request.url())
+    })
+    await browser.goto(url('/layouts'), { waitUntil: 'networkidle' })
+    expect(routes).toEqual([])
+    await browser.evaluate(() => (document.querySelector('#__nuxt') as unknown as { __vue_app__: { config: { globalProperties: { $router: { push: (path: string) => Promise<unknown> } } } } }).__vue_app__.config.globalProperties.$router.push('/projects/lighthouse'))
+    await browser.locator('.layout-wide[data-entry="Lighthouse"] article.project').waitFor()
+    expect(await browser.locator('.layout-default').count()).toBe(0)
+    expect(await browser.locator('.layout-wide').count()).toBe(1)
+    expect(routes).toHaveLength(1)
+    await browser.close()
+    await api(`/api/_atelier/collections/projects/${project.body.id}`, 'DELETE')
+    await api(`/api/_atelier/collections/pages/${created.body.id}`, 'DELETE')
   })
 
   it('serves each locale\'s pattern with the type\'s component and layout (Pruvious #73)', async () => {

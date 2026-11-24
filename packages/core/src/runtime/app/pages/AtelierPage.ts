@@ -1,9 +1,8 @@
-// The catch-all page (`/:path(.*)*`, ranked below every page of the app): renders the entry whose URL
-// this is, with its type's component and layout, or the host's 404 error page.
+// The catch-all page (`/:path(.*)*`, ranked below every page of the app): renders the entry whose URL this is,
+// with its type's component (its layout: middleware/layout.ts sets it on the route), or the host's 404 error page.
 import type { Component } from 'vue'
 import { computed, defineComponent, h, resolveDynamicComponent } from 'vue'
 import { createError, useHead, useRoute, useRuntimeConfig, useSeoMeta } from '#imports'
-import { NuxtLayout } from '#components'
 import AtelierBlocks from '../components/Blocks'
 import type { I18nAdapter } from '../../shared/i18n'
 import { localePath } from '../../shared/i18n'
@@ -58,11 +57,11 @@ export default defineComponent({
     // read on every render: in the visual editor, the entry's data changes with each edit (editor/bridge.ts)
     return () => {
       const current = data.value ?? page
-      return h(NuxtLayout, { name: current.layout ?? 'default' }, {
-        default: () => current.component
-          ? h(resolveDynamicComponent(current.component) as Component, { entry: current.entry })
-          : current.blocks.map(key => h(AtelierBlocks, { key, blocks: (current.entry.data as Record<string, unknown>)[key] as never })),
-      })
+      // no layout here: the layout middleware set it on the route, for the app's <NuxtLayout>
+      if (current.component)
+        return h(resolveDynamicComponent(current.component) as Component, { entry: current.entry })
+      const blocks = current.blocks.map(key => h(AtelierBlocks, { key, blocks: (current.entry.data as Record<string, unknown>)[key] as never }))
+      return blocks.length === 1 ? blocks[0] : blocks
     }
   },
 })
