@@ -3,7 +3,8 @@
 //   bun scripts/bench.ts [--history file] [--record]
 // Fails over the budgets (cached ≤ 50 ms, uncached ≤ 200 ms p95), or when a p95 is more than 10% above the
 // median of the last runs in `--history` (a JSON list; `--record` appends this run, for main's runs) and by
-// more than 2 ms (below that it's the machine's noise). A run that seems slower is measured again, and the
+// more than 2 ms (below that it's the machine's noise). Every recorded run counts, a failing one too: a slowdown
+// fails on the commits that bring it, then becomes the baseline, as runners' speed moves too. A run that seems slower is measured again, and the
 // better of the two counts: one slow run on a shared runner isn't a regression.
 import type { ChildProcess } from 'node:child_process'
 import { spawn } from 'node:child_process'
@@ -123,7 +124,7 @@ if (import.meta.main) {
   console.log(`cached p95:   ${result.cached.toFixed(1)} ms (budget ${BUDGET.cached} ms)`)
   console.log(`uncached p95: ${result.uncached.toFixed(1)} ms (budget ${BUDGET.uncached} ms, 50 blocks)`)
   const problems = verdict(result, history)
-  if (historyPath && args.includes('--record') && !problems.length)
+  if (historyPath && args.includes('--record'))
     writeFileSync(historyPath, JSON.stringify([...history, result].slice(-RUNS_KEPT), null, 2))
   if (problems.length) {
     console.error(problems.map(p => `✗ ${p}`).join('\n'))

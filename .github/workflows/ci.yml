@@ -108,7 +108,8 @@ jobs:
           key: bench-history-${{ github.run_id }}
           restore-keys: bench-history-
       - run: mkdir -p .bench && bun scripts/bench.ts --history .bench/history.json ${{ github.ref == 'refs/heads/main' && '--record' || '' }}
-      - if: github.ref == 'refs/heads/main'
+      # a failing run is recorded too (scripts/bench.ts), so its history is saved when the step fails
+      - if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .bench/history.json
