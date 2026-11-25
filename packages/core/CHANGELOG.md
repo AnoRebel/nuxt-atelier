@@ -1,5 +1,12 @@
 # nuxt-atelier
 
+## 0.2.1
+
+### Patch Changes
+
+- 22f8f5f: `nuxt dev` on a fresh clone (no `.nuxt` yet) applies the schema on its first start. The dev migration ran before Nuxt wrote `.nuxt/tsconfig.json`, so with a `tsconfig.json` that extends it, drizzle-kit failed with "File './.nuxt/tsconfig.json' not found" until the next start.
+- ffb4d09: `<AtelierRichText>` renders links to the site's own pages with `NuxtLink` again, so they navigate in the app instead of reloading the page. It looked `NuxtLink` up as a global component, which Nuxt's aren't, and fell back to a plain `<a>` with a Vue warning.
+
 ## 0.2.0
 
 ### Minor Changes

@@ -1,5 +1,18 @@
 # @nuxt-atelier/admin
 
+## 0.2.0
+
+### Minor Changes
+
+- 1297888: Passkeys in the account menu: with `auth.passkeys`, signed-in users add a passkey on their device, see their passkeys (with when each was last used) and remove one. Until now the admin could only sign in with a passkey, and adding one meant calling the API.
+
+### Patch Changes
+
+- 1297888: crystal-neuo 4.3.0: inputs take content at their start and end (an icon, a reveal button), and `.cn-field-row` lines up labelled and unlabelled controls in a row of your own admin pages.
+- Updated dependencies [22f8f5f]
+- Updated dependencies [ffb4d09]
+  - nuxt-atelier@0.2.1
+
 ## 0.1.2
 
 ### Patch Changes
