@@ -59,6 +59,11 @@ button:not(:disabled),
 .app-row--between {
   justify-content: space-between;
 }
+/* A row with a labelled field: buttons and other controls without a label line up with the fields'
+   controls, not with the middle of label and control. Rows without labels stay centred. */
+:where(.app-row, .app-page__actions, .app-section__head, .app-datatable__bulk):has(> .cn-field > .cn-field__label) {
+  align-items: end;
+}
 .app-stack {
   display: flex;
   flex-direction: column;
