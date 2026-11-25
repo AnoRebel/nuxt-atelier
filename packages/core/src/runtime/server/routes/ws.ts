@@ -1,10 +1,11 @@
-// The admin's real-time connection, at /api/_atelier/ws?ticket=<ticket> (Nitro's WebSocket support, h3 v1).
+// The admin's real-time connection, at /api/_atelier/ws?ticket=<ticket> (Nitro's WebSocket support, Nitro 2 and 3).
 // The upgrade is refused without a fresh ticket (issued over HTTP to a signed-in user, see collab.ts) or from
 // another origin, so a page elsewhere can't open it with the user's cookies. Clients then send
 // `{ "subscribe": "<topic>" }` for topics they may read (entries of the ticket's site), and get `{ topic, kind }`
 // when something changed.
 import type { SitesConfig } from '../sites'
-import { defineWebSocketHandler } from 'h3'
+import type { defineWebSocketHandler, EventHandler } from 'h3'
+import { defineEventHandler } from 'h3'
 import { ADMIN_ROLE } from '../../shared/policy'
 import { readableType } from '../api/collab'
 import { useAtelierAuth, useAtelierServerConfig, useAtelierSiteRoles } from '../index'
@@ -35,7 +36,7 @@ async function topicFor(userId: string, siteName: string, asked: string): Promis
   return readableType(site, { ...signedIn, role }, type, id).then(found => found.topic, () => undefined)
 }
 
-export default defineWebSocketHandler({
+const hooks: Parameters<typeof defineWebSocketHandler>[0] = {
   async upgrade(request) {
     const url = new URL(request.url)
     // same origin only: a browser always sends Origin on a WebSocket handshake
@@ -79,4 +80,22 @@ export default defineWebSocketHandler({
     for (const listener of ((peer.context.topics as Map<string, RealtimePeer> | undefined) ?? new Map()).values())
       unsubscribe(listener)
   },
+}
+
+// The hooks, where each Nitro looks for them. Nitro 2 (h3 v1, as its `defineWebSocketHandler` does) reads them
+// off the handler; Nitro 3 (h3 v2) off the request, or the route's `426` response, as h3 v2's helper leaves them.
+// Without them there, Nitro 3 upgraded every request with no hooks at all: no ticket or origin check, no messages.
+const kHooks = Symbol.for('crossws.hooks')
+const handler: EventHandler = defineEventHandler({
+  handler: (event) => {
+    const request = (event as unknown as { req?: Request & { context?: Record<symbol, unknown> } }).req
+    if (request instanceof Request) {
+      Object.assign(request, { [kHooks]: hooks })
+      if (request.context)
+        request.context[kHooks] = hooks
+    }
+    return Object.assign(new Response('WebSocket upgrade is required.', { status: 426 }), { crossws: hooks })
+  },
+  websocket: hooks,
 })
+export default handler

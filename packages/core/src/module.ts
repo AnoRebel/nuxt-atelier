@@ -299,6 +299,13 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
         scheduledTasks?: Record<string, string | string[]>
       }
       nitro.experimental = { ...nitro.experimental, tasks: true }
+      // Nuxt 5 passes the module's bare name to Nitro 3's noExternals, matched anywhere in a file's path: every
+      // file under a folder named after it (a checkout of this repository, a "nuxt-atelier-site") would be
+      // bundled, native dependencies like libSQL's included, which then can't load. The module's own directory,
+      // also there as an absolute path, is the part that has to be bundled
+      const nitro3 = config as unknown as { noExternals?: unknown }
+      if (Array.isArray(nitro3.noExternals))
+        nitro3.noExternals = nitro3.noExternals.filter(entry => entry !== 'nuxt-atelier')
       // the admin's real-time connection, where the server can hold WebSockets (else the admin polls)
       const realtime = resolved.collaboration.realtime === 'auto' && realtimeSupported((config as { preset?: string }).preset ?? process.env.NITRO_PRESET ?? '')
       if (realtime)
@@ -316,7 +323,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       }
     })
     // Nitro 2 runs scheduled tasks on servers, and on Cloudflare for its cron events, but writes no platform
-    // schedule: a Vercel cron calls the trigger endpoint (authorized by CRON_SECRET), and Cloudflare gets the
+    // schedule: a Vercel cron calls the trigger endpoint (Nitro 3 adds its own Vercel cron for scheduled tasks) (authorized by CRON_SECRET), and Cloudflare gets the
     // cron trigger in the wrangler.json it generates (`cloudflare.deployConfig`)
     nuxt.hook('nitro:init', (instance) => {
       // serverless and edge hosts don't keep files written at runtime: uploads would vanish
@@ -328,12 +335,13 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       const schedule = resolved.jobs.schedule
       const options = instance.options as unknown as {
         preset: string
-        vercel?: { config?: { crons?: { path: string, schedule: string }[] } }
+        vercel?: { cronHandlerRoute?: string, config?: { crons?: { path: string, schedule: string }[] } }
         cloudflare?: { wrangler?: { triggers?: { crons?: string[] } } }
       }
       if (!schedule)
         return
-      if (options.preset.startsWith('vercel')) {
+      // Nitro 3 runs scheduled tasks from Vercel Cron itself (its cron handler route): no second cron
+      if (options.preset.startsWith('vercel') && !options.vercel?.cronHandlerRoute) {
         if (schedule.split(/\s+/).length !== 5)
           return console.warn(`[nuxt-atelier] jobs.schedule "${schedule}" has seconds, which Vercel Cron doesn't take: no cron was added`)
         options.vercel = { ...options.vercel, config: { ...options.vercel?.config, crons: [...options.vercel?.config?.crons ?? [], { path: '/api/_atelier/jobs/run', schedule }] } }

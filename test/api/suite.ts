@@ -209,15 +209,13 @@ export function contentApiSuite(label: string, rootDir: string) {
     it('answers errors in one shape, with a code and field details', async () => {
       const invalid = await api('admin', 'POST', '/collections/articles', { data: { title: '', views: -1 } })
       expect(invalid.status).toBe(422)
-      // the whole body: Nuxt's error shape, with the code and details under `data`
-      expect(invalid.body).toEqual({
+      // Nuxt's error shape (`statusCode` up to Nuxt 4, `status` from Nuxt 5), with the code and details under `data`
+      expect(invalid.body).toMatchObject({
         error: true,
-        url: expect.stringMatching(/\/api\/_atelier\/collections\/articles$/),
-        statusCode: 422,
-        statusMessage: expect.any(String),
         message: 'Invalid entry: title: required; views: expected 0 or more',
         data: { code: 'validation_failed', errors: [{ path: 'title', message: 'required' }, { path: 'views', message: 'expected 0 or more' }] },
       })
+      expect(invalid.body.statusCode ?? invalid.body.status).toBe(422)
       const bodies = await Promise.all([
         api(null, 'DELETE', `/collections/articles/${ids.ada}`),
         api('intern', 'GET', '/collections/authors'),
