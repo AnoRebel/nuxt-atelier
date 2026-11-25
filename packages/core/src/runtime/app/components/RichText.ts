@@ -3,7 +3,9 @@
 // components, its Tiptap extensions' (`{ callout: MyCallout }`) or replacing ours (`{ image: MyImage }`).
 import type { Component, PropType } from 'vue'
 import type { RichTextNode } from '../../shared/rich-text-render'
-import { defineComponent, h, resolveComponent } from 'vue'
+import { defineComponent, h } from 'vue'
+// Nuxt's components aren't registered globally, so resolveComponent('NuxtLink') finds nothing here
+import { NuxtLink } from '#components'
 import { useAtelierPreview } from '../composables/useAtelierPreview'
 import { renderRichText } from '../../shared/rich-text-render'
 
@@ -18,10 +20,9 @@ export default defineComponent({
     field: { type: String, default: undefined },
   },
   setup(props) {
-    const link = resolveComponent('NuxtLink') as Component | string
     const preview = useAtelierPreview()
     return () => {
-      const nodes = renderRichText(props.value, { components: props.components, link: typeof link === 'string' ? undefined : link })
+      const nodes = renderRichText(props.value, { components: props.components, link: NuxtLink as Component })
       return props.as === false ? nodes : h(props.as, preview.value && props.field ? { 'data-at-field': props.field, 'data-at-rich': '' } : {}, nodes)
     }
   },

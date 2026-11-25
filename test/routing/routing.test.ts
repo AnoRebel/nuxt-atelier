@@ -195,12 +195,21 @@ describe('site routing', async () => {
     expect(links.status).toBe(200)
     const hrefs = async () => (await api(`/api/_atelier/collections/pages/${links.body.id}`)).body.data.content[0].props.body.content[0].content.map((n: { marks: { attrs: { href: unknown } }[] }) => n.marks[0]!.attrs.href)
     expect(await hrefs()).toEqual(['/team', '/', null]) // a link to nothing is no link, whatever href it was saved with
-    expect((await page('/links')).html).toMatch(/<a href="\/team">our team<\/a><a href="\/">home<\/a>\s*gone/)
+    expect((await page('/links')).html).toMatch(/<a href="\/team">our team<\/a><a href="\/"[^>]*>home<\/a>\s*gone/)
 
     // renaming the linked page changes the link, without saving the linking page again
     await api(`/api/_atelier/collections/pages/${team.body.id}`, 'PATCH', { version: 1, data: { slug: 'crew' } })
     expect(await hrefs()).toEqual(['/crew', '/', null])
     expect((await page('/links')).html).toContain('<a href="/crew">our team</a>')
+
+    // in the browser the link is a NuxtLink: following it navigates in the app, without reloading the page
+    const browser = await createPage()
+    await browser.goto(url('/links'), { waitUntil: 'networkidle' })
+    await browser.evaluate(() => Object.assign(window, { stayed: true }))
+    await browser.getByRole('link', { name: 'our team' }).click()
+    await browser.waitForURL(/\/crew$/)
+    expect(await browser.evaluate(() => (window as unknown as { stayed?: boolean }).stayed)).toBe(true)
+    await browser.close()
   })
 
   it('refuses a URL another entry already has, per locale', async () => {
