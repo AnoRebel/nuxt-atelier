@@ -28,6 +28,7 @@ const GUIDES: Record<string, [file: string, mentions: string]> = {
   signIn: [guide('2.the-admin'), 'Signing in'],
   auth: [guide('2.the-admin'), 'Sign out'],
   setup: [guide('3.users-and-roles'), 'first administrator'],
+  passkeys: [guide('3.users-and-roles'), 'Add a passkey'],
   notFound: [guide('2.the-admin'), 'Finding your way'],
   forbidden: [guide('3.users-and-roles'), 'role'],
   // entries
