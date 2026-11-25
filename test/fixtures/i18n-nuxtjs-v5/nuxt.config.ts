@@ -1,6 +1,6 @@
-// The @nuxtjs/i18n fixture under `compatibilityVersion: 5`: a non-blocking CI job reports whether the adapter
-// works there yet (@nuxtjs/i18n 10.6's server code imports `useRuntimeConfig` from `#imports`, which Nuxt 5
-// behaviour no longer provides to the server)
+// The @nuxtjs/i18n fixture under `compatibilityVersion: 5`, run by a non-blocking CI job that reports whether the
+// adapter keeps working there. Its migrations are its own (server/atelier/migrations): the extended fixture's
+// aren't applied
 export default defineNuxtConfig({
   extends: ['../i18n-nuxtjs'],
   future: { compatibilityVersion: 5 },

@@ -115,8 +115,7 @@ jobs:
           key: bench-history-${{ github.run_id }}
 
   # Third-party compatibility, reported without gating merges: nuxt-i18n-micro and @nuxtjs/i18n under
-  # compatibilityVersion: 5 (as of 3.30.1 and 10.6.0 their server code imports useRuntimeConfig from #imports,
-  # which Nuxt 5 behaviour doesn't provide, so the build fails). Red until they work; `check` decides merges.
+  # compatibilityVersion: 5. Both work there as of 3.30.1 and 10.6.0; this says when a release stops.
   compat:
     name: Compat (i18n modules, Nuxt 5 behaviour)
     runs-on: ubuntu-latest
