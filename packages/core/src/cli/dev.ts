@@ -3,8 +3,9 @@
 // renamed field) aren't applied: the developer confirms them with `atelier migrate generate --drop/--rename`.
 // Without drizzle-kit, existing migrations are still applied.
 import type { Nuxt } from '@nuxt/schema'
-import { relative } from 'node:path'
-import { useLogger } from '@nuxt/kit'
+import { existsSync } from 'node:fs'
+import { join, relative } from 'node:path'
+import { useLogger, writeTypes } from '@nuxt/kit'
 import { applyProjectMigrations, DataLossError, generateMigration, MissingKitError, projectFromNuxt, withMigrationLock } from './migrate'
 
 const DEFINITION = /(?:^|\/)atelier\/(?:(?:collections|singletons)\/|tables\.[mc]?[jt]s$)/
@@ -22,6 +23,10 @@ export function setupDevMigrations(nuxt: Nuxt): void {
   let warnedKit = false
 
   async function migrate() {
+    // drizzle-kit loads the schema through the project's tsconfig.json, which extends .nuxt/tsconfig.json:
+    // on a cold .nuxt, `ready` comes before Nuxt writes it, so write the types first (as Nuxt's build does)
+    if (!existsSync(join(nuxt.options.buildDir, 'tsconfig.json')))
+      await writeTypes(nuxt)
     const project = await projectFromNuxt(nuxt)
     await withMigrationLock(project.databaseUrl, () => migrateProject(project))
   }
