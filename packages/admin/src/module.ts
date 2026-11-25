@@ -188,7 +188,14 @@ declare module '#atelier-admin-ai' {
       const taken = pages.filter(p => p.path === base || p.path.startsWith(`${base}/`)).map(p => p.path)
       if (taken.length)
         console.warn(`[@nuxt-atelier/admin] The admin is at ${base}, where the app has pages too (${taken.join(', ')}). Move the admin elsewhere with \`atelier: { admin: { base: '/studio' } }\` in nuxt.config.`)
-      pages.push({ name: 'atelier-admin', path: `${base}/:path(.*)*`, file: resolve('./runtime/pages/AdminPage.vue'), meta: { layout: false, atelier: 'admin' } })
+      pages.push({
+        name: 'atelier-admin',
+        path: `${base}/:path(.*)*`,
+        file: resolve('./runtime/pages/AdminPage.vue'),
+        // one key for every admin path: `<NuxtPage>` would otherwise key it by path and remount the whole admin
+        // (its shadow root, its query cache) on each navigation, through the app's page transition if it has one
+        meta: { layout: false, atelier: 'admin', key: 'atelier-admin', pageTransition: false, layoutTransition: false },
+      })
     })
 
     // the headless layer: usable by any kit, the default one included

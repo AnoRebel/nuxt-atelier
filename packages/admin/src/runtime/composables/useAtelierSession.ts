@@ -9,9 +9,10 @@ export function useAtelierSession() {
   const me = useQuery({ queryKey: ['atelier', 'me'], queryFn: () => atelierFetch<{ user: AdminUser | null }>('/auth/me') })
   const setup = useQuery({ queryKey: ['atelier', 'setup'], queryFn: () => atelierFetch<{ needed: boolean, token?: boolean }>('/setup') })
   const providers = useQuery({ queryKey: ['atelier', 'providers'], queryFn: () => atelierFetch<{ providers: { id: string, name: string, url: string }[] }>('/auth/providers'), staleTime: Infinity })
-  // a new user sees other data: drop everything cached, then read who's signed in
+  // a new user sees other data: empty everything cached (refetching what's on screen), then read who's signed in.
+  // Reset, not removed: the admin stays mounted, and a removed query would leave its observers on a dead copy
   const reset = async () => {
-    client.removeQueries({ predicate: q => !['me', 'setup', 'providers'].includes(q.queryKey[1] as string) })
+    await client.resetQueries({ predicate: q => !['me', 'setup', 'providers'].includes(q.queryKey[1] as string) })
     await client.invalidateQueries({ queryKey: ['atelier'] })
   }
 

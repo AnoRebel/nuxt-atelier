@@ -98,6 +98,12 @@ describe('passkeys', async () => {
     await page.getByRole('button', { name: 'Sign in', exact: true }).click()
     await page.getByRole('heading', { name: 'Dashboard' }).waitFor()
 
+    // moving around the admin keeps the admin mounted: the same host element, not a new one per path
+    await page.evaluate(() => (document.querySelector('atelier-admin') as HTMLElement).dataset.first = '')
+    await page.getByRole('link', { name: 'Media' }).first().click()
+    await page.getByRole('heading', { name: 'Media' }).waitFor()
+    expect(await page.evaluate(() => document.querySelectorAll('atelier-admin').length === 1 && 'first' in (document.querySelector('atelier-admin') as HTMLElement).dataset)).toBe(true)
+
     await page.locator('.app-account').first().click()
     await page.getByRole('menuitem', { name: 'Passkeys' }).click()
     const modal = page.getByRole('dialog', { name: 'Passkeys' })
@@ -111,7 +117,7 @@ describe('passkeys', async () => {
     await page.locator('.app-account').first().click()
     await page.getByRole('menuitem', { name: 'Sign out' }).click()
     await page.getByRole('button', { name: 'Sign in with a passkey' }).click()
-    await page.getByRole('heading', { name: 'Dashboard' }).waitFor()
+    await page.getByRole('heading', { name: 'Media' }).waitFor() // back where it was
 
     await page.locator('.app-account').first().click()
     await page.getByRole('menuitem', { name: 'Passkeys' }).click()
