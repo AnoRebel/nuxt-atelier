@@ -2,3 +2,6 @@
 export async function signInWithPasskey(): Promise<never> {
   throw new Error('Passkeys are turned off')
 }
+export async function addPasskey(): Promise<never> {
+  throw new Error('Passkeys are turned off')
+}

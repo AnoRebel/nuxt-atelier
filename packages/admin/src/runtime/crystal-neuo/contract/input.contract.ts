@@ -12,6 +12,8 @@ export const inputContract = defineContract({
   ariaNotes: [
     "Renders a native <input>; a <label> is always associated via for/id.",
     'When error, aria-invalid="true" and aria-describedby points to the message.',
+    "`start` and `end` slots (Vue `#start`/`#end`, React `start`/`end`) place content inside the field's box, centred on the input; the input reserves room for one icon or icon button on each side in use.",
+    "An icon-only button in a slot needs an aria-label; a toggle (show password) also sets aria-pressed. A decorative icon is aria-hidden.",
   ],
   keyboard: [],
   rtl: "logical-properties",

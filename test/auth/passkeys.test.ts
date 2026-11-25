@@ -38,10 +38,11 @@ describe('passkeys', async () => {
     user = await $fetch('/api/test/users', { method: 'POST', body: { email: 'ada@example.com', role: 'editor', password: 'a password' } })
   })
 
-  async function openPage() {
+  async function openPage(path = '/passkey-flows') {
     const page = await createPage()
-    await page.goto(url('/').replace('127.0.0.1', 'localhost'))
-    await page.waitForSelector('body[data-ready]')
+    await page.goto(url(path).replace('127.0.0.1', 'localhost'))
+    if (path === '/passkey-flows')
+      await page.waitForSelector('body[data-ready]')
     const cdp = await page.context().newCDPSession(page)
     await cdp.send('WebAuthn.enable')
     const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
@@ -86,6 +87,37 @@ describe('passkeys', async () => {
     const reset = await fetch(`/api/_atelier/users/${user.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json', 'cookie': cookies.join('; '), 'x-atelier-csrf': cookies.find(c => c.startsWith('atelier-csrf='))!.split('=')[1]! }, body: JSON.stringify({ password: 'a new password' }) })
     expect(reset.status).toBe(200)
     await expect(call(page, 'signInWithPasskey')).rejects.toThrow()
+    await page.close()
+  })
+
+  it('adds, lists and removes a passkey in the admin, and signs in to the admin with it', async () => {
+    await $fetch('/api/test/users', { method: 'POST', body: { email: 'grace@example.com', role: 'editor', password: 'grace password' } })
+    const { page } = await openPage('/admin')
+    await page.getByLabel('Email').fill('grace@example.com')
+    await page.getByLabel('Password').fill('grace password')
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await page.getByRole('heading', { name: 'Dashboard' }).waitFor()
+
+    await page.locator('.app-account').first().click()
+    await page.getByRole('menuitem', { name: 'Passkeys' }).click()
+    const modal = page.getByRole('dialog', { name: 'Passkeys' })
+    await modal.getByText('No passkeys yet.').waitFor()
+    await modal.getByLabel('Name').fill('Test laptop')
+    await modal.getByRole('button', { name: 'Add a passkey' }).click()
+    await modal.getByText('Test laptop').waitFor()
+
+    // signed out, the sign-in page's passkey button signs back in
+    await page.keyboard.press('Escape')
+    await page.locator('.app-account').first().click()
+    await page.getByRole('menuitem', { name: 'Sign out' }).click()
+    await page.getByRole('button', { name: 'Sign in with a passkey' }).click()
+    await page.getByRole('heading', { name: 'Dashboard' }).waitFor()
+
+    await page.locator('.app-account').first().click()
+    await page.getByRole('menuitem', { name: 'Passkeys' }).click()
+    await modal.getByRole('button', { name: 'Remove Test laptop' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
+    await modal.getByText('No passkeys yet.').waitFor()
     await page.close()
   })
 

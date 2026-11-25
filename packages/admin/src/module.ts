@@ -166,6 +166,7 @@ declare module '#atelier-admin-icons' {
 }
 declare module '#atelier-admin-passkeys' {
   export function signInWithPasskey(): Promise<unknown>
+  export function addPasskey(name?: string): Promise<{ id: string }>
 }
 declare module '#atelier-admin-ai' {
   export const ai: import(${JSON.stringify(resolve('./runtime/types'))}).AdminAi | null

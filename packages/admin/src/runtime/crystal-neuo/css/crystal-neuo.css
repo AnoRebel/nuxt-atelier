@@ -1672,6 +1672,14 @@ pre {
   font-weight: var(--weight-medium);
   color: var(--state-danger-content);
 }
+/* A row of fields: bottoms line up, so an unlabelled control (button, switch,
+   bare select) sits level with the inputs, not with their labels. */
+.cn-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+}
 
 .cn-input,
 .cn-textarea,
@@ -1733,6 +1741,78 @@ pre {
 .cn-textarea--error,
 .cn-select__native--error {
   border-color: var(--state-danger-content);
+}
+
+/* ============================================================ Input start and end slots
+   Content inside the input's box: a search or currency icon at the start, a
+   reveal or clear button at the end. The group wraps only the input, so a slot
+   centres on the input, never on the label, hint, or message. Each slot in use
+   makes the input reserve one control height on its side, room for one square
+   one inset smaller than the input: a button fills it (corners concentric to
+   the input's), a bare icon sits centred in it. Icons are small (medium at lg). */
+.cn-input-group {
+  --cn-input-h: var(--size-control-md);
+  --cn-slot-box: calc(var(--cn-input-h) - 2 * var(--space-1));
+  --cn-slot-icon: var(--size-icon-sm);
+  position: relative;
+  display: flex;
+}
+.cn-input-group--size-sm {
+  --cn-input-h: var(--size-control-sm);
+}
+.cn-input-group--size-lg {
+  --cn-input-h: var(--size-control-lg);
+  --cn-slot-icon: var(--size-icon-md);
+}
+.cn-input-group:has(> .cn-input-group__start) > .cn-input {
+  padding-inline-start: var(--cn-input-h);
+}
+.cn-input-group:has(> .cn-input-group__end) > .cn-input {
+  padding-inline-end: var(--cn-input-h);
+}
+.cn-input-group__start,
+.cn-input-group__end {
+  position: absolute;
+  inset-block: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--content-secondary);
+  /* clicks on the slot's empty space and on bare icons reach the input */
+  pointer-events: none;
+}
+:is(.cn-input-group__start, .cn-input-group__end) > :not(svg) {
+  pointer-events: auto;
+}
+.cn-input-group__start {
+  inset-inline-start: var(--space-1);
+}
+.cn-input-group__end {
+  inset-inline-end: var(--space-1);
+}
+:is(.cn-input-group__start, .cn-input-group__end) > .cn-button {
+  inline-size: var(--cn-slot-box);
+  block-size: var(--cn-slot-box);
+  min-height: 0;
+  min-block-size: 0;
+  padding: 0;
+  border-radius: max(0px, calc(var(--radius-md) - var(--space-1)));
+}
+/* the field already draws the box: a ghost button inside it keeps its hover
+   state layer and focus ring but not a second border, and takes the slot's colour */
+:is(.cn-input-group__start, .cn-input-group__end) > .cn-button--ghost {
+  border-color: transparent;
+  color: inherit;
+}
+:is(.cn-input-group__start, .cn-input-group__end) > .cn-button svg,
+:is(.cn-input-group__start, .cn-input-group__end) > svg {
+  inline-size: var(--cn-slot-icon);
+  block-size: var(--cn-slot-icon);
+  flex: none;
+}
+/* a bare icon is decoration, centred where a button would be */
+:is(.cn-input-group__start, .cn-input-group__end) > svg {
+  margin-inline: calc((var(--cn-slot-box) - var(--cn-slot-icon)) / 2);
 }
 
 /* ============================================================ Select */
@@ -2880,6 +2960,16 @@ dialog.cn-scrim::backdrop {
   }
   .cn-pagination__btn {
     min-inline-size: max(44px, var(--size-touch-min));
+  }
+  /* the input grew, so its end slot and the room it reserves grow with it */
+  .cn-input-group {
+    --cn-input-h: max(44px, var(--size-touch-min), var(--size-control-md));
+  }
+  .cn-input-group--size-sm {
+    --cn-input-h: max(44px, var(--size-touch-min), var(--size-control-sm));
+  }
+  .cn-input-group--size-lg {
+    --cn-input-h: max(44px, var(--size-touch-min), var(--size-control-lg));
   }
 }
 

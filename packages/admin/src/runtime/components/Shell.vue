@@ -21,12 +21,13 @@ import Brand from './Brand.vue'
 import GlobalSearch from './GlobalSearch.vue'
 import Icon from './Icon'
 import NotificationBell from './NotificationBell.vue'
+import PasskeysModal from './PasskeysModal.vue'
 import { useAdminI18n } from '../i18n'
 
 const { t } = useAdminI18n()
 
 const route = useRoute()
-const { base } = useAtelierAdmin()
+const { base, passkeys } = useAtelierAdmin()
 const { appearance, set, openModal } = useAppearance()
 const brand = useOverrides()('Brand', Brand)
 const { items } = useAtelierNavigation()
@@ -66,8 +67,10 @@ const topEntries = computed(() => groups.value.map(g => ({
   current: g.items.some(isCurrent),
   menu: g.items.map(i => ({ label: i.label, onSelect: () => navigateTo(i.to) })),
 })))
+const passkeysOpen = ref(false)
 const account = computed(() => [
   { label: t('common.appearance'), onSelect: openModal },
+  ...passkeys ? [{ label: t('passkeys.title'), onSelect: () => (passkeysOpen.value = true) }] : [],
   { separator: true as const },
   { label: t('nav.signOut'), onSelect: () => signOut.mutate() },
 ])
@@ -292,5 +295,9 @@ const account = computed(() => [
         </div>
       </nav>
     </CnDrawer>
+    <PasskeysModal
+      v-if="passkeys"
+      v-model:open="passkeysOpen"
+    />
   </div>
 </template>
