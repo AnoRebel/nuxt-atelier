@@ -22,6 +22,12 @@ A production-grade CMS for Nuxt with a visual page builder that renders your sit
 - **Everything else a site needs**: drafts and revisions, scheduled publishing, localization, media library, SEO and sitemaps, redirects, forms, search, multi-site, webhooks and jobs.
 - **Public APIs only**: built exclusively on documented Nuxt, Nitro and Vite APIs, enforced in CI. It supports Nuxt ≥ 4.6 and is Nuxt 5 ready.
 
+## Used in production
+
+- [portfolio.anorebel.net](https://portfolio.anorebel.net): a portfolio whose pages, blog and works are all entries built from blocks, with the admin and the visual editor, on SQLite. Its post [Moving to Nuxt Atelier](https://portfolio.anorebel.net/blog/moving-to-nuxt-atelier) tells how it moved over.
+
+Running a site on Nuxt Atelier? Open a pull request adding it here.
+
 ## Repository layout
 
 | Path | Package |
