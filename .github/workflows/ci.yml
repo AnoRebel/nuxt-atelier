@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [22, 24, 26]
+        node: [24, 26]
     # the storage tests run against every engine; same images as test/compose.yml
     services:
       postgres:
@@ -157,7 +157,7 @@ jobs:
       - run: bun run docs:build
 
   # The whole journey (test/e2e/journey.test.ts) in the matrix's other cells: `check` runs it on SQLite with
-  # Node 22, 24 and 26; here on each database server, and with Nuxt 5 behaviour (no i18n module there yet).
+  # Node 24 and 26; here on each database server, and with Nuxt 5 behaviour (no i18n module there yet).
   journey:
     name: Journey (${{ matrix.name }})
     runs-on: ubuntu-latest

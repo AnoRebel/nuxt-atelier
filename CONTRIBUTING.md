@@ -7,7 +7,7 @@ Thanks for helping. This guide gets you from a clean clone to running lint, buil
 Requirements:
 
 - [Bun](https://bun.com) 1.4.4 (the package manager and script runner)
-- Node.js `^22.22.3`, `^24.15.0` or `>=26` (Nuxt's supported range)
+- Node.js `^24.15.0` or `>=26`
 
 ```bash
 git clone https://github.com/AnoRebel/nuxt-atelier.git
