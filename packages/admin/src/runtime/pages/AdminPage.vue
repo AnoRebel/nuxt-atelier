@@ -52,7 +52,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <Teleport :to="root">
-    <AdminApp :root="root" />
-  </Teleport>
+  <!-- one root element, as Nuxt wants of a page; the admin itself is teleported into its shadow root -->
+  <div
+    data-atelier-admin-page
+    hidden
+  >
+    <Teleport :to="root">
+      <AdminApp :root="root" />
+    </Teleport>
+  </div>
 </template>
