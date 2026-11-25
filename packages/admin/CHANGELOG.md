@@ -1,5 +1,19 @@
 # @nuxt-atelier/admin
 
+## 0.1.2
+
+### Patch Changes
+
+- f23f2a1: The admin page has a single root element, so Nuxt 4.7 no longer warns (`NUXT_E4004`) on every admin load in development.
+- 4a54142: In a row with labelled fields, a button or other control without a label now lines up with the fields' inputs, not with the middle of label and input: the Schedule section's button, the comment form's mention row, and any such row.
+- Updated dependencies [2c1695b]
+- Updated dependencies [113eee9]
+- Updated dependencies [1e75d87]
+- Updated dependencies [c1c08f7]
+- Updated dependencies [dd93c0d]
+- Updated dependencies [dee31ad]
+  - nuxt-atelier@0.2.0
+
 ## 0.1.1
 
 ### Patch Changes

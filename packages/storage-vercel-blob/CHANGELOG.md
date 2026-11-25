@@ -1,5 +1,17 @@
 # @nuxt-atelier/storage-vercel-blob
 
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies [2c1695b]
+- Updated dependencies [113eee9]
+- Updated dependencies [1e75d87]
+- Updated dependencies [c1c08f7]
+- Updated dependencies [dd93c0d]
+- Updated dependencies [dee31ad]
+  - nuxt-atelier@0.2.0
+
 ## 0.1.1
 
 ### Patch Changes
