@@ -10,7 +10,7 @@ import type { NuxtModule } from '@nuxt/schema'
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { addComponentsDir, addImports, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, extendPages, getLayerDirectories, hasNuxtModule, resolvePath } from '@nuxt/kit'
+import { addComponent, addComponentsDir, addImports, addTemplate, addTypeTemplate, addVitePlugin, createResolver, defineNuxtModule, extendPages, getLayerDirectories, hasNuxtModule, resolvePath } from '@nuxt/kit'
 
 /** Lucide icons the kit uses (https://lucide.dev), bundled into the admin. */
 export const ICONS = [
@@ -177,10 +177,37 @@ declare module '#atelier-admin-ai' {
     // overrides: app/atelier-admin/<Name>.vue in the app or a layer replaces the kit's <Name> (a view, or a
     // field input like FieldDate), registered as the global component AtelierAdmin<Name>; the app wins
     const layers = getLayerDirectories(nuxt)
+    const overrideDirs: string[] = []
     layers.forEach((layer, i) => {
       const dir = join(layer.app, 'atelier-admin')
-      if (existsSync(dir))
+      if (existsSync(dir)) {
+        overrideDirs.push(dir)
         addComponentsDir({ path: dir, prefix: 'AtelierAdmin', global: true, priority: layers.length - i })
+      }
+    })
+
+    // the admin's page frame (title, description, actions, breadcrumb), for custom pages
+    addComponent({ name: 'AtelierAdminPage', filePath: resolve('./runtime/components/Page.vue') })
+
+    // the <style> of those overrides and of custom pages: Vue adds it to the document's <head>, which the
+    // admin's shadow root doesn't see, so it's compiled to a string and adopted by the admin instead (styles.ts)
+    let pageFiles: Promise<Set<string>> | undefined
+    const styled = async (file: string) => file.endsWith('.vue') && (overrideDirs.some(dir => file.startsWith(`${dir}/`))
+      || (await (pageFiles ??= Promise.all(pages.map(p => resolvePath(p.component))).then(files => new Set(files)))).has(file))
+    addVitePlugin({
+      name: 'atelier-admin-styles',
+      enforce: 'post',
+      async transform(code, id) {
+        if (id.includes('?') || !code.includes('?vue&type=style') || !await styled(id))
+          return
+        let n = 0
+        const adopt = JSON.stringify(resolve('./runtime/styles'))
+        const out = code.replace(/import\s+(["'])([^"']+\?vue&type=style&index=(\d+)(?:&[^"']*)?)\1;?/g, (_, quote: string, request: string, index: string) => {
+          const name = `__atelierAdminStyle${n++}`
+          return `import ${name} from ${quote}${request.replace('&lang.', '&inline&lang.')}${quote};\n__atelierAdoptAdminStyle(${JSON.stringify(`${id}#${index}`)}, ${name});`
+        })
+        return n ? { code: `import { adoptAdminStyle as __atelierAdoptAdminStyle } from ${adopt};\n${out}`, map: null } : undefined
+      },
     })
 
     extendPages((pages) => {

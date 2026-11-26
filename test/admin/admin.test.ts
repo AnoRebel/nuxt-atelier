@@ -162,10 +162,18 @@ describe('admin', async () => {
 
     await page.getByRole('link', { name: 'Site tools' }).first().click()
     await page.locator('[data-site-tools]').waitFor()
+    await page.getByRole('heading', { name: 'Site tools', level: 1 }).waitFor() // in the admin's page frame, <AtelierAdminPage>
     expect(await page.evaluate(() => [!!document.querySelector('[data-portal-content]'), !!document.querySelector('atelier-admin')!.shadowRoot!.querySelector('[data-atelier-admin] [data-portal-content]')]))
       .toEqual([false, true]) // in the admin's shadow root, not on the page
+    // the page's and an override's own <style> apply in the admin, and never land in the site's <head>
+    const ownStyle = (selector: string, property: string) => page.evaluate(([selector, property]) => [
+      getComputedStyle(document.querySelector('atelier-admin')!.shadowRoot!.querySelector(selector)!).getPropertyValue(property),
+      [...document.styleSheets].some(sheet => [...sheet.cssRules].some(rule => /letter-spacing: 3px|word-spacing: 5px/.test(rule.cssText))),
+    ], [selector, property] as const)
+    expect(await ownStyle('[data-site-tools]', 'letter-spacing')).toEqual(['3px', false])
     await page.goto(url('/admin/collections/posts/new'))
     await page.locator('[data-app-date]').waitFor() // the app's date input, not the admin's
+    expect(await ownStyle('[data-app-date]', 'word-spacing')).toEqual(['5px', false])
 
     // the appearance a viewer picks is kept
     await page.getByRole('button', { name: 'Appearance' }).click()

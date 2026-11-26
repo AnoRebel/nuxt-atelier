@@ -113,6 +113,7 @@
         "src/runtime/pages/*.vue",
         "src/runtime/passkeys*.ts",
         "src/runtime/ai-off.ts",
+        "src/runtime/styles.ts",
         "src/runtime/composables/*.ts",
         "src/runtime/types.ts"
       ],

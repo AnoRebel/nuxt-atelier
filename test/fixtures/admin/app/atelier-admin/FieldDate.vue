@@ -13,3 +13,10 @@ defineEmits<{ 'update:modelValue': [value: string] }>()
     >
   </label>
 </template>
+
+<!-- an override's own style, not scoped -->
+<style>
+[data-app-date] {
+  word-spacing: 5px;
+}
+</style>

@@ -3,8 +3,10 @@ const portal = useAtelierAdminPortal()
 </script>
 
 <template>
-  <section>
-    <h1>Site tools</h1>
+  <AtelierAdminPage
+    title="Site tools"
+    icon="wrench"
+  >
     <p data-site-tools>
       Only for those who manage settings.
     </p>
@@ -20,5 +22,12 @@ const portal = useAtelierAdminPortal()
         In the admin's portal
       </div>
     </Teleport>
-  </section>
+  </AtelierAdminPage>
 </template>
+
+<!-- the page's own style, scoped: applied in the admin's shadow root, never in the site's <head> -->
+<style scoped>
+[data-site-tools] {
+  letter-spacing: 3px;
+}
+</style>

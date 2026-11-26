@@ -8,12 +8,14 @@ import { onBeforeUnmount, provide } from 'vue'
 import css from '../admin.css?inline'
 import AdminApp from '../components/App.vue'
 import { ADMIN_PORTAL } from '../composables/useAtelierAdminPortal'
+import { adoptAdminStyles } from '../styles'
 
 const host = document.createElement('atelier-admin')
 const shadow = host.attachShadow({ mode: 'open' })
 const sheet = new CSSStyleSheet()
 sheet.replaceSync(css)
 shadow.adoptedStyleSheets = [sheet]
+const stopStyles = adoptAdminStyles(shadow) // the app's own pages' and overrides' <style>, after the admin's
 const root = document.createElement('div')
 root.setAttribute('data-atelier-admin', '')
 const portal = document.createElement('div')
@@ -45,6 +47,7 @@ provide(VUE_QUERY_CLIENT, client)
 
 onBeforeUnmount(() => {
   watcher?.disconnect()
+  stopStyles()
   client.unmount()
   host.remove()
   document.body.style.overflow = overflow
