@@ -1,5 +1,12 @@
 # @nuxt-atelier/ai
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [5e6abb2]
+  - @nuxt-atelier/admin@0.3.0
+
 ## 0.1.2
 
 ### Patch Changes

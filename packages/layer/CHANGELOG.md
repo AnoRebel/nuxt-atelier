@@ -1,5 +1,12 @@
 # @nuxt-atelier/layer
 
+## 0.1.5
+
+### Patch Changes
+
+- Updated dependencies [5e6abb2]
+  - @nuxt-atelier/admin@0.3.0
+
 ## 0.1.4
 
 ### Patch Changes
