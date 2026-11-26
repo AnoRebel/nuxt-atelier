@@ -38,7 +38,7 @@
   },
   "dependencies": {
     "@nuxt/kit": "catalog:",
-    "h3": "^1.15.11"
+    "h3": "^2.0.8"
   },
   "devDependencies": {
     "@nuxt/devtools-kit": "catalog:devtools",
